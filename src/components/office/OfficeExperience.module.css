@@ -1,8 +1,13 @@
 .office {
-  padding: 0 var(--space-6) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--space-6) var(--space-6);
 }
 
 .hint {
+  flex-shrink: 0;
   font-size: 0.875rem;
   color: var(--color-graphite-500);
   margin-bottom: var(--space-3);

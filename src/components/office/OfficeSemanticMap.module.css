@@ -1,11 +1,16 @@
 .map {
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  flex: 1;
+  min-height: 0;
 }
 
 .zoneList {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  flex: 1;
+  min-height: 0;
   list-style: none;
   margin: 0;
   padding: 0;

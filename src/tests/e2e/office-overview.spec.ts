@@ -36,4 +36,25 @@ test.describe("office overview", () => {
 
     expect(withQuery).toBe(withoutQuery);
   });
+
+  const desktopSizes = [
+    { width: 1280, height: 720 },
+    { width: 1280, height: 800 },
+    { width: 1440, height: 900 },
+    { width: 1920, height: 1080 },
+  ];
+
+  for (const size of desktopSizes) {
+    test(`fits within one screen without vertical scroll at ${size.width}x${size.height} (docs/08)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(size);
+      await page.goto("/");
+      const { scrollHeight, innerHeight } = await page.evaluate(() => ({
+        scrollHeight: document.documentElement.scrollHeight,
+        innerHeight: window.innerHeight,
+      }));
+      expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
+    });
+  }
 });

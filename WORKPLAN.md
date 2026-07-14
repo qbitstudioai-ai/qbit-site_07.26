@@ -291,7 +291,8 @@ CLAUDE.md).
 
 ## Step 3 — Semantic office overview
 
-- Status: `PASSED`
+- Status: `AWAITING_SKEPTIC` (коррекция no-scroll после демонстрации пользователю — см.
+  `DECISIONS.md`, 2026-07-14)
 - Objective: Создать доступный, полностью server-rendered semantic overview главной страницы:
   hero (headline/subheadline/primary+secondary CTA/valuePoints/interactionHint из
   `homepage-copy.json`) и HTML-карту офиса с пятью доступными hotspot-кнопками отделов
@@ -440,6 +441,11 @@ CLAUDE.md).
   12. `git diff --stat` относительно коммита закрытия Step 2 ограничен списком Expected files.
   13. `DECISIONS.md` содержит записи о всех трёх решениях Step 3 (CSS-подход, показ
       overviewProblem, tokens.css) с реальным согласованием пользователя.
+  14. **(добавлено при коррекции, см. `DECISIONS.md` 2026-07-14 "исправление отсутствия
+      full-viewport без скролла").** На desktop-viewport ≥1280px высотой ≥800px (`docs/08`)
+      `document.documentElement.scrollHeight` не превышает `window.innerHeight` — страница
+      целиком помещается в один экран без вертикального скролла (проверяется e2e-тестом на
+      нескольких характерных десктопных разрешениях).
 - Verification commands:
   ```bash
   npm run format:check
