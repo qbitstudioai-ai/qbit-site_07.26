@@ -240,3 +240,27 @@ npm run dev   # ручная проверка, затем процесс ост�
   утверждаю порт 3100 / localhost"; остаточный риск порта 3100 решено оставить known issue без
   owner-шага. `Amendment 1 → Status`: `AWAITING_USER_APPROVAL` → `APPROVED`; Step 1 `Status`:
   `BLOCKED` → `AWAITING_SKEPTIC`. Отправлено на финальный повторный review skeptic.
+
+### Skeptic review (финальный, 3-й раунд)
+
+- Agent: `skeptic`
+- Verdict: `PASS`
+- Findings: none — единственная причина предыдущего `BLOCKED` (самопровозглашённое `APPROVED` для
+  Amendment 1) подтверждена как закрытая: формулировки в `WORKPLAN.md`/`DECISIONS.md`/`WORKLOG.md`
+  честно прослеживаются к реальному ответу пользователя через `AskUserQuestion`, без противоречий
+  "APPROVED, но согласование не запрашивалось". Независимо подтверждено: `git diff --stat cf4609b
+  6b4a680` — изменены только `WORKPLAN.md`/`DECISIONS.md`/`WORKLOG.md`, никакого кода;
+  `git diff --stat 4080a7b 6b4a680` (весь Step 1, 5 коммитов) — 28 файлов, всё в рамках Expected
+  files; все 6 verification commands независимо перепрогнаны — exit 0 у всех.
+- Required corrections: нет.
+- Evidence reviewed: полное чтение `WORKPLAN.md`/`DECISIONS.md`/`WORKLOG.md`, `git diff --stat` по
+  нескольким диапазонам коммитов, независимый прогон `format:check`/`lint`/`typecheck`/`test`/
+  `build`/`test:e2e`, проверка состояния портов 3000 (по-прежнему занят посторонним процессом,
+  ожидаемо) и 3100 (свободен до и после прогона).
+
+### Step 1 — итог
+
+Step 1 прошёл полный цикл: 2 раунда исправлений (FAIL → correction → BLOCKED → correction с
+реальным согласованием пользователя → PASS). `WORKPLAN.md` Step 1 `Status` → `PASSED`. Ожидает
+финального подтверждения пользователем перед переводом в `COMPLETED`, обновлением статус-таблицы
+`README.md` ("Выполнено") и открытием Step 2.

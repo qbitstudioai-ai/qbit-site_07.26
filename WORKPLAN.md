@@ -36,7 +36,7 @@ CLAUDE.md).
 
 ## Step 1 — Repository and quality foundation
 
-- Status: `AWAITING_SKEPTIC`
+- Status: `PASSED`
 - Objective: Инициализировать минимальный проект Next.js (App Router) + TypeScript с полным
   набором quality scripts (format, lint, typecheck, unit test, build, e2e) и git-репозиторием,
   без продуктового UI, контента или дизайна интерактивного офиса.
@@ -129,9 +129,18 @@ CLAUDE.md).
 - Rollback: `git reset --hard 4080a7b` только после явного разрешения пользователя (Safety-правила
   CLAUDE.md — деструктивные git-команды требуют подтверждения каждый раз), либо `git revert`
   диапазона коммитов Step 1. Все файлы Step 1, включая README.md, откатываются без исключений.
-- Skeptic verdict: _(заполняется после review шага)_
-- Skeptic findings: _(заполняется после review шага)_
-- Completion evidence: _(заполняется в `WORKLOG.md` после выполнения verification commands)_
+- Skeptic verdict: `PASS` (финальный review, после 1× FAIL и 1× BLOCKED в ходе correction loop —
+  полная история в `WORKLOG.md`).
+- Skeptic findings: закрыты все замечания трёх раундов review — (1) host-несоответствие
+  `127.0.0.1`/`localhost` в dev-режиме (реальная console-ошибка HMR, Next.js 16
+  `allowedDevOrigins`); (2) отсутствие явной amendment-записи для правки порта; (3) отсутствие
+  владельца/tracking для риска порта 3100; (4) неполный "Manual verification" в `WORKLOG.md`;
+  (5) неполный перечень "Expected files"; (6) самопровозглашённое `APPROVED` для Amendment 1 без
+  реального согласования пользователя — потребовало прямого вопроса пользователю и правки записи
+  на честную. См. `WORKLOG.md` для полной истории всех трёх review-раундов.
+- Completion evidence: `WORKLOG.md`, Entry 1 + Correction iteration 1 и 2; финальный прогон всех
+  verification commands — все exit 0 (см. также независимый повторный прогон skeptic в финальном
+  review); `git log` — коммиты `4080a7b`…`6b4a680`.
 
 ## Step 2 — Typed content model
 
