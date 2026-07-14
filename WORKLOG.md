@@ -101,21 +101,44 @@ npm run dev   # ручная проверка, затем процесс ост�
     `reuseExistingServer: !CI` заставил Playwright проверять чужой сайт вместо нашего. Исправлено
     закреплением порта 3100 за `dev`/`start`/e2e этого проекта (`package.json`,
     `playwright.config.ts`, `README.md`, `WORKPLAN.md`). Повторный прогон — 1 passed.
-  - `npm run dev` (ручная проверка, порт 3100) — `curl` вернул HTTP 200, HTML содержит
-    `<title>Allqbit</title>` и текст "Allqbit"; отдельная headless-проверка через Playwright
-    (`page.on('console'/'pageerror')`) не выявила ошибок консоли браузера.
+  - `npm run dev` (ручная проверка, порт 3100, host `localhost`) — `curl` вернул HTTP 200, HTML
+    содержит `<title>Allqbit</title>` и текст "Allqbit"; headless-проверка через Playwright
+    (`page.on('console'/'pageerror')`) на `http://localhost:3100/` не выявила ошибок консоли.
+    **Уточнение после skeptic review (FAIL, см. ниже):** на момент этой первой проверки
+    `playwright.config.ts` (`baseURL`/`webServer.url`) был выставлен на `http://127.0.0.1:3100`,
+    а не на `localhost`, который реально использовался в ручной проверке — то есть сама ручная
+    проверка была честной, но не отражала host, на который в тот момент был настроен проект.
+    Skeptic независимо воспроизвёл проверку именно против `127.0.0.1:3100` и получил реальную
+    ошибку консоли (`WebSocket connection ... failed`, вызвана `allowedDevOrigins` в Next.js 16
+    для числовых IP-хостов в dev-режиме). Исправлено: `playwright.config.ts` переведён на
+    `localhost` (см. "Correction iteration" и `DECISIONS.md`/Amendment 1 в `WORKPLAN.md`), после
+    чего host, который тестируется автоматически, и host, который проверялся вручную, совпадают.
 - Output location: вывод команд приведён в сессии основного агента (не сохранён отдельным файлом).
 
 ### Manual verification
 
-- Scenario: открыть `http://localhost:3100` после `npm run dev`.
+- Scenario: открыть `http://localhost:3100` после `npm run dev` (проверка сама по себе
+  использовала `localhost`; несоответствие с тогдашним `playwright.config.ts` — см. пояснение в
+  "Command results" выше и "Correction iteration" ниже).
   - Expected: страница рендерится, заголовок "Allqbit" виден, консоль браузера чистая.
-  - Actual: соответствует ожиданию (см. "Command results" выше); dev-процесс остановлен после
-    проверки.
+  - Actual (после исправления host на `localhost`): headless Playwright-проверка
+    (`page.on('console'/'pageerror')`) на `http://localhost:3100/` вернула
+    `DEV console errors (localhost:3100): []` — пусто. `curl` — HTTP 200. dev-процесс остановлен
+    после проверки (подтверждено отсутствием listener на порту 3100 после `Stop-Process`).
+- Scenario: `npm run build && npm run start`, открыть production-сборку локально.
+  - Expected: production build поднимается, консоль браузера чистая.
+  - Actual: `npm run start` поднялся на `http://localhost:3100`; headless-проверка вернула
+    `PROD console errors (localhost:3100): []`, `Title: Allqbit`, `Heading visible: true`.
+    Сервер остановлен после проверки.
 - Scenario: `git diff --stat 4080a7b` после `git add -A`.
   - Expected: изменения ограничены "Expected files" Step 1.
   - Actual: подтверждено — список изменённых файлов совпадает с "Expected files" (см. "Files
-    changed").
+    changed"); `docs/`, `data/`, `references/`, `.claude/`, `prompts/`, `CLAUDE.md`,
+    `MANIFEST.json` не тронуты.
+- Scenario: визуально проверить `README.md`.
+  - Expected: таблица шагов читаема, статус-метки строго из трёх значений, mapping-таблица на
+    8-значный enum WORKPLAN.md присутствует и корректна.
+  - Actual: подтверждено — обе таблицы присутствуют, содержимое соответствует `WORKPLAN.md`.
 
 ### Known limitations
 
@@ -126,22 +149,53 @@ npm run dev   # ручная проверка, затем процесс ост�
   все установки в итоге были успешно повторены, финальное состояние `node_modules` рабочее
   (подтверждено прохождением build/test/test:e2e).
 - Порт 3000 на машине разработки занят посторонним процессом, не относящимся к репозиторию (см.
-  выше) — проект переведён на порт 3100; если порт 3100 тоже окажется занят в будущем, потребуется
-  повторная корректировка.
+  выше) — проект переведён на порт 3100 (host `localhost`); **known issue без owner-шага**: если
+  порт 3100 тоже окажется занят в будущем, `reuseExistingServer` может повторить тот же класс
+  ошибки — preflight-проверка занятости порта или динамический порт не реализованы и не
+  назначены ни одному из шагов 2–8 (см. `WORKPLAN.md` Step 1 Risks, Amendment 1).
 - MANIFEST.json не обновлён и по-прежнему содержит запись о `README.md` с устаревшим sha256 —
   known issue, зафиксированный в `DECISIONS.md`, не в scope Step 1.
 
 ### Skeptic review
 
 - Agent: `skeptic`
-- Verdict: _(заполняется после вызова — см. следующую запись ниже)_
+- Verdict: `FAIL`
 - Findings:
-- Required corrections:
-- Evidence reviewed:
+  - Major #1: заявление о "нет console errors" в `npm run dev` не было репрезентативным для host,
+    на который был настроен `playwright.config.ts` (`127.0.0.1`) на момент первого прохода —
+    skeptic независимо воспроизвёл реальную ошибку консоли на этом host (Next.js 16
+    `allowedDevOrigins` блокирует HMR-websocket для числовых IP в dev-режиме).
+  - Major #2: правка порта 3000→3100 была внесена постфактум внутри уже утверждённого раздела
+    Step 1 без явной amendment-записи — нарушение non-negotiable правила CLAUDE.md "Never change
+    the plan after approval without recording and approving the amendment".
+  - Major #3: у остаточного риска "порт 3100 тоже может быть занят" не было явного владельца/
+    tracking-заметки (в отличие от MANIFEST.json known issue).
+  - Minor: "Manual verification" в WORKLOG изначально фиксировал только 2 из 4 заявленных в
+    WORKPLAN "Manual checks"; "Expected files" не перечислял явно `globals.css`/`favicon.ico`/
+    `public/`.
+- Required corrections: см. "Required corrections" 1–5 в ответе skeptic (сохранены в истории
+  сессии); все пять адресованы в этой правке без изменения scope/архитектуры Step 1.
+- Evidence reviewed: `git diff --stat 4080a7b`, самостоятельный повторный прогон всех
+  verification commands, полное чтение изменённых файлов, независимая headless-проверка консоли
+  на `127.0.0.1` и `localhost` в dev и prod режимах, `npm audit`.
 
 ### Correction iteration
 
-- Iteration:
+- Iteration: 1
 - Fixes:
-- Verification:
-- New verdict:
+  1. `playwright.config.ts`: `baseURL`/`webServer.url` — `127.0.0.1` → `localhost` (устраняет
+     реальную dev-console-ошибку; `README.md`/`WORKPLAN.md` manual checks уже использовали
+     `localhost`, теперь везде консистентно).
+  2. Добавлена `Amendment 1` в `WORKPLAN.md` → `Plan amendments` и парная запись в `DECISIONS.md`
+     (2026-07-14, "Порт разработки/e2e зафиксирован на 3100, host — localhost") с полным
+     контекстом/вариантами/решением/последствиями.
+  3. `WORKLOG.md` "Manual verification" дополнен двумя недостающими сценариями (production
+     build+start console-check; визуальная проверка README.md) с фактическими результатами.
+  4. `WORKPLAN.md` Step 1 "Expected files" расширен явным перечислением `globals.css`,
+     `favicon.ico`, `public/`.
+  5. Риск порта 3100 в `WORKPLAN.md` Risks переформулирован с явным "known issue без owner-шага"
+     фреймингом, аналогичным MANIFEST.json.
+- Verification: после исправлений повторно прогнаны все verification commands Step 1
+  (`format:check`, `lint`, `typecheck`, `test`, `build`, `test:e2e`) — все exit 0; повторная
+  headless-проверка консоли на `localhost:3100` в dev и prod — обе чистые (`[]`).
+- New verdict: _(заполняется после повторного вызова skeptic)_
