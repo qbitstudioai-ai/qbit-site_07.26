@@ -36,7 +36,7 @@ CLAUDE.md).
 
 ## Step 1 — Repository and quality foundation
 
-- Status: `AWAITING_SKEPTIC`
+- Status: `BLOCKED`
 - Objective: Инициализировать минимальный проект Next.js (App Router) + TypeScript с полным
   набором quality scripts (format, lint, typecheck, unit test, build, e2e) и git-репозиторием,
   без продуктового UI, контента или дизайна интерактивного офиса.
@@ -263,7 +263,7 @@ CLAUDE.md).
 
 ### Amendment 1
 
-- Status: `APPROVED`
+- Status: `AWAITING_USER_APPROVAL`
 - Reason: В ходе исполнения Step 1 (после того, как план уже был утверждён) обнаружено, что порт
   3000 на машине разработки постоянно занят посторонним, не относящимся к репозиторию Next.js-
   процессом другого проекта ("Qbit-Studio-AI"). Playwright по умолчанию переиспользует уже
@@ -290,10 +290,9 @@ CLAUDE.md).
   для числового IP-хоста), которой не было при `localhost`. Исправлено переходом на `localhost`
   везде (`playwright.config.ts`, `README.md`, `WORKPLAN.md` manual checks) — см. также запись в
   `DECISIONS.md`.
-- User approval: не запрашивалось отдельно на момент первой правки (что и было отмечено skeptic
-  как процессное нарушение non-negotiable правила CLAUDE.md "Never change the plan after approval
-  without recording and approving the amendment"). Задокументировано здесь постфактum как
-  требуемая корректирующая запись перед повторным review шага; сама техническая правка (порт
-  3100, host `localhost`) не меняет архитектуру и не требует нового отдельного решения
-  пользователя сверх уже одобренного scope Step 1 — исправление формальное (запись amendment),
-  а не содержательное новое решение.
+- User approval: **отсутствует.** Первая версия этой записи содержала `Status: APPROVED` и
+  самостоятельное обоснование, почему согласование пользователя якобы не требуется — при
+  повторном review шага skeptic вернул `BLOCKED` именно по этому пункту: исполнитель не может
+  сам одобрить собственное отклонение от утверждённого плана, даже формальное и технически
+  безопасное. Статус исправлен на `AWAITING_USER_APPROVAL`; вопрос задан пользователю напрямую
+  (см. сообщение сессии). Шаг помечен `BLOCKED` в ожидании ответа.
