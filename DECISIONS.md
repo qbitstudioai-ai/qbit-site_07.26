@@ -122,3 +122,75 @@
 - Согласование пользователя: **получено** 2026-07-14 ("Да, утверждаю порт 3100 / localhost").
   Остаточный риск (порт 3100 тоже может быть занят в будущем) пользователь решил оставить known
   issue без owner-шага — не назначать отдельным шагом плана, решать по факту при повторении.
+
+---
+
+### 2026-07-14 — Step 2: runtime-валидатор контента — zod
+
+- Контекст: Step 2 ("Typed content model") требует не только TypeScript-типов, но и runtime-
+  валидации существующих JSON-данных (`In scope: ... validation tests`). Planner предложил как
+  рекомендацию zod, вынеся выбор как open question — skeptic (review плана, BLOCKED) указал, что
+  planner уже зашил zod как факт в Expected files/In scope, притворяясь что вопрос открыт;
+  вопрос задан пользователю напрямую до фиксации плана.
+- Варианты: (a) zod — TS-first схема-валидация с выводом типов; (b) самописные type guards без
+  новой зависимости.
+- Решение: (a) zod.
+- Последствия: новая npm-зависимость (`package.json`/`package-lock.json`). Adapter-функции
+  `src/content/*.ts` должны оставаться server-only (не импортироваться в `'use client'`-компоненты
+  напрямую) — иначе zod и валидация попадут в client-бандл (Performance rules CLAUDE.md); это
+  зафиксировано как явное архитектурное ограничение Step 2, а не просто риск.
+- Skeptic review: соответствует Required correction #2 из BLOCKED-review плана Step 2.
+- Согласование пользователя: получено 2026-07-14 напрямую ("zod (рекомендую)" — выбран пользователем).
+
+---
+
+### 2026-07-14 — Step 2: границы шага — все три JSON-файла главной страницы
+
+- Контекст: буквальный текст `WORKPLAN.md` ограничивал Step 2 "пятью отделами"
+  (`departments.json`). Planner предложил расширить на `homepage-copy.json` и `office-zones.json`
+  (нужны Step 3), снова вынеся это как open question, но уже зашив в Expected files/Acceptance
+  criteria — skeptic (BLOCKED) указал на то же смешение факта и вопроса; решение запрошено у
+  пользователя напрямую.
+- Варианты: (a) только `departments.json`; (b) все три существующих JSON-файла главной страницы.
+- Решение: (b) — все три файла (`departments.json`, `homepage-copy.json`, `office-zones.json`)
+  типизируются и валидируются в Step 2.
+- Последствия: Step 2 включает типы/схему/adapter для `HomepageCopy` и `OfficeZone` (у которых,
+  в отличие от `Department`, нет отдельного документированного контракта в `docs/12` — структура
+  де-факто фиксируется по существующим данным, это тоже часть данного решения). Acceptance
+  criteria Step 2 включают cross-consistency между `office-zones.json` и `departments.json`.
+- Skeptic review: соответствует Required correction #2 из BLOCKED-review плана Step 2.
+- Согласование пользователя: получено 2026-07-14 напрямую ("Все три файла (рекомендую)" — выбран
+  пользователем).
+
+---
+
+### 2026-07-14 — Step 2: расхождение docs/12 vs data/departments.json — типизировать «как есть»
+
+- Контекст: `docs/12-content-data-model.md` описывает для `Department` поля `beforeSteps`,
+  `automationSteps` (структурированные `ProcessStep[]`) и полноценный `visual`
+  (`DepartmentVisual` — hotspot/overview/detail/fallback/camera). Ни одного из этих полей нет в
+  `data/departments.json` — там только `id, name, overviewLabel, overviewProblem, headline,
+  problem, symptoms[], outcomes[], ctaLabel, solutionPath, reference`(строка-путь к PNG). Planner
+  предложил не решать это в Step 2, отложив "не позднее Step 4" — skeptic (BLOCKED) указал, что
+  сама implementation усечённой типизации в Step 2 уже фиксирует расхождение с approved-документом
+  в коде (нарушение CLAUDE.md "Report conflicts before implementation" без реального resolution),
+  и что откладывание решения — тот же паттерн самопровозглашённого решения, что и в Step 1. Вопрос
+  задан пользователю напрямую, без отсрочки.
+- Варианты: (a) типизировать «как есть» (только реально существующие поля), зафиксировав
+  расхождение с `docs/12` как known issue в этой записи; (b) сначала дополнить
+  `data/departments.json` полями `beforeSteps`/`automationSteps`/`visual` по `docs/12` — контентная
+  задача, расширяющая scope и сроки.
+- Решение: (a) — типизировать «как есть». `docs/12` в части `beforeSteps`/`automationSteps`/
+  `visual` для отделов **не соответствует** текущим данным; это принятое, осознанное known issue,
+  а не молчаливое противоречие — зафиксировано здесь по прямому решению пользователя, не отложено
+  без даты/владельца на будущий шаг.
+- Последствия: `src/content/types.ts`/`schema.ts` Step 2 не включают `beforeSteps`,
+  `automationSteps`, полный `visual` — только поля, реально присутствующие в данных. Step 5
+  (Desktop 10/90 shell) и любой шаг, показывающий "текущий процесс/сценарий автоматизации" по
+  Core concept CLAUDE.md, не сможет полагаться на структурированные `beforeSteps`/
+  `automationSteps` из типизированной модели, пока `data/departments.json` не будет дополнен —
+  это ограничение будет явно видно в типах (полей просто нет), а не скрыто.
+- Skeptic review: соответствует Required correction #3 из BLOCKED-review плана Step 2 (решение
+  получено, не отложено).
+- Согласование пользователя: получено 2026-07-14 напрямую ("Типизировать «как есть» (рекомендую)"
+  — выбран пользователем).

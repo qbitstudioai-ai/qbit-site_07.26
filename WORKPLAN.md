@@ -146,21 +146,142 @@ CLAUDE.md).
 ## Step 2 — Typed content model
 
 - Status: `PROPOSED`
-- Objective: Создать типизированный источник данных для пяти отделов.
-- In scope: types/schema, data adapter, validation tests.
-- Out of scope: UI.
+- Objective: Создать типизированный, runtime-валидируемый источник данных для трёх существующих
+  JSON-файлов главной страницы (`data/departments.json`, `data/homepage-copy.json`,
+  `data/office-zones.json`) — типы, zod-схему и adapter-функции, без изменения самих данных и без
+  UI, потребляющего эти данные.
+- In scope:
+  - `src/content/types.ts` — типы `DepartmentId`, `Department`, `HomepageCopy`, `OfficeZone`,
+    `OfficeZonesData`, строго по полям, реально присутствующим в данных (см. решение
+    "типизировать как есть" в `DECISIONS.md`, 2026-07-14) — без `beforeSteps`, `automationSteps`,
+    `visual` из `docs/12` (их нет в `data/departments.json`).
+  - `src/content/schema.ts` — zod-схема (см. `DECISIONS.md`, 2026-07-14):
+    - `Department`: ровно 5 записей, `id` — enum `sales | support | executive | hr | logistics`
+      без дублей и пропусков; `name`, `overviewLabel`, `overviewProblem`, `headline`, `problem`,
+      `ctaLabel` — непустые строки; `symptoms`/`outcomes` — непустые массивы непустых строк
+      (без верхнего предела — `docs/12` "максимум три симптома" это правило показа в UI, не
+      ограничение данных); `reference` — непустая строка (путь; существование файла на диске не
+      проверяется — вне scope); `solutionPath` — **строгое перечисление** фактических значений из
+      данных, сверенное с `docs/09-technical-architecture.md`: `/solutions/sales`,
+      `/solutions/support`, `/solutions/management` (для `id: "executive"` — не
+      `/solutions/executive`), `/solutions/hr`, `/solutions/logistics`. Схема явно связывает
+      каждый `id` с ожидаемым `solutionPath` (а не проверяет общий паттерн `/solutions/<slug>`).
+    - `HomepageCopy`: `headline`, `subheadline`, `primaryCta`, `secondaryCta`, `interactionHint` —
+      непустые строки; `valuePoints` — непустой массив непустых строк. Структура зафиксирована по
+      факту `data/homepage-copy.json` (в `docs/12` для `HomepageCopy` нет отдельного описания —
+      это тоже часть решения "все три файла", см. `DECISIONS.md`).
+    - `OfficeZonesData`/`OfficeZone`: top-level объект содержит `coordinateSystem: string`,
+      `note: string` (опционально/nullable — это провизорная пометка, не должна вызывать отказ
+      валидации, если временно отсутствует) и `zones: OfficeZone[]`; схема не использует `.strict()`
+      на top-level, чтобы не падать на некритичных дополнительных полях в будущем, но явно
+      описывает известные поля, а не принимает объект целиком без проверки. `OfficeZone`:
+      `departmentId` — тот же enum `DepartmentId`, `x/y/width/height` — числа; ровно 5 записей,
+      покрывающих все 5 `departmentId` без дублей.
+  - `src/content/departments.ts` — adapter: `getDepartments(): Department[]`,
+    `getDepartmentById(id: DepartmentId): Department | undefined`,
+    `getDepartmentIds(): DepartmentId[]`.
+  - `src/content/homepage-copy.ts` — adapter: `getHomepageCopy(): HomepageCopy`.
+  - `src/content/office-zones.ts` — adapter: `getOfficeZones(): OfficeZone[]`,
+    `getOfficeZoneByDepartment(id: DepartmentId): OfficeZone | undefined`.
+  - Валидация выполняется при первом импорте соответствующего adapter-модуля (throw с понятным
+    сообщением при провале — fail fast). **Архитектурное ограничение (см. `DECISIONS.md`):**
+    adapter-модули `src/content/*.ts` — server-only; не импортируются напрямую в `'use client'`-
+    компоненты в последующих шагах (иначе zod и валидация попадут в client-бандл — Performance
+    rules CLAUDE.md). Это ограничение фиксируется как комментарий-инвариант в коде adapter'ов и
+    как пункт Risks ниже, обязательный к проверке в milestone review (`frontend-architect`) на
+    шагах, которые впервые импортируют adapter в компонент.
+  - Vitest unit-тесты (`src/tests/unit/content/`):
+    - `departments.test.ts` — реальные данные проходят схему; `getDepartments()` возвращает ровно
+      5 объектов с уникальными `id` из канонического enum; каждый `solutionPath` соответствует
+      ожидаемому по `id` (включая `executive → /solutions/management`).
+    - `homepage-copy.test.ts` — реальные данные проходят схему; `getHomepageCopy()` возвращает
+      ожидаемую форму.
+    - `office-zones.test.ts` — реальные данные проходят схему (включая наличие `coordinateSystem`/
+      `note`); `getOfficeZones()` возвращает ровно 5 зон; cross-consistency: набор `departmentId`
+      в `office-zones.json` совпадает с набором `id` в `departments.json`.
+    - `invalid-fixtures.test.ts` — инлайновые (не из `data/`) невалидные объекты отклоняются
+      схемой: отсутствующее обязательное поле; `id` вне enum; дублирующийся `id`; неверный тип
+      поля-массива; массив из 4 или 6 отделов; неверный/непредусмотренный `solutionPath` для
+      данного `id`.
+  - `package.json`/`package-lock.json` — добавление зависимости `zod`.
+- Out of scope:
+  - Любые UI-компоненты/страницы, потребляющие этот контент — `src/app/page.tsx` не меняется;
+    потребление начинается со Step 3.
+  - `beforeSteps`, `automationSteps`, полный `visual` (`docs/12`) — физически отсутствуют в
+    `data/departments.json`; решение "типизировать как есть" зафиксировано в `DECISIONS.md`,
+    2026-07-14 — это осознанное known issue, не молчаливое упущение.
+  - Правка содержимого `data/*.json` — файлы остаются источником истины в неизменном виде.
+  - Правка `docs/12-content-data-model.md` для приведения в соответствие с реальными данными.
+  - Схемы `Diagnostic`/`Calculator` из `docs/12` — не относятся к контенту главной страницы.
+  - Проверка существования файлов `reference`/`references/**` на диске (asset integrity).
+  - CI pipeline (см. `DECISIONS.md`, Step 1).
 - Dependencies: Step 1 (`COMPLETED`).
-- Expected files: _(детализируется planner'ом непосредственно перед стартом шага)_
+- Expected files:
+  - `src/content/types.ts`, `src/content/schema.ts`
+  - `src/content/departments.ts`, `src/content/homepage-copy.ts`, `src/content/office-zones.ts`
+  - `src/tests/unit/content/departments.test.ts`, `src/tests/unit/content/homepage-copy.test.ts`,
+    `src/tests/unit/content/office-zones.test.ts`, `src/tests/unit/content/invalid-fixtures.test.ts`
+  - `package.json`, `package-lock.json` (добавлен `zod`)
+  - `DECISIONS.md`, `WORKPLAN.md`, `README.md`, `WORKLOG.md` (процессные файлы)
 - Acceptance criteria:
-  1. Все пять отделов валидируются.
-  2. Контент не дублируется в компонентах.
-- Verification commands: _(детализируется перед стартом шага)_
-- Manual checks: _(детализируется перед стартом шага)_
-- Risks: _(детализируется перед стартом шага)_
-- Rollback: _(детализируется перед стартом шага)_
-- Skeptic verdict:
-- Skeptic findings:
-- Completion evidence:
+  1. `getDepartments()` возвращает ровно 5 объектов с уникальными `id`, покрывающими ровно
+     `sales | support | executive | hr | logistics`; каждый проходит zod-схему.
+  2. Каждый `solutionPath` соответствует своему `id` согласно `docs/09` (в т.ч.
+     `executive → /solutions/management`) — проверено тестом, не только описанием схемы.
+  3. Схема отклоняет все invalid-fixtures, перечисленные в "In scope" — реальным unit-тестом
+     (`.safeParse().success === false` / `.toThrow()`), не только компилятором TypeScript.
+  4. `getHomepageCopy()` типизирован и покрыт unit-тестом на реальных данных.
+  5. `getOfficeZones()`/`getOfficeZoneByDepartment()` возвращают ровно 5 зон; cross-consistency
+     между `office-zones.json` и `departments.json` покрыта unit-тестом.
+  6. `src/app/page.tsx` не изменён относительно состояния после Step 1.
+  7. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
+     `npm run test:e2e` — все exit 0.
+  8. `git diff --stat` относительно коммита закрытия Step 1 ограничен списком Expected files.
+  9. `DECISIONS.md` содержит записи о всех трёх решениях Step 2 (валидатор, границы шага,
+     docs/12 vs данные), с реальным согласованием пользователя, а не проставленные исполнителем
+     самостоятельно (см. прецедент BLOCKED в Step 1).
+- Verification commands:
+  ```bash
+  npm install    # добавление zod
+  npm run format:check
+  npm run lint
+  npm run typecheck
+  npm run test
+  npm run build
+  npm run test:e2e
+  npm run dev    # регрессионная ручная проверка, см. Manual checks
+  ```
+- Manual checks:
+  - `git diff --stat` относительно коммита закрытия Step 1 — подтвердить, что изменения
+    ограничены Expected files; `data/`, `docs/`, `references/` не тронуты.
+  - Открыть `http://localhost:3100` после `npm run dev` — убедиться, что placeholder-страница
+    Step 1 не изменилась (регрессия на "Out of scope: UI").
+  - Вручную просмотреть вывод Vitest для новых тестов — подтвердить, что invalid-fixture тесты
+    реально проверяют отказ, а не пропускают проверку молча.
+  - Вручную сверить `src/content/types.ts` с `docs/12` — подтвердить, что отсутствующие поля
+    (`beforeSteps`/`automationSteps`/`visual`) сознательно не смоделированы (см. Out of scope), а
+    не потеряны по невнимательности.
+- Risks:
+  - **Known issue (решено, не отложено):** типы Step 2 не покрывают `beforeSteps`/
+    `automationSteps`/`visual` из `docs/12` — начиная со Step 5 (Desktop 10/90 shell), где по
+    Core concept CLAUDE.md нужно показывать "текущий процесс/сценарий автоматизации", это будет
+    видимым ограничением типов, а не скрытым. Дозаполнение `data/departments.json` — отдельная
+    контентная задача, не назначенная сейчас конкретному шагу (решение пользователя, 2026-07-14).
+  - **Server/client граница:** adapter-модули `src/content/*.ts` спроектированы как server-only;
+    если в Step 4/5 кто-то по невнимательности импортирует их в `'use client'`-компонент, zod и
+    валидация попадут в client-бандл. Смягчение: явный комментарий-инвариант в коде + проверка на
+    milestone review (`frontend-architect`) при первом реальном потреблении (Step 3+).
+  - Новая npm-зависимость (`zod`) — стандартный, широко используемый пакет; риск низкий.
+  - `office-zones.json` содержит провизорную пометку `note` ("Предварительные зоны...") — схема
+    должна пропускать это поле, не падать на нём и не заставлять его быть обязательным навсегда;
+    при обновлении зон в будущем (после утверждения финальной сцены) схема не должна требовать
+    правки только из-за исчезновения `note`.
+- Rollback: `git revert` диапазона коммитов Step 2 (аддитивный шаг: новые файлы + одна новая
+  зависимость `zod`; `data/*.json` не меняются, риска потери контента нет). Деструктивный
+  `git reset --hard` — только с явного разрешения пользователя, как в Step 1.
+- Skeptic verdict: _(заполняется после review шага)_
+- Skeptic findings: _(заполняется после review шага)_
+- Completion evidence: _(заполняется в `WORKLOG.md` после выполнения verification commands)_
 
 ## Step 3 — Semantic office overview
 
