@@ -291,7 +291,7 @@ CLAUDE.md).
 
 ## Step 3 — Semantic office overview
 
-- Status: `PROPOSED`
+- Status: `AWAITING_SKEPTIC`
 - Objective: Создать доступный, полностью server-rendered semantic overview главной страницы:
   hero (headline/subheadline/primary+secondary CTA/valuePoints/interactionHint из
   `homepage-copy.json`) и HTML-карту офиса с пятью доступными hotspot-кнопками отделов

@@ -1,0 +1,19 @@
+.map {
+  width: 100%;
+}
+
+.zoneList {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--color-graphite-100);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.zoneItem {
+  list-style: none;
+}

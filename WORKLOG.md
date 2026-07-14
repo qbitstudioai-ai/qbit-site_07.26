@@ -393,3 +393,140 @@ skeptic PASS по плану → утверждение пользователя
 проверки (в шаге нет UI — только типы/схема/adapter'ы/тесты), 2026-07-14: "Да, закрыть Step 2 и
 перейти к Step 3". `WORKPLAN.md` Step 2 `Status` → `COMPLETED`; `README.md` — строка Step 2 →
 "Выполнено". Step 2 закрыт.
+
+## Entry 3
+
+- Timestamp: 2026-07-14
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 3 — Semantic office overview
+- Status before: `PROPOSED`
+- Status after: `AWAITING_SKEPTIC`
+
+### Planning history (Step 3)
+
+Planner подготовил план, но при первой отправке на review skeptic основная сессия ошибочно
+передала skeptic только пересказ плана, а не реальный текст `WORKPLAN.md` — skeptic вернул
+`BLOCKED` уже на этом основании (Phase A требует, чтобы план реально существовал в файле). При
+повторном чтении плана skeptic также обнаружил, что planner тихо принял два решения без вопроса
+пользователю: (1) показ `overviewProblem` статично всегда для всех 5 отделов — прямо противоречит
+`docs/05-homepage-state-machine.md` (проблема "появляется" только при hover/focus); (2) импорт
+`tokens.css` в `globals.css` — тихий пересмотр инварианта, зафиксированного в Step 1. Оба вопроса,
+плюс исходный вопрос про CSS-подход, заданы пользователю напрямую. Ответы: CSS Modules;
+CSS-раскрытие `overviewProblem` по hover/focus (не статично); импортировать `tokens.css` сейчас
+(оформлено как формальный `Amendment 2` в `WORKPLAN.md`). Полный план записан в `WORKPLAN.md`,
+повторный skeptic review плана — `PASS` (с двумя минорными замечаниями: неточность цифр в Risks и
+название поля в Amendment 2 — оба исправлены). План представлен пользователю, получено явное
+утверждение ("Да, утверждаю — начинай реализацию").
+
+### Scope executed
+
+- `src/styles/tokens.css` — обновлён комментарий-заголовок (больше не "ждёт арт-дирекшна").
+- `src/app/globals.css` — `@import "../styles/tokens.css";` (Plan Amendment 2), глобальный
+  `@media (prefers-reduced-motion: reduce)` (обнуляет transition/animation durations), видимый
+  `:focus-visible` стиль.
+- `src/components/homepage/{HomepageShell,Header,HeroCopy}.tsx` (+ `.module.css`) — server
+  components, без `'use client'`. `HeroCopy` рендерит ровно один `<h1>` (`headline`),
+  `subheadline`, `valuePoints`, `primaryCta` (видимая no-op кнопка) и `secondaryCta` (рабочая
+  ссылка `href="#office-map"`).
+- `src/components/office/{OfficeExperience,OfficeSemanticMap,DepartmentHotspot}.tsx`
+  (+ `.module.css`) — семантическая карта: `<nav aria-label="Отделы компании">` с 5
+  `<button>`-hotspot'ами, позиционированными по `office-zones.json` (`left/top/width/height` в
+  `%`), в DOM-порядке сортировки по `y`, затем `x`. `overviewLabel` виден всегда;
+  `overviewProblem` — в DOM всегда (`aria-describedby`), визуально раскрывается по `:hover`/
+  `:focus` через CSS-переход (без JS).
+- `src/app/page.tsx` — рендерит `<HomepageShell />` вместо Step 1 placeholder'а.
+- `src/components/.gitkeep` удалён (первый реальный контент каталога).
+- Обновлён `src/tests/unit/home-page.test.tsx` (новые ассерты вместо "Allqbit"); добавлены
+  `src/tests/unit/components/homepage/hero-copy.test.tsx`,
+  `src/tests/unit/components/office/{office-semantic-map,department-hotspot}.test.tsx`.
+- Удалён `src/tests/e2e/home-page.spec.ts`; добавлены `src/tests/e2e/office-overview.spec.ts`
+  (рендер hero+5 hotspot'ов, отсутствие console errors, query string `?department=` не влияет на
+  рендер) и `src/tests/e2e/office-overview-keyboard.spec.ts` (Tab-порядок с видимым focus,
+  Enter/Space — no-op, `prefers-reduced-motion` обнуляет transition, progressive enhancement без
+  JS).
+- Исправления по ходу верификации (e2e, после первого прогона):
+  1. Тест "query string игнорируется" сравнивал полный `page.content()` — упал из-за
+     `<next-route-announcer>`, который Next.js добавляет в `<body>` асинхронно после гидратации
+     (никак не связано с query string). Исправлено: сравнение `page.locator("main").innerHTML()`
+     вместо всего документа.
+  2. Тест Tab-порядка ожидал, что первый `Tab` сразу фокусирует первый hotspot — на практике перед
+     картой офиса в DOM идут `primaryCta`/`secondaryCta` из hero, которые тоже фокусируемы.
+     Исправлено: тест сначала таб(ает) до первого hotspot'а (ограниченным числом попыток), затем
+     проверяет оставшиеся 4 в ожидаемом порядке.
+
+### Files changed
+
+`README.md`, `WORKPLAN.md` (статусы), `src/app/globals.css`, `src/app/page.tsx`,
+`src/styles/tokens.css`, `src/components/homepage/{HomepageShell,Header,HeroCopy}.{tsx,module.css}`,
+`src/components/office/{OfficeExperience,OfficeSemanticMap,DepartmentHotspot}.{tsx,module.css}`,
+`src/tests/unit/home-page.test.tsx`,
+`src/tests/unit/components/homepage/hero-copy.test.tsx`,
+`src/tests/unit/components/office/{office-semantic-map,department-hotspot}.test.tsx`,
+`src/tests/e2e/office-overview.spec.ts`, `src/tests/e2e/office-overview-keyboard.spec.ts`
+(`src/tests/e2e/home-page.spec.ts` и `src/components/.gitkeep` удалены).
+
+### Commands executed
+
+```bash
+npm run test
+npm run format:check   # 2 файла вне формата -> npm run format -> чисто
+npm run lint             # чисто с первого раза
+npm run typecheck         # чисто с первого раза
+npm run build
+npm run test:e2e          # 2 из 6 упали в первом прогоне -> исправлены тесты -> все 6 passed
+npm run dev                # ручная проверка, затем процесс остановлен
+```
+
+### Command results
+
+- Exit code: 0 по всем командам после исправлений.
+- Summary: unit-тесты (45/45) прошли с первого раза; lint/typecheck — чисто с первого раза;
+  format:check потребовал одной итерации `npm run format`; e2e — 4/6 прошли с первого раза, 2
+  упали по причинам, не связанным с корректностью самого приложения (флуктуация Next.js
+  route-announcer; неучтённый порядок Tab через hero-кнопки перед картой) — оба теста исправлены,
+  повторный прогон — 6/6 passed.
+- Output location: вывод команд приведён в сессии основного агента.
+
+### Manual verification
+
+- Scenario: `npm run dev`, headless-проверка консоли на `http://localhost:3100/`.
+  - Expected: без ошибок консоли.
+  - Actual: `DEV console errors: []`.
+- Scenario: зум 200% (эмуляция через `document.body.style.zoom = '2'` на viewport 1280×800).
+  - Expected: критический контент (заголовок) не обрезается, нет значительного горизонтального
+    переполнения.
+  - Actual: `Heading bbox` — валидный bounding box в пределах viewport; "Significant horizontal
+    overflow at 200%: false".
+- Scenario: `git diff --stat` (staged) после `git add -A`.
+  - Expected: изменения ограничены Expected files Step 3.
+  - Actual: подтверждено — только компоненты `src/components/{homepage,office}/*`, обновлённые
+    тесты, `page.tsx`/`globals.css`/`tokens.css`, процессные файлы. `data/`, `docs/`,
+    `references/`, `.claude/` не тронуты.
+- Scenario: расширение axe DevTools — **не выполнено вручную в рамках этой записи** (ручная
+  проверка через браузерное расширение недоступна в headless-среде агента); зафиксировано как
+  остаточный ручной шаг для пользователя или для skeptic review (у skeptic есть доступ к
+  браузерным инструментам через Playwright, но не к самому расширению axe DevTools).
+
+### Known limitations
+
+- Автоматизированная проверка axe DevTools (Manual checks Step 3) не выполнена агентом — нет
+  доступа к браузерному расширению в headless-среде. Автоматизация axe явно закреплена за Step 8
+  (`docs/11`), ручная проверка расширением остаётся открытым пунктом для человека при желании.
+- Известные owner-риски (не блокируют Step 3, зафиксированы в `WORKPLAN.md`): хрупкость
+  provisional-координат `office-zones.json` — owner: art-direction milestone; отсутствие
+  `OfficeVisualLayer` — owner: перед стартом Step 7.
+
+### Skeptic review
+
+- Agent: `skeptic`
+- Verdict: _(заполняется после review шага)_
+- Findings:
+- Required corrections:
+- Evidence reviewed:
+
+### Correction iteration
+
+- Iteration:
+- Fixes:
+- Verification:
+- New verdict:

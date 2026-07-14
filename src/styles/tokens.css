@@ -1,8 +1,8 @@
 /*
- * Заготовка design tokens для Step 1 (Repository and quality foundation).
+ * Design tokens, введённые в Step 1 (Repository and quality foundation).
  * Значения предварительные и нейтральные — палитра "графит/дерево/стекло/тёплый свет"
  * из docs/02-art-direction.md будет уточнена в отдельном шаге art direction.
- * Не импортируется в globals.css до финального арт-дирекшна.
+ * Импортируется в globals.css начиная со Step 3 (см. WORKPLAN.md, Plan Amendment 2).
  */
 
 :root {

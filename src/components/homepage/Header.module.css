@@ -1,0 +1,11 @@
+.header {
+  display: flex;
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--color-graphite-900);
+}

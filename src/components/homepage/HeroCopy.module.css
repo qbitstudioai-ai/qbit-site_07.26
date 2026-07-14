@@ -1,0 +1,55 @@
+.hero {
+  padding: var(--space-8) var(--space-6);
+  max-width: 48rem;
+}
+
+.headline {
+  font-size: 2rem;
+  line-height: var(--line-height-base);
+  color: var(--color-graphite-900);
+  margin-bottom: var(--space-4);
+}
+
+.subheadline {
+  font-size: 1.125rem;
+  color: var(--color-graphite-700);
+  margin-bottom: var(--space-6);
+}
+
+.valuePoints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  list-style: none;
+  margin-bottom: var(--space-6);
+  padding: 0;
+}
+
+.valuePoints li {
+  background: var(--color-graphite-100);
+  color: var(--color-graphite-900);
+  border-radius: 999px;
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+}
+
+.ctaRow {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+}
+
+.primaryCta {
+  background: var(--color-accent-warm);
+  color: var(--color-surface);
+  border: none;
+  border-radius: 6px;
+  padding: var(--space-3) var(--space-6);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.secondaryCta {
+  color: var(--color-graphite-700);
+  text-decoration: underline;
+}
