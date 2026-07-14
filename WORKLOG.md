@@ -265,3 +265,120 @@ Step 1 прошёл полный цикл: 2 раунда исправлений
 `http://localhost:3100` в браузере, затем подтвердил результат ("принимаю", 2026-07-14).
 `WORKPLAN.md` Step 1 `Status` → `COMPLETED`; `README.md` статус-таблица — строка Step 1 →
 "Выполнено". Step 1 закрыт.
+
+## Entry 2
+
+- Timestamp: 2026-07-14
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 2 — Typed content model
+- Status before: `PROPOSED`
+- Status after: `AWAITING_SKEPTIC`
+
+### Planning history (Step 2)
+
+Planner подготовил черновик с тремя open questions (валидатор zod vs type guards; границы
+шага — только departments.json vs все три JSON-файла; конфликт docs/12 vs данные). Skeptic
+(review плана, режим 1) вернул `BLOCKED`: обнаружил, что planner зашил ответы на "открытые"
+вопросы прямо в In scope/Expected files/Acceptance criteria, притворяясь что они ещё не решены —
+тот же паттерн, что привёл к BLOCKED в Step 1. Все три вопроса заданы пользователю напрямую
+(`AskUserQuestion`), ответы записаны в `DECISIONS.md` (2026-07-14, 3 записи: zod; все три файла;
+типизировать docs/12 "как есть"). `WORKPLAN.md` Step 2 переписан полностью по формату docs/18 с
+учётом решений и дополнительных технических замечаний skeptic (строгая привязка `solutionPath`
+к `id`, а не общий regex — включая `executive → /solutions/management`; обработка top-level
+`coordinateSystem`/`note` в `office-zones.json`; явное server-only архитектурное ограничение для
+content-adapter'ов). Повторный skeptic review плана — `PASS`. План представлен пользователю,
+получено явное утверждение ("Да, утверждаю — начинай реализацию").
+
+### Scope executed
+
+- `npm install zod` (добавлена зависимость `zod@^4.4.3`).
+- `src/content/types.ts` — типы `DepartmentId`, `Department`, `HomepageCopy`, `OfficeZone`,
+  `OfficeZonesData`, строго по полям, реально присутствующим в данных (без `beforeSteps`/
+  `automationSteps`/`visual` из docs/12 — см. `DECISIONS.md`).
+- `src/content/schema.ts` — zod-схемы: `departmentSchema` (со строгой привязкой `solutionPath`
+  к `id` через `SOLUTION_PATH_BY_DEPARTMENT_ID`, включая `executive → /solutions/management`),
+  `departmentsSchema` (ровно 5, уникальные id, покрывающие канонический enum),
+  `homepageCopySchema`, `officeZoneSchema`, `officeZonesDataSchema` (non-strict top-level с
+  явным `coordinateSystem`/опциональным `note`, ровно 5 зон, уникальные `departmentId`).
+- `src/content/{departments,homepage-copy,office-zones}.ts` — adapter-функции, валидация при
+  первом импорте (throw при провале); каждый файл начинается с комментария-инварианта
+  "Server-only: не импортировать в 'use client'-компоненты".
+- `src/tests/unit/content/{departments,homepage-copy,office-zones,invalid-fixtures}.test.ts` — 35
+  unit-тестов: реальные данные проходят схему; `solutionPath` соответствует `docs/09` для каждого
+  id; office-zones/departments cross-consistency; invalid fixtures (отсутствующее поле, id вне
+  enum, неверный тип массива, неверный solutionPath для id, дубликат id/departmentId, 4 или 6
+  элементов в массиве) — все отклоняются схемой.
+- Исправления по ходу верификации: 2 TypeScript-ошибки (`Set<string>` vs `Set<DepartmentId>` в
+  `superRefine`) и 2 ESLint-warning (неиспользуемые деструктурированные переменные в тестах,
+  заменены на `delete` вместо деструктуризации) — все устранены до финального прогона.
+
+### Files changed
+
+`package.json`, `package-lock.json` (добавлен `zod`), `src/content/types.ts`,
+`src/content/schema.ts`, `src/content/departments.ts`, `src/content/homepage-copy.ts`,
+`src/content/office-zones.ts` (новые; `src/content/.gitkeep` удалён),
+`src/tests/unit/content/departments.test.ts`, `src/tests/unit/content/homepage-copy.test.ts`,
+`src/tests/unit/content/office-zones.test.ts`, `src/tests/unit/content/invalid-fixtures.test.ts`,
+`README.md`, `WORKPLAN.md` (статусы).
+
+### Commands executed
+
+```bash
+npm install zod
+npm run test
+npm run format:check   # 2 файла вне формата -> npm run format -> повторный check чист
+npm run lint            # 2 warnings (unused vars in tests) -> исправлено -> повторный lint чист
+npm run typecheck        # 2 ошибки (Set<string> vs Set<DepartmentId>) -> исправлено -> чист
+npm run build
+npm run test:e2e
+```
+
+### Command results
+
+- Exit code: 0 по всем командам после исправлений.
+- Summary: `test` — 35/35 passed с первого прогона (сама логика схем/adapter'ов написана верно
+  сразу); `format:check`/`lint`/`typecheck` потребовали по одной итерации исправлений (описаны
+  выше); `build` и `test:e2e` — чисто с первого прогона после исправлений.
+- Output location: вывод команд приведён в сессии основного агента.
+
+### Manual verification
+
+- Scenario: `git diff --stat` (staged) после `git add -A`.
+  - Expected: изменения ограничены Expected files Step 2; `data/`, `docs/`, `references/`,
+    `.claude/` не тронуты.
+  - Actual: подтверждено — 4 изменённых процессных/конфигурационных файла (`README.md`,
+    `WORKPLAN.md`, `package.json`, `package-lock.json`) + 5 новых файлов `src/content/*` (минус
+    удалённый `.gitkeep`) + 4 новых тестовых файла `src/tests/unit/content/*`. Ничего лишнего.
+- Scenario: `src/app/page.tsx` не изменён (Out of scope: UI).
+  - Expected: файл идентичен состоянию после Step 1.
+  - Actual: подтверждено — `page.tsx` отсутствует в `git status --short` для Step 2 (не менялся).
+- Scenario: сверка `src/content/types.ts` с `docs/12-content-data-model.md`.
+  - Expected: отсутствующие поля (`beforeSteps`/`automationSteps`/`visual`) сознательно не
+    смоделированы, а не потеряны по невнимательности.
+  - Actual: подтверждено — соответствующее known issue явно задокументировано в `DECISIONS.md` и
+    в комментариях `WORKPLAN.md` Step 2 (Out of scope, Risks).
+
+### Known limitations
+
+- Известное расхождение `docs/12` vs `data/departments.json` (`beforeSteps`/`automationSteps`/
+  `visual` отсутствуют) — осознанное, зафиксированное решение пользователя "типизировать как
+  есть" (`DECISIONS.md`, 2026-07-14), не устраняется в Step 2.
+- Server/client граница для content-adapter'ов обеспечена только комментарием-инвариантом в коде
+  и правилом для будущего milestone review (`frontend-architect`), без технического принуждения
+  (например, npm-пакета `server-only`) — сознательно не добавлено, так как не было частью
+  утверждённого плана Step 2 (см. финальный skeptic review плана).
+
+### Skeptic review
+
+- Agent: `skeptic`
+- Verdict: _(заполняется после review шага)_
+- Findings:
+- Required corrections:
+- Evidence reviewed:
+
+### Correction iteration
+
+- Iteration:
+- Fixes:
+- Verification:
+- New verdict:

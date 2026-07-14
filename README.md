@@ -29,7 +29,7 @@ README.md синхронно с каждым изменением статуса
 | #   | Шаг                               | Статус        |
 | --- | --------------------------------- | ------------- |
 | 1   | Repository and quality foundation | Выполнено     |
-| 2   | Typed content model               | Не приступили |
+| 2   | Typed content model               | В работе      |
 | 3   | Semantic office overview          | Не приступили |
 | 4   | Homepage state machine            | Не приступили |
 | 5   | Desktop 10/90 shell               | Не приступили |

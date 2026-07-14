@@ -145,7 +145,7 @@ CLAUDE.md).
 
 ## Step 2 — Typed content model
 
-- Status: `PROPOSED`
+- Status: `AWAITING_SKEPTIC`
 - Objective: Создать типизированный, runtime-валидируемый источник данных для трёх существующих
   JSON-файлов главной страницы (`data/departments.json`, `data/homepage-copy.json`,
   `data/office-zones.json`) — типы, zod-схему и adapter-функции, без изменения самих данных и без
