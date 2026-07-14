@@ -145,7 +145,7 @@ CLAUDE.md).
 
 ## Step 2 — Typed content model
 
-- Status: `AWAITING_SKEPTIC`
+- Status: `PASSED`
 - Objective: Создать типизированный, runtime-валидируемый источник данных для трёх существующих
   JSON-файлов главной страницы (`data/departments.json`, `data/homepage-copy.json`,
   `data/office-zones.json`) — типы, zod-схему и adapter-функции, без изменения самих данных и без
@@ -279,9 +279,15 @@ CLAUDE.md).
 - Rollback: `git revert` диапазона коммитов Step 2 (аддитивный шаг: новые файлы + одна новая
   зависимость `zod`; `data/*.json` не меняются, риска потери контента нет). Деструктивный
   `git reset --hard` — только с явного разрешения пользователя, как в Step 1.
-- Skeptic verdict: _(заполняется после review шага)_
-- Skeptic findings: _(заполняется после review шага)_
-- Completion evidence: _(заполняется в `WORKLOG.md` после выполнения verification commands)_
+- Skeptic verdict: `PASS` (с первого раунда review исполнения — без FAIL/BLOCKED, в отличие от
+  Step 1).
+- Skeptic findings: замечаний Blocker/Critical/Major нет. Minor (не блокирует): `note` в
+  `office-zones` протестирован только для отсутствующего значения, не для явного `null`; вся
+  реализация — в одном коммите, поэтому промежуточные TS/ESLint-исправления не видны по отдельным
+  коммитам (не является нарушением протокола, финальное состояние независимо проверено чистым).
+- Completion evidence: `WORKLOG.md`, Entry 2; независимый повторный прогон всех 6 verification
+  commands skeptic — все exit 0 (35/35 unit-тестов, 1/1 e2e); `git diff --stat 2bb6f6d 9915d42` —
+  16 файлов, все в рамках Expected files.
 
 ## Step 3 — Semantic office overview
 
