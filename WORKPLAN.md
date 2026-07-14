@@ -291,8 +291,9 @@ CLAUDE.md).
 
 ## Step 3 — Semantic office overview
 
-- Status: `PASSED` (round 3 skeptic review — `PASS`, финальный; ожидает явного утверждения
-  пользователем для перехода в `COMPLETED` — см. `WORKLOG.md`, 2026-07-14)
+- Status: `COMPLETED` (пользователю предложено лично посмотреть `npm run dev` на
+  `http://localhost:3100`, включая low-height fallback при уменьшении высоты окна, и задан прямой
+  вопрос об утверждении закрытия Step 3; ответ пользователя, 2026-07-14: "продолжай")
 - Objective: Создать доступный, полностью server-rendered semantic overview главной страницы:
   hero (headline/subheadline/primary+secondary CTA/valuePoints/interactionHint из
   `homepage-copy.json`) и HTML-карту офиса с пятью доступными hotspot-кнопками отделов
