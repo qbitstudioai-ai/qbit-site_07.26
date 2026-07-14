@@ -474,7 +474,7 @@ CLAUDE.md).
     Step 3 оставляет вопрос "что вообще является visual layer, для которого Step 7 делает
     fallback" открытым до старта Step 7 — явно зафиксировано здесь, будет решаться перед
     планированием Step 7, не сейчас.
-  - Малые зоны (`office-zones.json`: HR width 26/height 24, executive height 24) при hover-
+  - Малые зоны (`office-zones.json`: HR width 26/height 32, executive width 35/height 24) при hover-
     раскрытии `overviewProblem` могут визуально не помещаться на узких desktop-ширинах (1280px) —
     low-fidelity trade-off, уточняется на art-direction milestone; проверяется ручным check, не
     блокирует приёмку при отсутствии обрезки заголовка/подписи.
@@ -635,7 +635,7 @@ CLAUDE.md).
 - Impact: чисто CSS-изменение, не влияет на архитектуру/компонентную структуру. Design tokens
   становятся реально используемыми в разметке Step 3 (позиционирование/типографика/spacing
   hero и hotspot'ов) вместо inline-значений без токенов.
-- Skeptic review: `BLOCKED` (review плана Step 3) → потребовал явной amendment-записи с реальным
+- Skeptic verdict: `BLOCKED` (review плана Step 3) → потребовал явной amendment-записи с реальным
   согласованием пользователя ДО начала реализации Step 3 (в отличие от Amendment 1, где
   согласование было получено уже постфактум, после того как исполнитель уже начал считать вопрос
   решённым).
