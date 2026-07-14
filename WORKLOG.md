@@ -236,5 +236,7 @@ npm run dev   # ручная проверка, затем процесс ост�
      `APPROVED` до явного ответа.
 - Verification: технических изменений кода нет (правки только в `WORKPLAN.md`/`DECISIONS.md`/
   `WORKLOG.md`), повторный прогон verification commands не требовался для этой итерации.
-- New verdict: _(заполняется после получения ответа пользователя и, при необходимости,
-  повторного review)_
+- New verdict: пользователь подтвердил Amendment 1 напрямую (AskUserQuestion, 2026-07-14): "Да,
+  утверждаю порт 3100 / localhost"; остаточный риск порта 3100 решено оставить known issue без
+  owner-шага. `Amendment 1 → Status`: `AWAITING_USER_APPROVAL` → `APPROVED`; Step 1 `Status`:
+  `BLOCKED` → `AWAITING_SKEPTIC`. Отправлено на финальный повторный review skeptic.
