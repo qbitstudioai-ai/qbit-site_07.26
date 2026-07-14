@@ -291,8 +291,8 @@ CLAUDE.md).
 
 ## Step 3 — Semantic office overview
 
-- Status: `IN_PROGRESS` (round 2 skeptic review вернул `FAIL`; коррекция выполнена, ожидает round 3
-  — см. `DECISIONS.md`/`WORKLOG.md`, 2026-07-14)
+- Status: `PASSED` (round 3 skeptic review — `PASS`, финальный; ожидает явного утверждения
+  пользователем для перехода в `COMPLETED` — см. `WORKLOG.md`, 2026-07-14)
 - Objective: Создать доступный, полностью server-rendered semantic overview главной страницы:
   hero (headline/subheadline/primary+secondary CTA/valuePoints/interactionHint из
   `homepage-copy.json`) и HTML-карту офиса с пятью доступными hotspot-кнопками отделов
@@ -502,18 +502,34 @@ CLAUDE.md).
   компоненты/тесты + точечные правки `page.tsx`/`globals.css`/`tokens.css`; `data/*.json`,
   `docs/*` не меняются). Деструктивный `git reset --hard` — только с явного разрешения
   пользователя.
-- Skeptic verdict: `PASS` (с первого раунда review исполнения — без FAIL/BLOCKED).
-- Skeptic findings: замечаний Blocker/Critical/Major нет. Minor (не блокирует): визуальный
-  CSS-toggle `overviewProblem` (opacity/max-height) на hover/focus не покрыт автоматизированным
-  тестом (только DOM-присутствие + `aria-describedby`, визуальный toggle проверен вручную skeptic
-  и исполнителем) — регресс в CSS-селекторах не будет пойман CI; zoom 200% проверялся через
-  `document.body.style.zoom` (эмуляция, не настоящий zoom браузера) — честно раскрыто, не формальный
-  acceptance criterion; axe DevTools вручную не прогонялся (нет доступа к расширению в headless-
-  среде) — прозрачно задокументировано, вне scope (owner: Step 8).
-- Completion evidence: `WORKLOG.md`, Entry 3; независимый повторный прогон skeptic всех 6
-  verification commands (45/45 unit, 6/6 e2e) + повторные прогоны query-string и keyboard e2e-тестов
-  по 5–10 раз для исключения flakiness — все стабильно зелёные; `git diff --stat 02405b1 24257e7`
-  (27 файлов) — всё в рамках Expected files; grep на `'use client'` — 0 реальных директив.
+- Skeptic verdict: **round 1** `PASS` (первый раунд review исполнения, до демонстрации пользователю)
+  → **round 2** `FAIL` (после correction iteration 1/no-scroll фикса — Blocker: docs/05 вводила в
+  заблуждение про JS-путь; Major: no-scroll фикс без low-height floor, Major: DECISIONS.md framing
+  скрывал trade-off) → **round 3** `PASS` (финальный, после correction iteration 2 — все findings
+  round 2 независимо подтверждены как устранённые).
+- Skeptic findings:
+  - Round 1: Blocker/Critical/Major — нет. Minor: визуальный CSS-toggle `overviewProblem` не
+    покрыт автотестом; zoom 200% проверялся эмуляцией `document.body.style.zoom`; axe DevTools
+    вручную не прогонялся (owner: Step 8).
+  - Round 2 (`FAIL`): Blocker — `docs/05` вводящая в заблуждение формулировка про no-JS fallback;
+    Major — no-scroll фикс не имел нижнего предела высоты (24.7px хотспот на 1280×500); Major —
+    `DECISIONS.md` не раскрывала этот trade-off. Все три устранены в correction iteration 2.
+  - Round 3 (`PASS`, финальный): Blocker/Major/Critical — нет, все findings round 2 независимо
+    перепроверены как реально устранённые (не только заявлены): docs/05 честно описывает разрыв
+    документ/код; хотспоты на 1280×500 измерены в 81.6–122.4px (было 24.7px); `.office` реально
+    скроллится внутренне (`scrollTop` перемещается 0→170), `.shell` не тронут и по-прежнему не
+    допускает постраничный скролл; 4 прежних no-scroll теста и весь остальной e2e-набор — без
+    регрессии. Minor (не блокирует): acceptance criteria 14/15 не покрывают явно диапазон
+    701–719px высоты — эмпирически проверено skeptic'ом отдельно, дефектов не найдено, чисто
+    формулировочная неточность.
+- Completion evidence: `WORKLOG.md`, Entry 3 (все 3 раунда review + 2 correction iterations);
+  независимый повторный прогон всех 6 verification commands в каждом раунде (финально: 45/45 unit,
+  11/11 e2e); `git diff --stat 02405b1 24257e7` (Step 3 первичная реализация, 27 файлов) и
+  `git diff --stat b22902a 925816e` (round 2 коррекция, 8 файлов) — всё в рамках Expected files;
+  grep на `'use client'` — 0 реальных директив; независимые измерения реальной geometry (хотспоты,
+  заголовок, CTA, scroll-механизм) на 12+ комбинациях viewport, включая низкие высоты (500–719px),
+  проведённые skeptic'ом самостоятельно через живой production-сервер, не только через
+  предоставленные тесты.
 
 ## Step 4 — Homepage state machine
 
