@@ -292,21 +292,203 @@ CLAUDE.md).
 ## Step 3 — Semantic office overview
 
 - Status: `PROPOSED`
-- Objective: Создать доступный overview с пятью отделами.
-- In scope: HTML/SVG map, buttons, hero, fallback.
-- Out of scope: detailed scenes.
-- Dependencies: Step 2 (`COMPLETED`).
-- Expected files: _(детализируется перед стартом шага)_
+- Objective: Создать доступный, полностью server-rendered semantic overview главной страницы:
+  hero (headline/subheadline/primary+secondary CTA/valuePoints/interactionHint из
+  `homepage-copy.json`) и HTML-карту офиса с пятью доступными hotspot-кнопками отделов
+  (позиционированными по `office-zones.json`, с `overviewLabel` как постоянно видимой подписью и
+  `overviewProblem`, раскрывающимся по hover/focus — см. `DECISIONS.md`, 2026-07-14). Overview —
+  конечная точка Step 3: активация hotspot'а (клик/Enter/Space) в этом шаге не открывает отдел и
+  не меняет состояние приложения — это закреплено за Step 4/5.
+- In scope:
+  - **Границы шага.** Step 3 реализует только состояние `overview` из
+    `docs/05-homepage-state-machine.md` плюс CSS-часть `department-preview` (раскрытие
+    `overviewProblem` по hover/focus — реализуемо чистым CSS, без JS-состояния и без полноценной
+    state machine). Полная state machine (opening/active/switching/closing), URL-синхронизация
+    `?department=<id>`, 10/90-раскладка — Step 4/5. Активация hotspot'а (клик/Enter/Space) в
+    Step 3 — no-op (нативная `<button type="button">` без `onClick`, без навигации). Query string
+    `?department=<id>` не читается и не влияет на рендер (проверяется тестом).
+  - **Компонентная структура** (`src/components/homepage/`, `src/components/office/` — по дереву
+    `docs/09-technical-architecture.md`), все компоненты — Server Components, без `'use client'`
+    (hover/focus — чистые CSS-псевдоклассы `:hover`/`:focus-within`; JS-состояние не требуется):
+    - `src/components/homepage/HomepageShell.tsx` — композиция `Header` + `<main>` (`HeroCopy` +
+      `OfficeExperience`); вызывается из `src/app/page.tsx`.
+    - `src/components/homepage/Header.tsx` — минимальный `<header>` с текстовым брендом
+      "Allqbit" (без сайтового навигационного меню — вне scope этого шага). Присутствие `Header`
+      как соседа `HeroCopy` подтверждено деревом компонентов `docs/09` (строки 56–59).
+    - `src/components/homepage/HeroCopy.tsx` — рендерит ровно один `<h1>` (`headline`),
+      `subheadline`, `valuePoints` (`<ul>`), `primaryCta` (видимая, сфокусируемая, но
+      функционально no-op — реального адресата диагностики/lead capture нет ни в этом шаге, ни во
+      всём текущем 8-шаговом milestone, CLAUDE.md "First milestone": без backend/CRM),
+      `secondaryCta` — рабочая внутристраничная ссылка (`href="#office-map"`) на карту офиса
+      (входит в scope Step 3, в отличие от `primaryCta`, у которой нет адресата вовсе).
+    - `src/components/office/OfficeExperience.tsx` — тонкий server-контейнер; рендерит
+      `interactionHint` ("Наведите курсор на отдел") как статичную подпись над картой и
+      `OfficeSemanticMap`. Архитектурный шов для будущего client state (Step 4), без собственной
+      логики сейчас.
+    - `src/components/office/OfficeSemanticMap.tsx` — `<nav aria-label="Отделы компании">` со
+      списком (`<ul id="office-map">`) 5 `DepartmentHotspot`. Сопоставляет `getOfficeZones()` и
+      `getDepartmentById(zone.departmentId)`; при отсутствии соответствия — `throw` (fail-fast, по
+      аналогии с adapter'ами Step 2). Порядок DOM/Tab — сортировка зон по `y` (возр.), затем `x`
+      (возр.) — визуально осмысленный reading order; техническое решение planner'а, не требующее
+      отдельного вопроса (низкий риск, легко изменить).
+    - `src/components/office/DepartmentHotspot.tsx` — `<li><button type="button">` с
+      `aria-label={overviewLabel}`; видимый текст `overviewLabel` — всегда; `overviewProblem` —
+      визуально и программно раскрывается по `:hover`/`:focus-within` (см. `DECISIONS.md`):
+      текст присутствует в DOM (не добавляется динамически через JS), скрыт визуально до
+      hover/focus через CSS-технику, не убирающую его из accessibility tree (не
+      `display:none`/`visibility:hidden` — например, position/opacity-based reveal, чтобы
+      скринридер мог озвучить `overviewProblem` как часть accessible description кнопки
+      независимо от visual hover-состояния: `aria-describedby` на сам `overviewProblem`-элемент).
+      Позиционирование — абсолютное CSS (`left/top/width/height` в `%`, взятые из
+      `office-zones.json`, `coordinateSystem: "relative-percent"`, без конвертации) внутри
+      контейнера с плейсхолдер-прямоугольником (условная замена финальной сцены art-direction
+      milestone, `docs/13` Этап 2).
+    - **`OfficeVisualLayer` не создаётся в Step 3** (сознательное отклонение от буквального
+      дерева `docs/09`, которое перечисляет его соседом `OfficeSemanticMap`). Обоснование:
+      (a) визуальная техника (`docs/09` "Открытые решения: Visual technique, WebGL") не выбрана —
+      создание любого декоративного слоя сейчас означало бы неявный выбор техники в обход
+      открытого вопроса; (b) Step 3 acceptance criterion "Hero виден без сложного visual layer"
+      прямо поддерживает минимализм; (c) CLAUDE.md "First milestone: No final 3D art". Owner
+      будущего решения — см. Risks (владелец: перед стартом Step 7, а не "без owner").
+    - `reference` (PNG-пути к детальным сценам отделов) не используется в Step 3 — это ассеты
+      будущей `DepartmentScene`, не overview-иконки (Performance budget `docs/10`: не грузить все
+      оригиналы сразу).
+  - **Стили (CSS Modules — см. `DECISIONS.md`, 2026-07-14)**: `*.module.css` рядом с каждым
+    компонентом; никаких новых npm-зависимостей.
+  - **`src/app/globals.css`**: `@import "../styles/tokens.css";` (см. `DECISIONS.md`,
+    2026-07-14 — Plan Amendment 2, формально зафиксировано ниже в "Plan amendments"); глобальное
+    `@media (prefers-reduced-motion: reduce)`, обнуляющее длительность CSS-переходов; видимый
+    `:focus-visible` стиль с контрастным outline.
+  - **`src/styles/tokens.css`**: обновить комментарий-заголовок (больше не "ждёт арт-дирекшна").
+  - Обновление существующих Step 1 smoke-тестов, которые проверяют placeholder-текст "Allqbit"
+    (предвиденный риск, зафиксированный в Step 1 Risks):
+    - `src/tests/unit/home-page.test.tsx` — переписать ассерты под новый hero-контент.
+    - `src/tests/e2e/home-page.spec.ts` — удалить, заменить на
+      `src/tests/e2e/office-overview.spec.ts` (базовый рендер) и
+      `src/tests/e2e/office-overview-keyboard.spec.ts` (клавиатурная навигация +
+      progressive enhancement + reduced-motion + query string).
+  - Новые unit-тесты (Vitest + Testing Library):
+    `src/tests/unit/components/homepage/hero-copy.test.tsx`,
+    `src/tests/unit/components/office/office-semantic-map.test.tsx`,
+    `src/tests/unit/components/office/department-hotspot.test.tsx`.
+- Out of scope:
+  - `department-preview` (JS-часть)/`opening`/`active`/`switching`/`closing` состояния, Zustand,
+    URL-синхронизация `?department=<id>`, 10/90-раскладка, `DepartmentNavigationRail`,
+    `DepartmentExperience`, `DepartmentScene`, `BeforeAfterSequence`, `OutcomePanel`,
+    `DepartmentCTA` — Step 4/5.
+  - `OfficeVisualLayer`, WebGL/Canvas, GSAP, motion orchestration — не вводятся.
+  - Реальный адресат `primaryCta` (диагностика/lead capture, `docs/13` Этап 8) — вне scope всего
+    текущего 8-шагового milestone.
+  - Использование `reference` PNG-путей отделов.
+  - Полноценный error-fallback state (`docs/05`, `FallbackExperience`) — закреплён за Step 7. В
+    Step 3 "fallback" означает: (a) progressive enhancement — hero и 5 кнопок реально в статичном
+    server-rendered HTML, доступны с клавиатуры без JavaScript (проверяется тестом с
+    `javaScriptEnabled: false`); (b) `prefers-reduced-motion` отключает CSS-переходы.
+  - Mobile/tablet-раскладка (`docs/08`) — Step 6. Ручная проверка Step 3 — desktop ≥1280px.
+  - Site-wide навигационное меню в `Header`.
+  - Автоматизированное axe-сканирование — **не добавляется в Step 3, владелец назначен**: ручная
+    проверка расширением axe DevTools сейчас; автоматизация (`@axe-core/playwright` или аналог) —
+    явно закреплена за Step 8 ("Browser acceptance tests"), не оставлена без owner'а.
+  - Правка `docs/09-technical-architecture.md` (отсутствие `OfficeVisualLayer` в первом
+    milestone) — known issue в `DECISIONS.md`, не правка approved-документа.
+  - Правка `data/*.json`, `MANIFEST.json`, CI pipeline.
+- Dependencies: Step 2 (`COMPLETED`). Известный content gap Step 2 (`beforeSteps`/
+  `automationSteps`/`visual` отсутствуют) не блокирует Step 3 — используются только `id`,
+  `overviewLabel`, `overviewProblem`.
+- Expected files:
+  - `src/app/page.tsx` (переписан: вместо placeholder рендерит `<HomepageShell />`)
+  - `src/app/globals.css` (импорт токенов — Amendment 2, reduced-motion, focus-visible)
+  - `src/styles/tokens.css` (обновлён комментарий-заголовок)
+  - `src/components/homepage/HomepageShell.tsx` (+ `.module.css`)
+  - `src/components/homepage/Header.tsx` (+ `.module.css`)
+  - `src/components/homepage/HeroCopy.tsx` (+ `.module.css`)
+  - `src/components/office/OfficeExperience.tsx` (+ `.module.css`)
+  - `src/components/office/OfficeSemanticMap.tsx` (+ `.module.css`)
+  - `src/components/office/DepartmentHotspot.tsx` (+ `.module.css`)
+  - `src/components/.gitkeep` — удалён (первый реальный контент каталога)
+  - `src/tests/unit/home-page.test.tsx` (обновлён)
+  - `src/tests/unit/components/homepage/hero-copy.test.tsx`,
+    `src/tests/unit/components/office/office-semantic-map.test.tsx`,
+    `src/tests/unit/components/office/department-hotspot.test.tsx` (новые)
+  - `src/tests/e2e/office-overview.spec.ts`, `src/tests/e2e/office-overview-keyboard.spec.ts`
+    (новые); `src/tests/e2e/home-page.spec.ts` — удалён
+  - `README.md`, `WORKPLAN.md`, `WORKLOG.md`, `DECISIONS.md` (процессные)
 - Acceptance criteria:
-  1. Отделы доступны клавиатурой.
-  2. Hero виден без сложного visual layer.
-- Verification commands: _(детализируется перед стартом шага)_
-- Manual checks: _(детализируется перед стартом шага)_
-- Risks: _(детализируется перед стартом шага)_
-- Rollback: _(детализируется перед стартом шага)_
-- Skeptic verdict:
-- Skeptic findings:
-- Completion evidence:
+  1. Страница `/` рендерит ровно один `<h1>`, текст которого равен `headline` из
+     `homepage-copy.json`.
+  2. `subheadline`, `primaryCta`, `secondaryCta`, все `valuePoints` присутствуют как видимый
+     текст в server-rendered HTML сразу (без анимации/загрузки).
+  3. Внутри карты офиса присутствуют ровно 5 доступных кнопок (`getByRole('button')`, scoped к
+     контейнеру карты) с accessible name = `overviewLabel` каждого из 5 отделов.
+  4. `overviewLabel` виден всегда; `overviewProblem` доступен идентично через hover И через focus
+     (клавиатура) — не только визуально по мыши; текст присутствует в accessible tree независимо
+     от hover-состояния (проверяется unit-тестом на CSS-классы/`aria-describedby`, не только на
+     наличие текста в DOM).
+  5. Положение (`left/top/width/height` в %) каждого hotspot вычислено из `office-zones.json`, не
+     хардкод (unit-тест на реальных данных).
+  6. Клавиатура: `Tab` последовательно фокусирует все 5 кнопок в порядке сортировки по `y`, затем
+     `x`; каждая в фокусе имеет видимый focus-индикатор; `Enter`/`Space` не вызывает
+     навигацию/console error/изменение URL.
+  7. `prefers-reduced-motion: reduce` — вычисленная длительность CSS-переходов Step 3 равна ~0.
+  8. При отключённом JavaScript (`javaScriptEnabled: false`) hero и все 5 кнопок присутствуют в
+     DOM и фокусируемы по Tab.
+  9. Query string `?department=<любой валидный id>` не меняет отрендеренный HTML overview.
+  10. Ни один компонент Step 3 не содержит `'use client'`; adapter'ы `src/content/*`
+      импортируются только в server-компонентах.
+  11. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
+      `npm run test:e2e` — все exit 0.
+  12. `git diff --stat` относительно коммита закрытия Step 2 ограничен списком Expected files.
+  13. `DECISIONS.md` содержит записи о всех трёх решениях Step 3 (CSS-подход, показ
+      overviewProblem, tokens.css) с реальным согласованием пользователя.
+- Verification commands:
+  ```bash
+  npm run format:check
+  npm run lint
+  npm run typecheck
+  npm run test
+  npm run build
+  npm run test:e2e
+  npm run dev   # ручная проверка, см. Manual checks, затем остановить процесс
+  ```
+- Manual checks:
+  - Открыть `http://localhost:3100` на desktop-ширине (≥1280px): hero виден сразу; видно 5
+    подписанных зон; hover/focus раскрывает `overviewProblem`; в консоли браузера нет ошибок.
+  - Клавиатурная проверка: `Tab` последовательно обходит 5 кнопок, фокус визуально заметен и
+    раскрывает `overviewProblem`; `Enter`/`Space` не производит видимого перехода.
+  - `prefers-reduced-motion: reduce` в DevTools — подтвердить отсутствие анимационных переходов.
+  - Отключить JavaScript в DevTools, перезагрузить `/` — hero и 5 кнопок видны и доступны с
+    клавиатуры.
+  - Проверить масштаб 200% — критический контент не обрезается.
+  - Прогнать расширение axe DevTools вручную на `/` — зафиксировать отсутствие серьёзных
+    нарушений или занести как known issue (не блокируя шаг, если не Blocker/Critical).
+  - `git diff --stat` относительно коммита закрытия Step 2 — подтвердить, что изменения
+    ограничены Expected files.
+- Risks:
+  - **Известный owner-риск (не "без owner"):** зоны `office-zones.json` провизорны
+    (`"note": "Предварительные зоны. Уточнить после утверждения финальной общей сцены."`). Step 3
+    вычисляет из них конкретный Tab-порядок и CSS-позиции, закреплённые в e2e-тестах
+    (`office-overview-keyboard.spec.ts`). При уточнении зон на art-direction milestone (`docs/13`
+    Этап 2) эти тесты и Tab-порядок почти наверняка потребуют пересмотра — это ожидаемая, а не
+    случайная будущая правка; owner — art-direction milestone, не Step 3.
+  - **`OfficeVisualLayer` без владельца до Step 7:** отсутствие декоративного визуального слоя в
+    Step 3 оставляет вопрос "что вообще является visual layer, для которого Step 7 делает
+    fallback" открытым до старта Step 7 — явно зафиксировано здесь, будет решаться перед
+    планированием Step 7, не сейчас.
+  - Малые зоны (`office-zones.json`: HR width 26/height 24, executive height 24) при hover-
+    раскрытии `overviewProblem` могут визуально не помещаться на узких desktop-ширинах (1280px) —
+    low-fidelity trade-off, уточняется на art-direction milestone; проверяется ручным check, не
+    блокирует приёмку при отсутствии обрезки заголовка/подписи.
+  - Замена Step 1 smoke-тестов (`home-page.test.tsx`/`home-page.spec.ts`) — предвиденный в Step 1
+    риск; смягчается явным перечислением в Expected files.
+  - `primaryCta` — видимая, но no-op кнопка; может выглядеть как баг при поверхностном
+    тестировании — смягчается явной пометкой в коде и Out of scope.
+- Rollback: `git revert` диапазона коммитов Step 3 (аддитивно относительно Step 2: новые
+  компоненты/тесты + точечные правки `page.tsx`/`globals.css`/`tokens.css`; `data/*.json`,
+  `docs/*` не меняются). Деструктивный `git reset --hard` — только с явного разрешения
+  пользователя.
+- Skeptic verdict: _(заполняется после review шага)_
+- Skeptic findings: _(заполняется после review шага)_
+- Completion evidence: _(заполняется в `WORKLOG.md` после выполнения verification commands)_
 
 ## Step 4 — Homepage state machine
 
@@ -433,3 +615,29 @@ CLAUDE.md).
   пользователь решил: остаточный риск "порт 3100 тоже может быть занят в будущем" остаётся known
   issue без owner-шага — намеренно не назначается отдельным шагом плана, будет решаться по факту,
   если повторится (см. также `WORKPLAN.md` Step 1, Risks, и `DECISIONS.md`).
+
+### Amendment 2
+
+- Status: `APPROVED`
+- Reason: Step 1 явно зафиксировал (`src/styles/tokens.css`, комментарий-заголовок; `WORKLOG.md`
+  Entry 1): design tokens "не импортируется в globals.css до финального арт-дирекшна". При
+  планировании Step 3 planner предложил тихо пересмотреть это (импортировать токены уже сейчас),
+  включив решение в раздел "решений без вопроса" черновика плана. Skeptic (review плана Step 3,
+  режим 1, BLOCKED) указал, что это — изменение ранее зафиксированного и утверждённого инварианта
+  предыдущего шага, требующее формального `Plan amendments` и реального согласования пользователя
+  (CLAUDE.md: "Never change the plan after approval without recording and approving the
+  amendment"), а не решения исполнителя задним числом — тот же класс нарушения, что уже приводил
+  к BLOCKED в Amendment 1 (Step 1).
+- Previous scope: `src/styles/tokens.css` создан в Step 1, не импортирован в `globals.css`,
+  комментарий-заголовок: "не импортируется в globals.css до финального арт-дирекшна".
+- New scope: `src/app/globals.css` получает `@import "../styles/tokens.css";` уже в Step 3;
+  комментарий-заголовок `tokens.css` обновляется (более не "ждёт арт-дирекшна").
+- Impact: чисто CSS-изменение, не влияет на архитектуру/компонентную структуру. Design tokens
+  становятся реально используемыми в разметке Step 3 (позиционирование/типографика/spacing
+  hero и hotspot'ов) вместо inline-значений без токенов.
+- Skeptic review: `BLOCKED` (review плана Step 3) → потребовал явной amendment-записи с реальным
+  согласованием пользователя ДО начала реализации Step 3 (в отличие от Amendment 1, где
+  согласование было получено уже постфактум, после того как исполнитель уже начал считать вопрос
+  решённым).
+- User approval: **получено** 2026-07-14, через явный вопрос пользователю ДО начала реализации
+  Step 3: "Да, импортировать сейчас".
