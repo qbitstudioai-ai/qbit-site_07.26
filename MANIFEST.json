@@ -1,0 +1,318 @@
+{
+  "package": "allqbit-claude-code-starter",
+  "version": "2.0-strict",
+  "created": "2026-07-14",
+  "strictWorkflow": {
+    "plannerRequired": true,
+    "skepticPlanReviewRequired": true,
+    "userApprovalRequired": true,
+    "oneStepAtATime": true,
+    "skepticAfterEveryStep": true,
+    "nextStepRequiresPass": true,
+    "workPlan": "WORKPLAN.md",
+    "workLog": "WORKLOG.md",
+    "decisions": "DECISIONS.md"
+  },
+  "files": [
+    {
+      "path": ".claude/README.md",
+      "sizeBytes": 1296,
+      "sha256": "2302b147c20de94f344f6d39744a4274b16f20a0c62b254268b8ebf655047601"
+    },
+    {
+      "path": ".claude/agents/frontend-architect.md",
+      "sizeBytes": 556,
+      "sha256": "03f6d2f30234f0d6a6f78117e550231e8dc0b5e45ef49fee8a7823f5f035a6db"
+    },
+    {
+      "path": ".claude/agents/motion-engineer.md",
+      "sizeBytes": 532,
+      "sha256": "4ec8c574f9cd3509fd4bdb8321f9aa37f7ed4be70e3fb78a74f90207ef1fb568"
+    },
+    {
+      "path": ".claude/agents/planner.md",
+      "sizeBytes": 2295,
+      "sha256": "b1e6a18f49baa9a3e2271660ae79fa899b62335241a9d2d3192148896888cc46"
+    },
+    {
+      "path": ".claude/agents/qa-reviewer.md",
+      "sizeBytes": 551,
+      "sha256": "d066327a019421bcef8bc1225c339ef6f59c3bc82a4ddf362564c6c104810160"
+    },
+    {
+      "path": ".claude/agents/skeptic.md",
+      "sizeBytes": 4037,
+      "sha256": "3b38b7da34e5cf8748c9816dc924febf81120cb0f6e8e5b4ce22f311c64479d0"
+    },
+    {
+      "path": ".claude/agents/ux-strategist.md",
+      "sizeBytes": 706,
+      "sha256": "98f623c0dee3ffb11cb76dbed281d73dea32b6ae47d732d0fd6fdea3dce5b005"
+    },
+    {
+      "path": ".claude/settings.json",
+      "sizeBytes": 195,
+      "sha256": "c30f76de5e085877d870055adfe214d6331df97951573bac750d8025a808569e"
+    },
+    {
+      "path": ".claude/settings.local.example.json",
+      "sizeBytes": 43,
+      "sha256": "ee6d1034985be06dde6005c06f88905313a86b286452e8756a977a6cdf55fcbb"
+    },
+    {
+      "path": ".claude/skills/allqbit-art-direction/SKILL.md",
+      "sizeBytes": 982,
+      "sha256": "53392d22ccfb7e2458fc7214ecc9b03f6478ecc6f6cb0f48d9367122a3bcb167"
+    },
+    {
+      "path": ".claude/skills/allqbit-copywriting/SKILL.md",
+      "sizeBytes": 1313,
+      "sha256": "6d7fc0d254bd45e58efe7c5cf2ba268162d105a6cff5c62c1a8add05707a4ed5"
+    },
+    {
+      "path": ".claude/skills/allqbit-motion/SKILL.md",
+      "sizeBytes": 754,
+      "sha256": "6b0517f79ff822976d14b95eea4a80706f344ca1c33382fea972da28cffe5de9"
+    },
+    {
+      "path": ".claude/skills/allqbit-product-ux/SKILL.md",
+      "sizeBytes": 1177,
+      "sha256": "138ab7d70085a4beb5027ba496e2e534479b28fc947c791179d6fe6562d55f96"
+    },
+    {
+      "path": ".claude/skills/browser-qa/SKILL.md",
+      "sizeBytes": 656,
+      "sha256": "46e4a51bf3a0d6a800f02fda39b1b3aa398e2380304650676253a962593eecbb"
+    },
+    {
+      "path": ".claude/skills/frontend-quality/SKILL.md",
+      "sizeBytes": 733,
+      "sha256": "cc887412d54cb1e7fb3162c3df728da0d2c10abd53cf1db4d66cc47fcf3c1907"
+    },
+    {
+      "path": ".claude/skills/interactive-office/SKILL.md",
+      "sizeBytes": 879,
+      "sha256": "57308a23405ffa0fee07a94e02da46ceb9cbf9e0553c8c6cb858eceb1c26d50a"
+    },
+    {
+      "path": ".claude/skills/strict-plan-execution/SKILL.md",
+      "sizeBytes": 2321,
+      "sha256": "aba8214691be826231c91a850ef45b6a7c8853183b80d72dc9929e064bf2430e"
+    },
+    {
+      "path": ".gitignore",
+      "sizeBytes": 174,
+      "sha256": "0dd0d18ddcc4110c5eeb2ac07213dbd9bfdc034626fdbe734e073116f80b9539"
+    },
+    {
+      "path": "CLAUDE.md",
+      "sizeBytes": 6999,
+      "sha256": "7326e13b838059a81db3453d484a21c8b067ba3b7ccadd9975b1569d643c5a6f"
+    },
+    {
+      "path": "DECISIONS.md",
+      "sizeBytes": 359,
+      "sha256": "2d751fd4316430d83f9bbae07abc2721a76721af0ca0ce1ad267b1f8cb871076"
+    },
+    {
+      "path": "README.md",
+      "sizeBytes": 3031,
+      "sha256": "11cf278b7720a649f662bca401194ef5cbe56ab363addaa5eb1ae32e8974f886"
+    },
+    {
+      "path": "WORKLOG.md",
+      "sizeBytes": 370,
+      "sha256": "0dace73ed39e003f9df6072e339b26cd742af17867d0c8919da379515ea3c803"
+    },
+    {
+      "path": "WORKPLAN.md",
+      "sizeBytes": 3752,
+      "sha256": "52241124d3b938d0ff103cb3b03b5ae6b98b58a554f6167027f74f95a1312142"
+    },
+    {
+      "path": "data/departments.json",
+      "sizeBytes": 6275,
+      "sha256": "6e99b2e7656091823186fc0aa4b03333ddfb3a88b3929b555b9e80f95d3912b2"
+    },
+    {
+      "path": "data/homepage-copy.json",
+      "sizeBytes": 727,
+      "sha256": "fe58eec4395a177fdfe670fddcdb14570ff2c38eb086816d22623b0baa32c196"
+    },
+    {
+      "path": "data/office-zones.json",
+      "sizeBytes": 773,
+      "sha256": "9df69b4d9012bb84fc85bc2de52d20ce3fd57c4ac8b5a08be331bd4b11d728d3"
+    },
+    {
+      "path": "docs/00-product-brief.md",
+      "sizeBytes": 2409,
+      "sha256": "32881305dd07b9a8d9b0855635dfd45a44889169f784430285b9d57bd762117f"
+    },
+    {
+      "path": "docs/01-audience-positioning.md",
+      "sizeBytes": 2580,
+      "sha256": "ab2da8f06f9ecd489787a4f9c5eabd15195590c5bc622bdbef57de42294f1fa2"
+    },
+    {
+      "path": "docs/02-art-direction.md",
+      "sizeBytes": 2403,
+      "sha256": "b4683cab6ece5286309d3e42864ed1e8739c61c53800956c432d7e3aedefbf00"
+    },
+    {
+      "path": "docs/03-office-map.md",
+      "sizeBytes": 2544,
+      "sha256": "30cd0544d889a7ea56954fc54fe3b3b8b418f8338068ef0134b585748f9bfb4c"
+    },
+    {
+      "path": "docs/04-homepage-copy.md",
+      "sizeBytes": 2145,
+      "sha256": "52d383ccf1ec86b6767673e55e8742acf5511b50eb99a747e8cc1191e84506c2"
+    },
+    {
+      "path": "docs/05-homepage-state-machine.md",
+      "sizeBytes": 2674,
+      "sha256": "c499cf2cd7854dfceb619263d8f5c86e1d4a538071b45b009c81ce269f5a51ae"
+    },
+    {
+      "path": "docs/06-department-content.md",
+      "sizeBytes": 8869,
+      "sha256": "fbc28a992025aaf73cbfa247c4358afe84831a00ea163c64276bbafeba4979eb"
+    },
+    {
+      "path": "docs/07-motion-system.md",
+      "sizeBytes": 2126,
+      "sha256": "4c911cef75d122b4d8ef6f85060caa3653900117b1326e67a58377d20cc5a865"
+    },
+    {
+      "path": "docs/08-responsive-behavior.md",
+      "sizeBytes": 1537,
+      "sha256": "48d90da6c8ef44de28e53b7a7aa3d48e1cd17dc9f44627d2f6253bcf51ac75b5"
+    },
+    {
+      "path": "docs/09-technical-architecture.md",
+      "sizeBytes": 2663,
+      "sha256": "7f242786f181b19e8e8d7003a9954a050aced401cdc997231c03ff6c6f8c17f4"
+    },
+    {
+      "path": "docs/10-performance-budget.md",
+      "sizeBytes": 1576,
+      "sha256": "5214a3ab4224c1f0617b5c58c57070fb12ff53f14ed451f268d9fb2e444de10b"
+    },
+    {
+      "path": "docs/11-accessibility.md",
+      "sizeBytes": 1445,
+      "sha256": "962a7a66980253a95e2616280757ef9c4c1ffdffe5cea5fdb22a2b2e2a84296f"
+    },
+    {
+      "path": "docs/12-content-data-model.md",
+      "sizeBytes": 1396,
+      "sha256": "635557340a936dae73709cde70d304c782f4e6316eb84cd06f36c7375efc19e6"
+    },
+    {
+      "path": "docs/13-implementation-plan.md",
+      "sizeBytes": 1350,
+      "sha256": "0c0792eaad8dc51b29e4dab7657c53831b831fed01a2d44502484b287793875c"
+    },
+    {
+      "path": "docs/14-acceptance-criteria.md",
+      "sizeBytes": 1369,
+      "sha256": "b40cba4e68bf4bb06e95529f6c2227475b1a50ce862639370cfc38522dd4fbf9"
+    },
+    {
+      "path": "docs/15-analytics-conversion.md",
+      "sizeBytes": 1025,
+      "sha256": "863f9383f03014ba3f72d54931b2d56dcc4cf36ccee180678732ec7ce606b727"
+    },
+    {
+      "path": "docs/16-open-questions.md",
+      "sizeBytes": 1606,
+      "sha256": "eb02ff7b32f0574b8dbe4e0a16cd5535cea82e6e3e738e10a44389e175aab2a1"
+    },
+    {
+      "path": "docs/17-execution-protocol.md",
+      "sizeBytes": 6946,
+      "sha256": "3a5491c347119eeabbe30d6a45837a1a2d91a81a6fecab6767acd0a4b114782f"
+    },
+    {
+      "path": "docs/18-work-plan-template.md",
+      "sizeBytes": 1314,
+      "sha256": "e90be9d6f83d66a4264706c6b6cc5c94bf831887cb8e48f36de25c7065a917aa"
+    },
+    {
+      "path": "docs/19-work-log-template.md",
+      "sizeBytes": 674,
+      "sha256": "30ccc495a75f32d26573e78df9f03420018d73bdaef60f59a9234be7c3d20976"
+    },
+    {
+      "path": "prompts/00-strict-project-start.md",
+      "sizeBytes": 1971,
+      "sha256": "69082ef7f1c6381daf724c20e64bf15d9f3790d57ddda55ad545080905d1f6c3"
+    },
+    {
+      "path": "prompts/01-architecture-review.md",
+      "sizeBytes": 1510,
+      "sha256": "09422f57c7a91f1c0cbfc2b90cc302aa38857cdb3f1faea96b8814cb70c6d28f"
+    },
+    {
+      "path": "prompts/02-low-fi-prototype.md",
+      "sizeBytes": 1467,
+      "sha256": "52c8a99520b3999425d3291124fcf07865fc3889a986d02db96c2af8a77b4927"
+    },
+    {
+      "path": "prompts/03-sales-pilot.md",
+      "sizeBytes": 1414,
+      "sha256": "bd0c2bb067ce0f30fb983994a2063ecbefe9025107cac2c507574a0f061141f9"
+    },
+    {
+      "path": "prompts/04-qa-release.md",
+      "sizeBytes": 659,
+      "sha256": "7359544bb2d2db1849ae2cbc80072d2bb881e4a6c31d439c0573e5050baff7d0"
+    },
+    {
+      "path": "references/README.md",
+      "sizeBytes": 1684,
+      "sha256": "35b20859e6d8b97b9e447e0495242bb8cb88ac27a51e31fad44d5c4fd8077c71"
+    },
+    {
+      "path": "references/executive/04-executive-department.png",
+      "sizeBytes": 3322218,
+      "sha256": "e05def527bb1e805d11f8200fe5063823ebe6841da8876f4bcb03c4a20e2c57c"
+    },
+    {
+      "path": "references/hr/05-hr-department.png",
+      "sizeBytes": 3676075,
+      "sha256": "3f35a70968ba011fadeb525e38732363ddfdc9b7feb4b802ce16c3db7b9f6f20"
+    },
+    {
+      "path": "references/logistics/06-logistics-department.png",
+      "sizeBytes": 3613717,
+      "sha256": "18eeb6a09e1a378a883926c08dd2e635db18d8968d1fe1d0ff217e2bd398c76b"
+    },
+    {
+      "path": "references/logo/Logo111.svg",
+      "sizeBytes": 162445,
+      "sha256": "6e1e4acff290af604b43cb00f3f23f2ffc41b95bbd53cf75c6ea4b70075c6886"
+    },
+    {
+      "path": "references/office-overview/01-company-overview.png",
+      "sizeBytes": 3726864,
+      "sha256": "c3bf4ff4add960f550787003cba83314bc8d7d7d0370c669915f8f02add63969"
+    },
+    {
+      "path": "references/sales/02-sales-department.png",
+      "sizeBytes": 3704632,
+      "sha256": "26f7a750961d46598dba90ced400fc2c7201aab623d6bb50243554e71a63b8fe"
+    },
+    {
+      "path": "references/source/allqbit-site-research-and-copy.md",
+      "sizeBytes": 41707,
+      "sha256": "e53af4024074670447e1485611940d58b1bc5899d093361a096e757486f06d78"
+    },
+    {
+      "path": "references/support/03-support-department.png",
+      "sizeBytes": 3733546,
+      "sha256": "a00aecdbc8b82ecc208b01b8602a2faa6fa4f1b175953496c62ecdd0b0b40e58"
+    }
+  ]
+}

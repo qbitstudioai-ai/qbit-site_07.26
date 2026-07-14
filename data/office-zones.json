@@ -1,0 +1,41 @@
+{
+  "coordinateSystem": "relative-percent",
+  "note": "Предварительные зоны. Уточнить после утверждения финальной общей сцены.",
+  "zones": [
+    {
+      "departmentId": "executive",
+      "x": 40,
+      "y": 5,
+      "width": 35,
+      "height": 24
+    },
+    {
+      "departmentId": "support",
+      "x": 4,
+      "y": 23,
+      "width": 36,
+      "height": 36
+    },
+    {
+      "departmentId": "hr",
+      "x": 70,
+      "y": 24,
+      "width": 26,
+      "height": 32
+    },
+    {
+      "departmentId": "sales",
+      "x": 7,
+      "y": 58,
+      "width": 42,
+      "height": 36
+    },
+    {
+      "departmentId": "logistics",
+      "x": 55,
+      "y": 58,
+      "width": 38,
+      "height": 35
+    }
+  ]
+}

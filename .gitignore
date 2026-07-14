@@ -1,0 +1,16 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.local
+.env.*.local
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.DS_Store
+Thumbs.db
+*.log
