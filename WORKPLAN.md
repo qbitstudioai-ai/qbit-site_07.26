@@ -36,7 +36,8 @@ CLAUDE.md).
 
 ## Step 1 — Repository and quality foundation
 
-- Status: `PASSED`
+- Status: `COMPLETED` (пользователь подтвердил результат лично — открыл `npm run dev` в браузере,
+  2026-07-14: "принимаю")
 - Objective: Инициализировать минимальный проект Next.js (App Router) + TypeScript с полным
   набором quality scripts (format, lint, typecheck, unit test, build, e2e) и git-репозиторием,
   без продуктового UI, контента или дизайна интерактивного офиса.
