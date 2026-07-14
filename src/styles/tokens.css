@@ -1,0 +1,32 @@
+/*
+ * Заготовка design tokens для Step 1 (Repository and quality foundation).
+ * Значения предварительные и нейтральные — палитра "графит/дерево/стекло/тёплый свет"
+ * из docs/02-art-direction.md будет уточнена в отдельном шаге art direction.
+ * Не импортируется в globals.css до финального арт-дирекшна.
+ */
+
+:root {
+  /* Цвет — нейтральная графитовая шкала + предварительный тёплый акцент */
+  --color-graphite-900: #1a1c1e;
+  --color-graphite-700: #3a3d42;
+  --color-graphite-500: #6b6f76;
+  --color-graphite-300: #a6aab0;
+  --color-graphite-100: #e8e9eb;
+  --color-surface: #ffffff;
+  --color-accent-warm: #b5793a;
+
+  /* Типографика */
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  --font-size-base: 16px;
+  --line-height-base: 1.5;
+  --font-size-scale-ratio: 1.25;
+
+  /* Spacing (шаг 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+}

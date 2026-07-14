@@ -1,0 +1,21 @@
+node_modules
+.next
+out
+dist
+coverage
+playwright-report
+test-results
+package-lock.json
+
+# Документация, контент и процессные файлы проекта — источник истины, не код Step 1.
+# Prettier применяется только к коду (src/, конфиги), не к докам/данным/скиллам.
+docs/
+data/
+references/
+prompts/
+.claude/
+CLAUDE.md
+DECISIONS.md
+WORKLOG.md
+WORKPLAN.md
+MANIFEST.json
