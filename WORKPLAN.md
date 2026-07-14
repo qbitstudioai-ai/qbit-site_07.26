@@ -291,8 +291,8 @@ CLAUDE.md).
 
 ## Step 3 — Semantic office overview
 
-- Status: `AWAITING_SKEPTIC` (коррекция no-scroll после демонстрации пользователю — см.
-  `DECISIONS.md`, 2026-07-14)
+- Status: `IN_PROGRESS` (round 2 skeptic review вернул `FAIL`; коррекция выполнена, ожидает round 3
+  — см. `DECISIONS.md`/`WORKLOG.md`, 2026-07-14)
 - Objective: Создать доступный, полностью server-rendered semantic overview главной страницы:
   hero (headline/subheadline/primary+secondary CTA/valuePoints/interactionHint из
   `homepage-copy.json`) и HTML-карту офиса с пятью доступными hotspot-кнопками отделов
@@ -413,6 +413,9 @@ CLAUDE.md).
     `src/tests/unit/components/office/department-hotspot.test.tsx` (новые)
   - `src/tests/e2e/office-overview.spec.ts`, `src/tests/e2e/office-overview-keyboard.spec.ts`
     (новые); `src/tests/e2e/home-page.spec.ts` — удалён
+  - `docs/05-homepage-state-machine.md` (правка — явное, раскрытое исключение из обычного правила
+    "docs/ не трогать в Step 3", см. `DECISIONS.md` 2026-07-14 "Изменение docs/05..." и
+    "honesty-правка docs/05 после skeptic FAIL")
   - `README.md`, `WORKPLAN.md`, `WORKLOG.md`, `DECISIONS.md` (процессные)
 - Acceptance criteria:
   1. Страница `/` рендерит ровно один `<h1>`, текст которого равен `headline` из
@@ -442,10 +445,17 @@ CLAUDE.md).
   13. `DECISIONS.md` содержит записи о всех трёх решениях Step 3 (CSS-подход, показ
       overviewProblem, tokens.css) с реальным согласованием пользователя.
   14. **(добавлено при коррекции, см. `DECISIONS.md` 2026-07-14 "исправление отсутствия
-      full-viewport без скролла").** На desktop-viewport ≥1280px высотой ≥800px (`docs/08`)
+      full-viewport без скролла").** На desktop-viewport ≥1280px высотой ≥720px (`docs/08`)
       `document.documentElement.scrollHeight` не превышает `window.innerHeight` — страница
       целиком помещается в один экран без вертикального скролла (проверяется e2e-тестом на
       нескольких характерных десктопных разрешениях).
+  15. **(добавлено после skeptic FAIL round 2, см. `DECISIONS.md` 2026-07-14 "low-height fallback
+      для docs/08 'Низкий desktop'").** На desktop-viewport высотой <700px: (a) заголовок,
+      основная и вторичная CTA остаются полностью в пределах viewport, не обрезаются; (b) каждый
+      из 5 хотспотов, после прокрутки в видимую область панели офиса, имеет высоту ≥44px
+      (не сжимается пропорционально нехватке высоты без предела); (c) документ в целом по-прежнему
+      не скроллится (`scrollHeight <= innerHeight`) — скроллится только панель офиса внутри себя.
+      Проверяется e2e-тестом на 1280×500.
 - Verification commands:
   ```bash
   npm run format:check

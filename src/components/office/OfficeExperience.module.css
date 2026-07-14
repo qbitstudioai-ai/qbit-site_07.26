@@ -12,3 +12,12 @@
   color: var(--color-graphite-500);
   margin-bottom: var(--space-3);
 }
+
+/* docs/08 "Низкий desktop": разрешить внутренний скролл content panel вместо обрезания или
+   бесконечного сжатия хотспотов ниже читаемого размера (см. OfficeSemanticMap.module.css). Шапка,
+   hero и CTA остаются вне этого контейнера и не участвуют в скролле. */
+@media (max-height: 700px) {
+  .office {
+    overflow-y: auto;
+  }
+}

@@ -54,3 +54,25 @@
   color: var(--color-graphite-700);
   text-decoration: underline;
 }
+
+/* docs/08 "Низкий desktop": уменьшить масштаб hero, чтобы оставить офисной панели место для
+   min-height хотспотов ниже, вместо их неограниченного сжатия. */
+@media (max-height: 700px) {
+  .hero {
+    padding: var(--space-4);
+  }
+
+  .headline {
+    font-size: 1.375rem;
+    margin-bottom: var(--space-2);
+  }
+
+  .subheadline {
+    font-size: 0.9375rem;
+    margin-bottom: var(--space-3);
+  }
+
+  .valuePoints {
+    margin-bottom: var(--space-3);
+  }
+}

@@ -22,3 +22,14 @@
 .zoneItem {
   list-style: none;
 }
+
+/* docs/08 "Низкий desktop": ниже 700px высоты .zoneList больше не сжимается вместе с viewport —
+   фиксированный min-height держит хотспоты (позиционированные в % от .zoneList) выше читаемого
+   порога. Излишек высоты обрабатывается внутренним скроллом .office (см.
+   OfficeExperience.module.css), а не обрезается и не выталкивает документ в постраничный скролл. */
+@media (max-height: 700px) {
+  .zoneList {
+    flex-shrink: 0;
+    min-height: 340px;
+  }
+}
