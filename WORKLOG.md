@@ -510,11 +510,14 @@ npm run dev                # ручная проверка, затем проц�
 ### Known limitations
 
 - Автоматизированная проверка axe DevTools (Manual checks Step 3) не выполнена агентом — нет
-  доступа к браузерному расширению в headless-среде. Автоматизация axe явно закреплена за Step 8
-  (`docs/11`), ручная проверка расширением остаётся открытым пунктом для человека при желании.
+  доступа к браузерному расширению в headless-среде. Автоматизация axe на момент этой записи была
+  закреплена за Step 8 (`docs/11`); **после Amendment 3 (см. `DECISIONS.md` 2026-07-15) — за
+  Step 9** ("Browser acceptance tests", то же название); ручная проверка расширением остаётся
+  открытым пунктом для человека при желании.
 - Известные owner-риски (не блокируют Step 3, зафиксированы в `WORKPLAN.md`): хрупкость
   provisional-координат `office-zones.json` — owner: art-direction milestone; отсутствие
-  `OfficeVisualLayer` — owner: перед стартом Step 7.
+  `OfficeVisualLayer` — owner: на момент этой записи перед стартом Step 7; **после Amendment 3 —
+  перед стартом Step 8**.
 
 ### Skeptic review
 
@@ -523,7 +526,8 @@ npm run dev                # ручная проверка, затем проц�
 - Findings: Blocker/Critical/Major — нет. Minor: визуальный CSS-toggle `overviewProblem` не
   покрыт автотестом (только DOM/aria — регресс CSS не поймает CI); zoom 200% проверен через
   `document.body.style.zoom`, не настоящий browser zoom; axe DevTools вручную не прогонялся
-  (нет доступа к расширению в headless-среде, честно задокументировано, owner — Step 8).
+  (нет доступа к расширению в headless-среде, честно задокументировано, owner на момент этой
+  записи — Step 8; после Amendment 3, `DECISIONS.md` 2026-07-15, — Step 9).
 - Required corrections: нет.
 - Evidence reviewed: независимый повторный прогон всех 6 verification commands (45/45 unit,
   6/6 e2e); повторные прогоны query-string и keyboard e2e-тестов (`--repeat-each=5`) — 10/10 и
@@ -546,8 +550,9 @@ npm run dev                # ручная проверка, затем проц�
      ("Desktop ≥1280: … без вертикального скролла"), упущенный в acceptance criteria Step 3 обоими
      раундами skeptic review. Требует исправления кода.
   2. **Фото офиса как фон** — подтверждено: это отдельный, уже запланированный этап "Art
-     direction" (`docs/13`, Этап 2), намеренно идущий после low-fidelity Steps 1–8 — не ошибка
-     Step 3, пользователь подтвердил продолжение по плану (без ускорения).
+     direction" (`docs/13`, Этап 2), намеренно идущий после low-fidelity Steps 1–8 (на момент этой
+     записи; после Amendment 3, `DECISIONS.md` 2026-07-15, — Steps 1–9) — не ошибка Step 3,
+     пользователь подтвердил продолжение по плану (без ускорения).
   3. **Локации по клику CTA** — реальное расхождение с утверждённым `docs/05` (там `overview`
      показывал все 5 отделов сразу). Задан прямой вопрос пользователю; ответ: отделы должны
      появляться по клику. `docs/05-homepage-state-machine.md` обновлён: добавлено состояние
@@ -555,7 +560,9 @@ npm run dev                # ручная проверка, затем проц�
      transition, относится к Step 4 ("Homepage state machine"), не к Step 3 (server-only, no-op
      клик). Step 3 уже соответствует новому `docs/05` в части "без JS — всё видно сразу"
      (progressive enhancement fallback), поэтому код Step 3 для этого пункта не менялся.
-  4. **10/90 при выборе** — подтверждено, уже Step 5 в плане, без изменений.
+  4. **10/90 при выборе** — подтверждено, на момент этой записи уже в плане Step 5, без изменений;
+     **после Amendment 3 (`DECISIONS.md` 2026-07-15) 10/90-раскладка выделена в отдельный
+     "Step 6 — Desktop 10/90 shell"**, а Step 5 стал "Department selection state machine".
 - Fixes (только пункт 1, no-scroll):
   - `WORKPLAN.md` Step 3: добавлен acceptance criterion 14 (no vertical scroll на desktop
     ≥1280×800/1440×900/1920×1080/1280×720), Step 3 `Status` временно возвращён в `IN_PROGRESS`.
@@ -870,7 +877,8 @@ npm run dev / npm run build && npm run start   # ручная проверка, 
   скрытое следствие чтения `searchParams`; не влияет на acceptance criteria этого шага, но стоит
   учитывать при будущих Performance-review (CLAUDE.md Performance rules "Render useful HTML
   immediately") на milestone-проверках.
-- Автоматизированный axe-scan по-прежнему не выполняется (owner — Step 8, как и в Step 3).
+- Автоматизированный axe-scan по-прежнему не выполняется (owner на момент этой записи — Step 8,
+  как и в Step 3; после Amendment 3, `DECISIONS.md` 2026-07-15, — Step 9).
 - Первый и единственный на данный момент client-компонент/blocking-script в проекте — оба паттерна
   впервые появляются в этом шаге; проверены вручную и e2e-тестами на отсутствие flash/hydration-
   mismatch, но это первый прецедент такого рода в кодовой базе (см. Risks плана).
@@ -950,7 +958,11 @@ npm run dev / npm run build && npm run start   # ручная проверка, 
 клика — ожидаемое low-fidelity поведение текущего milestone, CLAUDE.md "First milestone"), задан
 прямой вопрос об утверждении закрытия. Ответ пользователя, 2026-07-15: «Я подтверждаю. Закрывай
 Step 4». `WORKPLAN.md` Step 4 `Status` → `COMPLETED`; `README.md` — строка Step 4 → "Выполнено".
-Step 4 закрыт. Расширенный scope, перенесённый в Step 5 (полная state machine выбора отдела,
-10/90-раскладка, реальное автооткрытие по URL — см. `WORKPLAN.md` Step 4 Risks), и процессное
-требование добавить dev-mode console-проверки в Verification commands/Manual checks Step 5
-остаются в силе для следующего планирования.
+Step 4 закрыт. Расширенный scope, перенесённый на момент этой записи в единый будущий "Step 5"
+(полная state machine выбора отдела, 10/90-раскладка, реальное автооткрытие по URL — см.
+`WORKPLAN.md` Step 4 Risks), и процессное требование добавить dev-mode console-проверки в
+Verification commands/Manual checks остались в силе для последующего планирования. **После
+Amendment 3 (`DECISIONS.md` 2026-07-15, "Step 5: разбиение на два отдельных шага WORKPLAN")** этот
+объём разделён между новым "Step 5 — Department selection state machine" (state machine, URL
+auto-open) и новым "Step 6 — Desktop 10/90 shell" (10/90-раскладка); dev-mode проверка требуется в
+обоих.
