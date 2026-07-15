@@ -715,10 +715,11 @@ fallback, реализованный по прямому решению поль
 - Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
 - Step: Step 4 — Homepage state machine
 - Status before: `PROPOSED`
-- Status after: `IN_PROGRESS` (реализация выполнена, первый skeptic review исполнения — `PASS`
-  (`5b69e69`); затем пользователь нашёл реальный hydration-mismatch баг в dev-режиме — исправлено
-  (`91a4226`), см. "Correction iteration" ниже; ожидает повторного skeptic review этого
-  исправления)
+- Status after: `PASSED` (реализация выполнена; skeptic review исполнения прошёл 3 раунда — round 1
+  `PASS` (`5b69e69`) → пользователь нашёл hydration-mismatch баг в dev-режиме → исправлено
+  (`91a4226`) → round 2 `FAIL` (устаревшее bookkeeping-поле в этой же записи) → исправлено
+  (`786fe29`) → round 3 `PASS`, финальный; ожидает явного утверждения пользователем для перехода в
+  `COMPLETED`)
 
 ### Planning history (Step 4)
 
@@ -935,4 +936,10 @@ npm run dev / npm run build && npm run start   # ручная проверка, 
   `npm run test:e2e` — 16/16, затем `--repeat-each=3` — 48/48, flakiness не обнаружена. Дополнительно
   — впервые в этом шаге — независимая проверка именно `npm run dev` через headless Playwright:
   ноль сообщений в консоли, содержащих "hydrat" (было: 1 предупреждение до исправления, теперь: 0).
-- New verdict: _(заполняется после повторного вызова skeptic)_
+- New verdict: `PASS` (round 3 — коммит `91a4226` независимо перепроверен: `suppressHydrationWarning`
+  на `<html>` — единственное и корректное изменение, реальный hydration-warning в `npm run dev`
+  воспроизведён skeptic'ом через временный откат файла (негативный контроль) и подтверждено его
+  устранение; полный прогон verification suite + `test:e2e --repeat-each=5` (80/80) — чисто; скан
+  проекта на другие потенциальные dev-only hydration-риски — не найдено. Round 2 (`FAIL`, устаревшее
+  поле `Status after` в этой же записи) исправлено коммитом `786fe29`, round 3 подтвердил
+  согласованность bookkeeping-полей — тоже `PASS`, без замечаний.

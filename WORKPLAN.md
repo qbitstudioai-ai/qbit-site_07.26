@@ -534,10 +534,11 @@ CLAUDE.md).
 
 ## Step 4 — Homepage state machine
 
-- Status: `IN_PROGRESS` (пользователь, визуально проверяя `npm run dev`, нашёл реальный
-  hydration-mismatch console error в dev-режиме — пропущен и исполнителем, и skeptic'ом, так как
-  оба проверяли только production-сборку; исправлено — см. `WORKLOG.md`, Correction iteration;
-  ожидает повторного skeptic review)
+- Status: `PASSED` (пользователь нашёл реальный hydration-mismatch console error в dev-режиме
+  (пропущен и исполнителем, и skeptic'ом — оба проверяли только production-сборку); исправлено
+  (`91a4226`) и подтверждено skeptic'ом за 3 раунда review исполнения (round 1 `PASS` → находка
+  пользователя → round 2 `FAIL` bookkeeping → round 3 `PASS`, финальный) — см. `WORKLOG.md`, Entry 4;
+  ожидает явного утверждения пользователем для перехода в `COMPLETED`)
 - Objective: Реализовать переход `hero → overview` по клику любой CTA (`ACTIVATE_CTA`) — при
   включённом JavaScript пять отделов по умолчанию скрыты и раскрываются только после клика по
   `primaryCta` ИЛИ `secondaryCta`; без JavaScript ничего не меняется относительно уже
@@ -878,7 +879,14 @@ directly addressable by URL", которые интуитивно предпол
   honesty-правки `docs/05` по прецеденту Step 3, так как текущая формулировка документа описывает
   только пропуск `hero`, не автооткрытие отдела. Детальный план этого шага должен явно учесть этот
   больший объём при оценке risk/scope, а не унаследовать грубую 3-пунктовую формулировку ниже
-  без пересмотра.
+  без пересмотра. **Дополнительно (процессная заметка от skeptic, Step 4 correction iteration):**
+  Step 5 вводит существенно больше client-side состояния, чем Step 4 (первый и пока единственный
+  client-компонент проекта уже показал реальный dev-only hydration-mismatch баг, пропущенный и
+  исполнителем, и skeptic'ом, потому что все verification commands/manual checks проверяли только
+  `npm run build && npm run start`, а не `npm run dev` — см. `WORKLOG.md` Entry 4, Correction
+  iteration). План Step 5 должен явно включить проверку консоли браузера именно в `npm run dev`
+  (не только production-сборку) в Verification commands/Manual checks, а не полагаться на
+  разовые ручные скрипты, как это было исправлено постфактум в Step 4.
 - Dependencies: Step 4 (`COMPLETED`).
 - Expected files: _(детализируется перед стартом шага)_
 - Acceptance criteria:
