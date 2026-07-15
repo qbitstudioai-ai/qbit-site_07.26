@@ -534,10 +534,9 @@ CLAUDE.md).
 
 ## Step 4 — Homepage state machine
 
-- Status: `AWAITING_SKEPTIC` (план утверждён пользователем 2026-07-15: "продолжай" — ответ на прямой
-  вопрос "Do you approve starting implementation of Step 4 as described?"; реализация выполнена
-  (см. `WORKLOG.md`, Entry 4), все verification commands green (55/55 unit, 16/16 + 48/48 e2e),
-  ожидает review исполнения skeptic'ом)
+- Status: `PASSED` (реализация выполнена и прошла независимый skeptic review исполнения — `PASS`,
+  без Blocker/Critical/Major находок; ожидает явного утверждения пользователем для перехода в
+  `COMPLETED`)
 - Objective: Реализовать переход `hero → overview` по клику любой CTA (`ACTIVATE_CTA`) — при
   включённом JavaScript пять отделов по умолчанию скрыты и раскрываются только после клика по
   `primaryCta` ИЛИ `secondaryCta`; без JavaScript ничего не меняется относительно уже
@@ -767,12 +766,32 @@ CLAUDE.md).
   согласованности bookkeeping-полей Status/Skeptic verdict/Skeptic findings/Completion evidence
   после round 8) — `PASS`: все поля независимо подтверждены согласованными друг с другом и с
   реальной `git log` историей; содержательная часть плана (не тронутая с round 7) остаётся в силе.
-- Skeptic findings: round 7 — Major (устаревшая формулировка Status); round 8 — Major
+- Skeptic findings (Phase A): round 7 — Major (устаревшая формулировка Status); round 8 — Major
   (несогласованность нумерации раундов в тех же полях); round 9 — Blocker/Critical/Major/Minor нет.
   Оба класса находок round 7/8 устранены точечными правками без изменения scope/содержания плана;
   round 9 подтвердил отсутствие рецидива той же ошибки.
-- Completion evidence: план ещё не реализован — Completion evidence по исполнению будет добавлено
-  после Phase B.
+- Skeptic verdict (review исполнения, Phase B, коммит `820b87a`): `PASS` — с первого раунда review
+  исполнения, без FAIL/BLOCKED. Независимо перепроверены: grep-подтверждение единственного
+  `'use client'`-файла в проекте и отсутствия прямых импортов `src/content/*` из него;
+  `git diff HEAD~1 -- DepartmentHotspot.tsx` пуст (файл действительно не менялся); архитектурная
+  надёжность anti-flash техники (порядок `<head>`: `<link rel="stylesheet">` перед блокирующим
+  `<script>` — рендеринг блокируется до применения `.js`-класса, не полагается на удачный тайминг);
+  независимый повторный прогон всех 6 verification commands + `test:e2e --repeat-each=5` (80/80,
+  строже заявленного `--repeat-each=3`); все 13 acceptance criteria проверены по отдельности с
+  конкретными доказательствами; `git diff --stat f3f2b58 820b87a` (20 файлов, в рамках Expected
+  files плюс 2 честно раскрytых отклонения); `package.json`/`package-lock.json` diff пуст
+  (подтверждён отказ от Zustand, OQ-1).
+- Skeptic findings (Phase B): Blocker/Critical/Major — нет. Minor: (1) тест
+  `office-experience.test.tsx` по названию заявляет проверку CSS-класса `hiddenUntilRevealed`, но
+  фактически проверяет только атрибут `data-revealed` — компенсируется e2e-тестами, функционального
+  пробела нет; (2) несущественная неточность в промпте review (упоминание "4 записей DECISIONS.md"
+  вместо фактических 3 — ответ на OQ-3 включён в запись про конфликт OQ-2/OQ-3) — не дефект
+  реализации.
+- Completion evidence: `WORKLOG.md`, Entry 4; независимый повторный прогон всех 6 verification
+  commands (55/55 unit, 16/16 e2e, дополнительно 80/80 при `--repeat-each=5`); `git diff --stat
+  f3f2b58 820b87a`; grep на `'use client'` и на импорты `@/content/*` — подтверждена корректность
+  server/client границы; `git diff HEAD~1 -- DepartmentHotspot.tsx` пуст; `package.json`/
+  `package-lock.json` diff пуст.
 
 ### Open questions (Step 4) — RESOLVED 2026-07-15
 

@@ -715,7 +715,8 @@ fallback, реализованный по прямому решению поль
 - Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
 - Step: Step 4 — Homepage state machine
 - Status before: `PROPOSED`
-- Status after: `IN_PROGRESS` (реализация выполнена, ожидает skeptic review исполнения)
+- Status after: `PASSED` (реализация выполнена, skeptic review исполнения — `PASS`; ожидает
+  явного утверждения пользователем для перехода в `COMPLETED`)
 
 ### Planning history (Step 4)
 
@@ -873,8 +874,31 @@ npm run dev / npm run build && npm run start   # ручная проверка, 
 
 ### Skeptic review
 
-- _(запрошен, см. следующее сообщение сессии)_
+- Agent: `skeptic`
+- Verdict: `PASS` (первый раунд review исполнения, без FAIL/BLOCKED)
+- Findings: Blocker/Critical/Major — нет. Minor: (1) `office-experience.test.tsx` по названию
+  заявляет проверку CSS-класса `hiddenUntilRevealed`, но фактически проверяет только атрибут
+  `data-revealed` — не функциональный пробел (e2e независимо закрывает визуальную/accessibility-
+  tree часть через реальный Chromium); (2) неточность в тексте review-промпта ("4 записи
+  DECISIONS.md" вместо фактических 3) — не дефект реализации.
+- Required corrections: нет.
+- Evidence reviewed: построчное чтение всех 9 изменённых/новых файлов кода (не тестов);
+  `grep`-подтверждение, что `OfficeMachine.tsx` — единственный `'use client'`-файл в проекте и не
+  импортирует `src/content/*` рантайм-adapter'ы (только `import type`); `git diff HEAD~1 --
+  DepartmentHotspot.tsx` — пуст (файл действительно не менялся); независимая проверка архитектурной
+  надёжности anti-flash техники через реальный HTML production-сборки (`curl` на `npm run start`) —
+  порядок `<head>`: `<link rel="stylesheet">` перед блокирующим `<script>`, рендеринг блокируется
+  до применения `.js`-класса (не полагается на удачный тайминг, в отличие от простого "обычно
+  успевает"); независимый повторный прогон всех 6 verification commands (55/55 unit, 16/16 e2e) +
+  `test:e2e --repeat-each=5` (строже заявленного `--repeat-each=3`) — 80/80 passed, flakiness не
+  обнаружена; все 13 acceptance criteria плана проверены по отдельности с конкретными
+  доказательствами (см. `WORKPLAN.md` Step 4, Skeptic verdict); `git diff --stat f3f2b58 820b87a`
+  (20 файлов, в рамках Expected files плюс 2 честно раскрытых отклонения); `package.json`/
+  `package-lock.json` diff пуст (подтверждён отказ от Zustand); реальный HTML-payload
+  production-сборки содержит полный hero + все 5 хотспотов сразу (скрыты только CSS-классом, не
+  вырезаны из разметки) — "Render useful HTML immediately" (CLAUDE.md) соблюдается несмотря на то,
+  что маршрут стал `dynamic`.
 
 ### Correction iteration
 
-- _(пусто на момент записи — заполняется при необходимости после skeptic review)_
+- Не потребовалась — skeptic вернул `PASS` с первого раунда review исполнения, без FAIL/BLOCKED.
