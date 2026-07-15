@@ -715,11 +715,11 @@ fallback, реализованный по прямому решению поль
 - Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
 - Step: Step 4 — Homepage state machine
 - Status before: `PROPOSED`
-- Status after: `PASSED` (реализация выполнена; skeptic review исполнения прошёл 3 раунда — round 1
+- Status after: `COMPLETED` (реализация выполнена; skeptic review исполнения прошёл 3 раунда — round 1
   `PASS` (`5b69e69`) → пользователь нашёл hydration-mismatch баг в dev-режиме → исправлено
   (`91a4226`) → round 2 `FAIL` (устаревшее bookkeeping-поле в этой же записи) → исправлено
-  (`786fe29`) → round 3 `PASS`, финальный; ожидает явного утверждения пользователем для перехода в
-  `COMPLETED`)
+  (`786fe29`) → round 3 `PASS`, финальный; закрытие явно утверждено пользователем, 2026-07-15:
+  «Я подтверждаю. Закрывай Step 4»)
 
 ### Planning history (Step 4)
 
@@ -943,3 +943,14 @@ npm run dev / npm run build && npm run start   # ручная проверка, 
   проекта на другие потенциальные dev-only hydration-риски — не найдено. Round 2 (`FAIL`, устаревшее
   поле `Status after` в этой же записи) исправлено коммитом `786fe29`, round 3 подтвердил
   согласованность bookkeeping-полей — тоже `PASS`, без замечаний.
+
+### Closing
+
+Пользователю продемонстрирован итог (hero-only состояние до клика, раскрытие 5 отделов после
+клика — ожидаемое low-fidelity поведение текущего milestone, CLAUDE.md "First milestone"), задан
+прямой вопрос об утверждении закрытия. Ответ пользователя, 2026-07-15: «Я подтверждаю. Закрывай
+Step 4». `WORKPLAN.md` Step 4 `Status` → `COMPLETED`; `README.md` — строка Step 4 → "Выполнено".
+Step 4 закрыт. Расширенный scope, перенесённый в Step 5 (полная state machine выбора отдела,
+10/90-раскладка, реальное автооткрытие по URL — см. `WORKPLAN.md` Step 4 Risks), и процессное
+требование добавить dev-mode console-проверки в Verification commands/Manual checks Step 5
+остаются в силе для следующего планирования.

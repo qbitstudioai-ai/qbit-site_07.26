@@ -534,11 +534,11 @@ CLAUDE.md).
 
 ## Step 4 — Homepage state machine
 
-- Status: `PASSED` (пользователь нашёл реальный hydration-mismatch console error в dev-режиме
+- Status: `COMPLETED` (пользователь нашёл реальный hydration-mismatch console error в dev-режиме
   (пропущен и исполнителем, и skeptic'ом — оба проверяли только production-сборку); исправлено
   (`91a4226`) и подтверждено skeptic'ом за 3 раунда review исполнения (round 1 `PASS` → находка
   пользователя → round 2 `FAIL` bookkeeping → round 3 `PASS`, финальный) — см. `WORKLOG.md`, Entry 4;
-  ожидает явного утверждения пользователем для перехода в `COMPLETED`)
+  закрытие явно утверждено пользователем, 2026-07-15: «Я подтверждаю. Закрывай Step 4»)
 - Objective: Реализовать переход `hero → overview` по клику любой CTA (`ACTIVATE_CTA`) — при
   включённом JavaScript пять отделов по умолчанию скрыты и раскрываются только после клика по
   `primaryCta` ИЛИ `secondaryCta`; без JavaScript ничего не меняется относительно уже
