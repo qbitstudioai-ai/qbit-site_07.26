@@ -33,6 +33,12 @@ CLAUDE.md).
   каждого шага 2–8 будет заново пройден через planner → skeptic review плана → отдельное
   утверждение пользователя непосредственно перед своим стартом** — сейчас утверждено начало
   исполнения только Step 1 в полном объёме, описанном ниже.
+- Amendment 3 (2026-07-15): скелет шагов расширен с 8 до 9 по прямому решению пользователя (OQ-D
+  = (b) — "Разбить на два шага", см. `DECISIONS.md`, 2026-07-15 "Step 5: разбиение на два
+  отдельных шага WORKPLAN (OQ-D, Amendment 3)"). Единый черновик "Step 5 — Desktop 10/90 shell"
+  формально разбит на "Step 5 — Department selection state machine" и "Step 6 — Desktop 10/90
+  shell"; бывшие Step 6/7/8 сдвинуты на Step 7/8/9. Полная формальная запись — см. `Plan
+  amendments` → `Amendment 3` ниже.
 
 ## Step 1 — Repository and quality foundation
 
@@ -263,9 +269,11 @@ CLAUDE.md).
     не потеряны по невнимательности.
 - Risks:
   - **Known issue (решено, не отложено):** типы Step 2 не покрывают `beforeSteps`/
-    `automationSteps`/`visual` из `docs/12` — начиная со Step 5 (Desktop 10/90 shell), где по
-    Core concept CLAUDE.md нужно показывать "текущий процесс/сценарий автоматизации", это будет
-    видимым ограничением типов, а не скрытым. Дозаполнение `data/departments.json` — отдельная
+    `automationSteps`/`visual` из `docs/12` — начиная со Step 5 ("Department selection state
+    machine") и далее Step 6 ("Desktop 10/90 shell", после Amendment 3 — см. `DECISIONS.md`
+    2026-07-15), где по Core concept CLAUDE.md нужно показывать "текущий процесс/сценарий
+    автоматизации", это будет видимым ограничением типов, а не скрытым. Дозаполнение
+    `data/departments.json` — отдельная
     контентная задача, не назначенная сейчас конкретному шагу (решение пользователя, 2026-07-14).
   - **Server/client граница:** adapter-модули `src/content/*.ts` спроектированы как server-only;
     если в Step 4/5 кто-то по невнимательности импортирует их в `'use client'`-компонент, zod и
@@ -320,7 +328,8 @@ CLAUDE.md).
     - `src/components/homepage/HeroCopy.tsx` — рендерит ровно один `<h1>` (`headline`),
       `subheadline`, `valuePoints` (`<ul>`), `primaryCta` (видимая, сфокусируемая, но
       функционально no-op — реального адресата диагностики/lead capture нет ни в этом шаге, ни во
-      всём текущем 8-шаговом milestone, CLAUDE.md "First milestone": без backend/CRM),
+      всём текущем (на момент этого шага — 8-шаговом, ныне 9-шаговом после Amendment 3, см.
+      `DECISIONS.md` 2026-07-15) milestone, CLAUDE.md "First milestone": без backend/CRM),
       `secondaryCta` — рабочая внутристраничная ссылка (`href="#office-map"`) на карту офиса
       (входит в scope Step 3, в отличие от `primaryCta`, у которой нет адресата вовсе).
     - `src/components/office/OfficeExperience.tsx` — тонкий server-контейнер; рендерит
@@ -351,7 +360,8 @@ CLAUDE.md).
       создание любого декоративного слоя сейчас означало бы неявный выбор техники в обход
       открытого вопроса; (b) Step 3 acceptance criterion "Hero виден без сложного visual layer"
       прямо поддерживает минимализм; (c) CLAUDE.md "First milestone: No final 3D art". Owner
-      будущего решения — см. Risks (владелец: перед стартом Step 7, а не "без owner").
+      будущего решения — см. Risks (владелец: на момент этого шага — перед стартом Step 7; **после
+      Amendment 3 (`DECISIONS.md` 2026-07-15) — перед стартом Step 8**, а не "без owner").
     - `reference` (PNG-пути к детальным сценам отделов) не используется в Step 3 — это ассеты
       будущей `DepartmentScene`, не overview-иконки (Performance budget `docs/10`: не грузить все
       оригиналы сразу).
@@ -377,20 +387,27 @@ CLAUDE.md).
   - `department-preview` (JS-часть)/`opening`/`active`/`switching`/`closing` состояния, Zustand,
     URL-синхронизация `?department=<id>`, 10/90-раскладка, `DepartmentNavigationRail`,
     `DepartmentExperience`, `DepartmentScene`, `BeforeAfterSequence`, `OutcomePanel`,
-    `DepartmentCTA` — Step 4/5.
+    `DepartmentCTA` — на момент этого шага ожидалось в Step 4/5; **по факту (после решений Step 4
+    OQ-2 и Amendment 3, `DECISIONS.md` 2026-07-15): состояния/переходы выбора отдела — Step 5
+    ("Department selection state machine"), раскладка/`DepartmentNavigationRail`/`DepartmentCopy`/
+    `OutcomePanel`/`DepartmentCTA` — Step 6 ("Desktop 10/90 shell"), `DepartmentScene`/
+    `BeforeAfterSequence` решением по OQ-C не создаются вовсе**.
   - `OfficeVisualLayer`, WebGL/Canvas, GSAP, motion orchestration — не вводятся.
   - Реальный адресат `primaryCta` (диагностика/lead capture, `docs/13` Этап 8) — вне scope всего
-    текущего 8-шагового milestone.
+    текущего (на момент этого шага — 8-шагового, ныне 9-шагового после Amendment 3) milestone.
   - Использование `reference` PNG-путей отделов.
-  - Полноценный error-fallback state (`docs/05`, `FallbackExperience`) — закреплён за Step 7. В
-    Step 3 "fallback" означает: (a) progressive enhancement — hero и 5 кнопок реально в статичном
-    server-rendered HTML, доступны с клавиатуры без JavaScript (проверяется тестом с
-    `javaScriptEnabled: false`); (b) `prefers-reduced-motion` отключает CSS-переходы.
-  - Mobile/tablet-раскладка (`docs/08`) — Step 6. Ручная проверка Step 3 — desktop ≥1280px.
+  - Полноценный error-fallback state (`docs/05`, `FallbackExperience`) — на момент этого шага
+    закреплён за Step 7; **после Amendment 3 — за Step 8**. В Step 3 "fallback" означает: (a)
+    progressive enhancement — hero и 5 кнопок реально в статичном server-rendered HTML, доступны с
+    клавиатуры без JavaScript (проверяется тестом с `javaScriptEnabled: false`); (b)
+    `prefers-reduced-motion` отключает CSS-переходы.
+  - Mobile/tablet-раскладка (`docs/08`) — на момент этого шага Step 6; **после Amendment 3 —
+    Step 7**. Ручная проверка Step 3 — desktop ≥1280px.
   - Site-wide навигационное меню в `Header`.
   - Автоматизированное axe-сканирование — **не добавляется в Step 3, владелец назначен**: ручная
     проверка расширением axe DevTools сейчас; автоматизация (`@axe-core/playwright` или аналог) —
-    явно закреплена за Step 8 ("Browser acceptance tests"), не оставлена без owner'а.
+    на момент этого шага была закреплена за Step 8 ("Browser acceptance tests"); **после
+    Amendment 3 — за Step 9** (то же название), не оставлена без owner'а.
   - Правка `docs/09-technical-architecture.md` (отсутствие `OfficeVisualLayer` в первом
     milestone) — known issue в `DECISIONS.md`, не правка approved-документа.
   - Правка `data/*.json`, `MANIFEST.json`, CI pipeline.
@@ -487,10 +504,11 @@ CLAUDE.md).
     (`office-overview-keyboard.spec.ts`). При уточнении зон на art-direction milestone (`docs/13`
     Этап 2) эти тесты и Tab-порядок почти наверняка потребуют пересмотра — это ожидаемая, а не
     случайная будущая правка; owner — art-direction milestone, не Step 3.
-  - **`OfficeVisualLayer` без владельца до Step 7:** отсутствие декоративного визуального слоя в
-    Step 3 оставляет вопрос "что вообще является visual layer, для которого Step 7 делает
-    fallback" открытым до старта Step 7 — явно зафиксировано здесь, будет решаться перед
-    планированием Step 7, не сейчас.
+  - **`OfficeVisualLayer` без владельца до Step 7 (на момент этого шага; после Amendment 3,
+    `DECISIONS.md` 2026-07-15, — до Step 8):** отсутствие декоративного визуального слоя в
+    Step 3 оставляет вопрос "что вообще является visual layer, для которого этот будущий шаг
+    делает fallback" открытым до его старта — явно зафиксировано здесь, будет решаться перед
+    планированием этого шага, не сейчас.
   - Малые зоны (`office-zones.json`: HR width 26/height 32, executive width 35/height 24) при hover-
     раскрытии `overviewProblem` могут визуально не помещаться на узких desktop-ширинах (1280px) —
     low-fidelity trade-off, уточняется на art-direction milestone; проверяется ручным check, не
@@ -511,7 +529,7 @@ CLAUDE.md).
 - Skeptic findings:
   - Round 1: Blocker/Critical/Major — нет. Minor: визуальный CSS-toggle `overviewProblem` не
     покрыт автотестом; zoom 200% проверялся эмуляцией `document.body.style.zoom`; axe DevTools
-    вручную не прогонялся (owner: Step 8).
+    вручную не прогонялся (owner: на момент этого шага — Step 8; после Amendment 3 — Step 9).
   - Round 2 (`FAIL`): Blocker — `docs/05` вводящая в заблуждение формулировка про no-JS fallback;
     Major — no-scroll фикс не имел нижнего предела высоты (24.7px хотспот на 1280×500); Major —
     `DECISIONS.md` не раскрывала этот trade-off. Все три устранены в correction iteration 2.
@@ -556,10 +574,14 @@ CLAUDE.md).
   (изначально запрошенное пользователем поведение) переносится в Step 5 вместе с остальной логикой
   выбора отдела (решение пользователя по конфликту OQ-2/OQ-3, см. `DECISIONS.md` 2026-07-15).
   Полная 10/90-раскладка, `DepartmentNavigationRail`, `DepartmentScene`/`BeforeAfterSequence`/
-  `OutcomePanel`, mobile touch flow, GSAP-анимации — вне scope Step 4 (Step 5/6/7 по уже
-  утверждённому 8-шаговому скелету). Диагностика/`contact-open` — вне scope всего текущего
-  8-шагового milestone целиком (см. уже утверждённую формулировку Step 3; `docs/13` Этап 8 —
-  отдельная будущая макро-фаза, не один из Steps 1–8).
+  `OutcomePanel`, mobile touch flow, GSAP-анимации — вне scope Step 4 (на момент закрытия этого
+  шага — Step 5/6/7 по тогда утверждённому 8-шаговому скелету; **после Amendment 3, см.
+  `DECISIONS.md` 2026-07-15, скелет стал 9-шаговым: 10/90-раскладка/`DepartmentNavigationRail` —
+  теперь Step 6, `DepartmentScene`/`BeforeAfterSequence` решением по OQ-C вовсе не создаются ни в
+  одном шаге, mobile touch flow — теперь Step 7**). Диагностика/`contact-open` — вне scope всего
+  текущего (на момент закрытия Step 4 — 8-шагового, ныне 9-шагового после Amendment 3) milestone
+  целиком (см. уже утверждённую формулировку Step 3; `docs/13` Этап 8 — отдельная будущая
+  макро-фаза, не один из Steps 1–9).
 - In scope:
   - **`hero → overview` по `ACTIVATE_CTA`.** Обе CTA (`primaryCta`, `secondaryCta`) при включённом
     JS вызывают одно и то же раскрытие (уже решено, см. `DECISIONS.md` 2026-07-14 "Изменение
@@ -629,20 +651,28 @@ CLAUDE.md).
   - Явное состояние выбора отдела целиком (`SELECT_DEPARTMENT`/`CLOSE_DEPARTMENT`/`ESCAPE`,
     `opening`/`active`/`switching`/`closing`), автоматическое открытие конкретного отдела по прямому
     URL, обновление URL при выборе отдела, полная 10/90-раскладка, `DepartmentNavigationRail`,
-    содержимое отдела (сцена, до/после, outcome-панель, `DepartmentCTA`) — **всё целиком переходит
-    в Step 5** (решение пользователя по OQ-2/OQ-3, см. `DECISIONS.md` 2026-07-15; см. также Risks
-    ниже про расширенный scope Step 5).
+    содержимое отдела (сцена, до/после, outcome-панель, `DepartmentCTA`) — **на момент закрытия
+    Step 4 целиком переходило в тогдашний "Step 5"** (решение пользователя по OQ-2/OQ-3, см.
+    `DECISIONS.md` 2026-07-15; см. также Risks ниже про расширенный scope Step 5). **После
+    Amendment 3 (`DECISIONS.md` 2026-07-15, "Step 5: разбиение на два отдельных шага") этот объём
+    разделён: state machine/выбор отдела — Step 5 ("Department selection state machine"); полная
+    10/90-раскладка, `DepartmentNavigationRail`, `DepartmentCopy`/`OutcomePanel`/`DepartmentCTA` —
+    Step 6 ("Desktop 10/90 shell"); `DepartmentScene`/`BeforeAfterSequence` решением по OQ-C не
+    создаются вовсе ни в одном шаге.**
   - `beforeSteps`/`automationSteps`/структурированный `visual` — физически отсутствуют в
     `data/departments.json` (известный, принятый gap Step 2); Step 4 не полагается на них.
   - GSAP, любые motion-timeline библиотеки, Zustand — не вводятся (решения по OQ-1 и по уже
     принятому исключению GSAP); переходы состояния реализуются `useState`/`useReducer` +
     show/hide через классы/атрибуты, не анимационным движком.
-  - Полноценный `error-fallback` (`FallbackExperience`) — Step 7 ("Reduced motion and fallback"),
-    часть текущего 8-шагового milestone.
+  - Полноценный `error-fallback` (`FallbackExperience`) — на момент закрытия Step 4 это был Step 7
+    ("Reduced motion and fallback"); **после Amendment 3 (`DECISIONS.md` 2026-07-15) — Step 8**,
+    часть текущего (ныне 9-шагового) milestone.
   - Диагностика (`OPEN_DIAGNOSTIC`, `diagnostic-*`), `contact-open` — вне scope всего текущего
-    8-шагового milestone (Steps 1–8), не только Step 4; см. уже утверждённую формулировку Step 3.
-    Появляются только в `docs/13` Этап 8 — отдельной будущей макро-фазе, не одном из Steps 1–8.
-  - Mobile/tablet-раскладка и touch-специфика (`docs/08` Tablet/Mobile) — Step 6; ручная проверка
+    (на момент закрытия Step 4 — 8-шагового, ныне 9-шагового после Amendment 3, Steps 1–9), не
+    только Step 4; см. уже утверждённую формулировку Step 3.
+    Появляются только в `docs/13` Этап 8 — отдельной будущей макро-фазе, не одном из Steps 1–9.
+  - Mobile/tablet-раскладка и touch-специфика (`docs/08` Tablet/Mobile) — на момент закрытия Step 4
+    это был Step 6; **после Amendment 3 — Step 7**; ручная проверка
     Step 4 — desktop ≥1280px, как в Step 3.
   - Правка `data/departments.json`, `MANIFEST.json`, CI pipeline.
 - Dependencies: Step 3 (`COMPLETED`). OQ-1/OQ-2/OQ-3 получили ответ пользователя 2026-07-15 (см.
@@ -746,13 +776,18 @@ CLAUDE.md).
     больший объём работы для одного будущего шага, чем предполагала исходная грубая формулировка
     Step 5 в этом файле — при детальном планировании Step 5 (planner + skeptic review плана) это
     нужно явно учесть, возможно разбив Step 5 на явно выделенные под-этапы верификации.
+    **Разрешено при планировании (2026-07-15): именно это и произошло** — planner вынес вопрос
+    разбиения как OQ-D, пользователь выбрал формальное разбиение (Amendment 3, см.
+    `DECISIONS.md`): "Step 5" из этого абзаца теперь называется **"Step 6 — Desktop 10/90 shell"**,
+    а state machine выбора отдела ((б)/(в) из перечисления выше) стала отдельным **новым
+    "Step 5 — Department selection state machine"**.
   - **Low-height fallback (Step 3 correction) взаимодействие с hidden-by-default хотспотами** —
     `min-height: 340px` на `.zoneList` при `max-height: 700px` рассчитан для уже видимых хотспотов;
     нужно перепроверить, что раскрытие после `ACTIVATE_CTA` на 1280×500 не ломает уже
     зафиксированные измерения (81.6–122.4px).
   - Scope creep: соблазн реализовать реальную 10/90-раскладку или выбор отдела "заодно" — явно
-    отклоняется ссылкой на решение пользователя и уже утверждённый 8-шаговый скелет (Step 5 —
-    отдельный шаг).
+    отклоняется ссылкой на решение пользователя и уже утверждённый (на тот момент 8-шаговый, ныне
+    9-шаговый после Amendment 3) скелет (Step 5/Step 6 — отдельные шаги).
 - Rollback: `git revert` диапазона коммитов Step 4 (аддитивно относительно Step 3: новый
   state-модуль + точечные правки существующих компонентов/тестов). Деструктивный
   `git reset --hard` — только с явного разрешения пользователя, как в предыдущих шагах.
@@ -865,247 +900,250 @@ directly addressable by URL", которые интуитивно предпол
   выбор отдела вовсе (OQ-2 = (c)), открыть `department-active` физически нечем, и вариант (a)
   остаётся единственно возможным независимо от ответа на этот вопрос.
 
-## Step 5 — Desktop 10/90 shell
+## Step 5 — Department selection state machine
 
 - Status: `PROPOSED`
 - Objective: Реализовать полную state machine выбора отдела с нуля (`SELECT_DEPARTMENT`/
   `CLOSE_DEPARTMENT`/`ESCAPE`, переходы `opening → active ↔ switching → closing` по
-  `docs/05-homepage-state-machine.md`) и полную 10/90-раскладку (`docs/08-responsive-behavior.md`
-  "Desktop ≥1280"; Core concept CLAUDE.md): выбранный отдел разворачивается в основную область
-  ~90%, остальные четыре — в навигационную rail ~10% (`DepartmentNavigationRail`), без перезагрузки
-  страницы. Это — весь объём, явно перенесённый сюда решением пользователя при планировании Step 4
-  (OQ-2 = (c) + разрешение конфликта OQ-2/OQ-3, см. `DECISIONS.md` 2026-07-15): Step 4 сознательно
-  не реализовал ничего из выбора отдела, поэтому Step 5 строит его целиком, а не расширяет
-  существующий код. Хотспоты (клик/Enter/Space), остававшиеся no-op в Step 3/4, в этом шаге
-  инвертируются — становятся реальным `SELECT_DEPARTMENT`. Также реализуется реальное
-  автоматическое открытие конкретного отдела по прямому URL `?department=<id>` при первой загрузке
-  (не только пропуск `hero`, который уже делает Step 4) и синхронизация URL при последующем
-  выборе/переключении отдела без полной перезагрузки. Это потребует ещё одной honesty-правки
-  `docs/05` (по прецеденту Step 3) — текущая формулировка документа описывает только пропуск
-  `hero`, не автооткрытие самого отдела; правка выполняется как часть этого шага, а не тихо
-  откладывается.
+  `docs/05-homepage-state-machine.md`) — весь объём "выбора отдела", явно перенесённый сюда
+  решением пользователя при планировании Step 4 (OQ-2 = (c) + разрешение конфликта OQ-2/OQ-3, см.
+  `DECISIONS.md` 2026-07-15): Step 4 сознательно не реализовал ничего из выбора отдела, поэтому
+  этот шаг строит его целиком, а не расширяет существующий код. Хотспоты (клик/Enter/Space),
+  остававшиеся no-op в Step 3/4, инвертируются в этом шаге — становятся реальным
+  `SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT` с нативной семантикой `<button>`. Также реализуется
+  реальное автоматическое открытие конкретного отдела по прямому URL `?department=<id>` при первой
+  загрузке (не только пропуск `hero`, который уже делает Step 4) и синхронизация URL при
+  последующем клиентском выборе/переключении/закрытии отдела без полной перезагрузки страницы.
 
-  Учтено процессное требование, добавленное в заглушку этого шага после инцидента Step 4
-  (реальный, пропущенный и исполнителем, и skeptic'ом hydration-mismatch баг, видимый только в
-  `npm run dev`, а не в production-сборке): Verification commands и Manual checks этого шага
-  обязательно включают отдельную, реально выполняемую проверку консоли браузера именно в
-  dev-режиме (не только `npm run build && npm run start`), см. ниже.
+  Переходы `opening/switching/closing` реализуются CSS-классами, управляемыми состоянием редьюсера
+  — тем же паттерном, что уже использован для `hero ↔ overview` в Step 4 (решение пользователя по
+  OQ-A, см. `DECISIONS.md` 2026-07-15 "Step 5: механизм переходов opening/switching/closing
+  (OQ-A)"; GSAP не вводится). Синхронизация URL реализуется сырым `history.pushState`/
+  `replaceState`, без `next/navigation` `useRouter`/`useSearchParams` (решение пользователя по
+  OQ-B, см. `DECISIONS.md` 2026-07-15 "Step 5: механизм синхронизации URL... (OQ-B)").
 
-  **Не решено planner'ом и вынесено пользователю напрямую (см. "Open questions" ниже), а не тихо
-  выбрано:** (a) техника переходов `opening/switching/closing` — GSAP (упомянут в `docs/09`
-  "Стек", но ни разу не введён за Steps 1–4) или CSS/`useReducer`-driven классы (тот же подход, что
-  уже использован для `hero → overview` в Step 4); (b) механизм синхронизации URL при клиентском
-  выборе/переключении отдела без перезагрузки — Next.js `useRouter`/`usePathname`/`useSearchParams`
-  (`next/navigation`) или сырой `history.pushState`/`replaceState`; (c) степень детализации
-  содержимого 90%-области — полноценное дерево `DepartmentScene`/`DepartmentCopy`/
-  `BeforeAfterSequence`/`OutcomePanel`/`DepartmentCTA` из `docs/09`, упрощённый набор без
-  сцены/до-после-последовательности (аналогично тому, как Step 3 намеренно пропустил
-  `OfficeVisualLayer`), или блокировка содержимого отдела до дополнения `data/departments.json`
-  полями `beforeSteps`/`automationSteps` (известный, не назначенный ни одному шагу gap Step 2); (d)
-  процессный вопрос о границах самого шага — исполнять всё перечисленное как один WORKPLAN-шаг с
-  внутренними последовательно проверяемыми под-фазами, или формально разбить на два отдельных
-  WORKPLAN-шага (state machine отдельно от 10/90-раскладки — ближе к перечню "хороших шагов"
-  `docs/17-execution-protocol.md`, где это два разных пункта, 4 и 5) ценой пересогласования уже
-  утверждённого 8-шагового скелета (сдвиг нумерации Steps 6–8 → 7–9, формальный Amendment).
+  Это требует ещё одной honesty-правки `docs/05` (по прецеденту Step 3, "honesty-правка docs/05
+  после skeptic FAIL") — текущая формулировка раздела `hero` документа описывает только пропуск
+  `hero` при прямом URL, не автооткрытие самого отдела; кроме того, разделы `department-opening`/
+  `department-active`/`department-switching`/`department-closing` документа буквально описывают
+  уже готовую 10/90-оболочку ("Оболочка 10/90 сохраняется"), которой в этом шаге ещё не существует
+  (10/90-раскладка — отдельный, следующий "Step 6 — Desktop 10/90 shell"). Правка выполняется как
+  часть этого шага, а не тихо откладывается, и явно раскрывает оба разрыва документ/код.
+
+  Содержимое отдела в этом шаге — намеренно минимальный, неоформленный блок: простой контейнер с
+  `headline`/`problem`/`symptoms` (не более 3 показанных — `docs/12` "максимум три симптома в
+  основном UI", данные уже содержат ровно 3)/`outcomes[]`/CTA и явной кнопкой «Закрыть», без
+  10/90-раскладки и без `DepartmentNavigationRail` — полноценная 10/90-раскладка,
+  `DepartmentNavigationRail` и компонентное дерево `DepartmentExperience`/`DepartmentCopy`/
+  `OutcomePanel`/`DepartmentCTA` формально перенесены в отдельный "Step 6 — Desktop 10/90 shell"
+  (решение пользователя по OQ-D, "Amendment 3", см. `DECISIONS.md` 2026-07-15; см. также
+  Dependencies шага "Step 6 — Desktop 10/90 shell" ниже). Решение о глубине содержимого
+  90%-области (OQ-C — только `DepartmentCopy`/`OutcomePanel`/`DepartmentCTA`, без
+  `DepartmentScene`/`BeforeAfterSequence`) относится к архитектуре компонентного дерева именно
+  Step 6, а не к этому шагу: минимальный блок этого шага не пытается предвосхитить ту архитектуру —
+  это временный, явно одноразовый код, который Step 6 полностью заменяет, а не расширяет.
+
+  Учтено процессное требование, добавленное после инцидента Step 4 (реальный, пропущенный и
+  исполнителем, и skeptic'ом hydration-mismatch баг, видимый только в `npm run dev`, а не в
+  production-сборке): Verification commands и Manual checks этого шага обязательно включают
+  отдельную, реально выполняемую проверку консоли браузера именно в dev-режиме (не только
+  `npm run build && npm run start`), см. ниже.
 - In scope:
   - **Состояние (`src/features/office-machine/reducer.ts`, переписывается).** Полный набор
-    состояний из `docs/05`, наблюдаемых извне (внутреннее представление в редьюсере — деталь
-    реализации, но должно однозначно отображаться на них для проверки skeptic): `hero`, `overview`,
-    `department-opening`, `department-active`, `department-switching`, `department-closing`.
-    Действия: уже существующее `ACTIVATE_CTA`, плюс новые `SELECT_DEPARTMENT(id)`, `OPEN_COMPLETE`,
-    `SWITCH_DEPARTMENT(id)`, `SWITCH_COMPLETE`, `CLOSE_DEPARTMENT`, `CLOSE_COMPLETE`, `ESCAPE`.
-    Состояние хранит `activeDepartmentId: DepartmentId | null` и id хотспота, на который нужно
-    вернуть focus при закрытии (`docs/11` "после закрытия focus возвращается").
-  - **Инверсия no-op хотспотов.** `DepartmentHotspot` (`src/components/office/DepartmentHotspot.tsx`)
-    получает реальный `onClick`, диспетчерящий `SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT`. Так как это
-    уже нативный `<button type="button">`, добавления `onClick` достаточно для идентичного
-    поведения по клику мыши и по `Enter`/`Space` с клавиатуры (нативная семантика кнопки) —
-    отдельный `onKeyDown` не требуется. Существующий e2e-тест "Enter/Space on a hotspot is a
-    no-op" инвертируется честно (переписывается, не удаляется молча) — по прямому прецеденту, уже
-    описанному в Step 4 Risks.
-  - **10/90-раскладка.** Правка `OfficeExperience.tsx`/`OfficeSemanticMap.tsx` (`.module.css`) так,
-    чтобы при активном отделе контейнер офиса переключался из grid-раскладки `overview` в
-    10/90-раскладку: основная область (~90%) показывает содержимое отдела для
-    `activeDepartmentId`, узкая rail (~10%) показывает оставшиеся 4 отдела.
-  - **`DepartmentNavigationRail`** (новый, `src/components/office/DepartmentNavigationRail.tsx` +
-    `.module.css`) — список из 4 доступных кнопок (переиспользующих accessible-name паттерн
-    `DepartmentHotspot`, либо отдельный, но эквивалентно доступный компонент — деталь реализации),
-    каждая диспетчерит `SWITCH_DEPARTMENT`. Активный отдел обозначен не только цветом (`docs/14`
-    "active не только цветом") — например, текстом/`aria-current`/иконкой.
-  - **Содержимое отдела** (`src/components/departments/` — новый каталог по дереву `docs/09`):
-    минимум `DepartmentCopy` (headline/problem, максимум 3 симптома — `docs/12` "максимум три
-    симптома в основном UI", данные уже содержат ровно 3), `OutcomePanel` (`outcomes[]`),
-    `DepartmentCTA` (кнопка с `ctaLabel`, видимая, но no-op — нет реального адресата лида/CRM ни в
-    этом шаге, ни во всём текущем 8-шаговом milestone, как и `primaryCta`; не навигирует на
-    `solutionPath`, так как соответствующие `/solutions/*`-страницы не существуют, `docs/13`
-    Этап 9). Наличие/состав `DepartmentScene`/`BeforeAfterSequence` — по ответу на Open question
-    (c).
-  - **Явная кнопка «Закрыть»/«Назад»** внутри активного отдела — доступна мышью/клавиатурой,
-    производит тот же эффект, что и `Escape` (не полагаться только на `Escape`, чтобы не создавать
+    состояний из `docs/05`, наблюдаемых извне: `hero`, `overview`, `department-opening`,
+    `department-active`, `department-switching`, `department-closing`. Действия: уже существующее
+    `ACTIVATE_CTA`, плюс новые `SELECT_DEPARTMENT(id)`, `OPEN_COMPLETE`, `SWITCH_DEPARTMENT(id)`,
+    `SWITCH_COMPLETE`, `CLOSE_DEPARTMENT`, `CLOSE_COMPLETE`, `ESCAPE`. Состояние хранит
+    `activeDepartmentId: DepartmentId | null` и id хотспота, на который нужно вернуть focus при
+    закрытии (`docs/11` "после закрытия focus возвращается").
+  - **Инверсия no-op хотспотов.** `DepartmentHotspot` получает реальный `onClick`: из `overview` —
+    диспетчерит `SELECT_DEPARTMENT`; при уже активном другом отделе — диспетчерит
+    `SWITCH_DEPARTMENT`; клик по хотспоту уже активного отдела — no-op (отдел не переоткрывается
+    сам на себя). Нативный `<button type="button">` уже обеспечивает идентичное поведение
+    `Enter`/`Space` без отдельного `onKeyDown`. Существующий e2e-тест "Enter/Space on a hotspot is
+    a no-op" инвертируется честно (переписывается, не удаляется молча) — по прямому прецеденту,
+    уже описанному в Step 4 Risks.
+  - **Временный способ доступа к переключению между отделами без `DepartmentNavigationRail`.** Так
+    как `DepartmentNavigationRail` и 10/90-раскладка — Step 6, а `department-switching`
+    (переключение без возврата в overview) всё же должно быть реально тестируемо уже в этом шаге,
+    все 5 хотспотов overview остаются одновременно видимыми и кликабельными рядом с минимальным
+    блоком содержимого активного отдела (без скрытия карты, без 10/90-разбивки) — технический
+    выбор исполнения (низкий риск, полностью заменяется `DepartmentNavigationRail`/10-90
+    раскладкой в Step 6, по прецеденту "технических решений planner'а, не требующих отдельного
+    вопроса" — Step 3 сортировка хотспотов), необходимый только для того, чтобы состояние
+    `department-switching` было реально доступно и проверяемо в этом шаге, а не предвосхищение
+    архитектуры Step 6.
+  - **Минимальное содержимое отдела** — простой, неоформленный блок (не отдельный именованный
+    компонент из дерева `docs/09`, временный код, целиком заменяемый в Step 6): `headline`,
+    `problem`, `symptoms` (максимум 3), `outcomes[]` (список), `ctaLabel` (видимая, но no-op
+    кнопка — нет реального адресата лида/CRM ни в этом шаге, ни во всём текущем 9-шаговом
+    milestone, как и `primaryCta`), явная кнопка «Закрыть».
+  - **Явная кнопка «Закрыть»** внутри активного отдела — доступна мышью/клавиатурой, производит
+    тот же эффект, что и `Escape` (не полагаться только на `Escape`, чтобы не создавать
     зависимость от одной модальности управления).
-  - **Escape.** Глобальный обработчик, пока активен отдел: закрывает отдел, возвращает в
+  - **Escape.** Глобальный обработчик, пока активен отдел: диспетчерит закрытие, возвращает в
     `overview`, переносит focus на исходную кнопку-хотспот (`docs/11`).
   - **Focus при `department-opening`.** Focus переносится на заголовок открытого отдела
     (программно фокусируемый, например `tabindex="-1"` + `.focus()`), как того требует `docs/05`.
+  - **Focus при закрытии.** Focus программно возвращается на кнопку-хотспот, которая изначально
+    открыла отдел — редьюсер хранит её id для этой цели.
   - **Контент не зависит от завершения анимации** (Motion rules CLAUDE.md: "critical content must
-    not depend on animation completion") — `headline`/`problem`/`outcomes`/CTA присутствуют в DOM и
-    интерактивны сразу по диспетчу `SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT`, независимо от того,
-    завершился ли визуальный переход `opening`/`switching`/`closing`. Состояния
-    `opening`/`switching`/`closing` в этом шаге в первую очередь книгоучёт для анимации/focus-
-    management, а не gate для доступности контента.
+    not depend on animation completion") — `headline`/`problem`/`symptoms`/`outcomes`/CTA/кнопка
+    «Закрыть» присутствуют в DOM и интерактивны сразу по диспетчу `SELECT_DEPARTMENT`/
+    `SWITCH_DEPARTMENT`, независимо от завершения визуального перехода `opening`/`switching`/
+    `closing`.
+  - **Переходы `opening`/`switching`/`closing` — CSS-классы, управляемые редьюсером** (решение
+    OQ-A): момент завершения перехода определяется через `transitionend` для диспетча
+    `OPEN_COMPLETE`/`SWITCH_COMPLETE`/`CLOSE_COMPLETE`; ориентировочная длительность — по
+    `docs/07-motion-system.md` ("Уровень Transition": overview → department 650–1000мс,
+    department switch 450–800мс, close 550–900мс) — ориентир, не строгий acceptance-критерий.
   - **URL при boot.** `src/app/page.tsx` продолжает читать `searchParams` на сервере; при валидном
     `?department=<id>` (сверяется с `getDepartmentIds()`) клиентская машина стартует сразу в
     `department-active` для этого id, без видимого перехода `hero`/`overview` и без анимации
-    `opening` (открытие по прямой ссылке — не пользовательское действие, поэтому не должно
-    повторно анимироваться, аналогично тому, как Step 4 уже не анимирует пропуск `hero` при boot).
-    При невалидном/несуществующем `id` — деградация к обычному раскрытому `overview` (регресс уже
-    существующего acceptance criterion 6 Step 4, перепроверяется против нового кода).
-  - **URL при клиентском выборе/переключении/закрытии** (механизм — Open question (b)):
-    `SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT` устанавливают `?department=<id>` в адресной строке без
-    полной перезагрузки страницы; `CLOSE_DEPARTMENT`/`ESCAPE` убирают параметр, возвращая `/`.
-    Поддержка кнопок «назад»/«вперёд» браузера явно вне scope этого шага (см. Out of scope) —
-    сознательно поднятое, а не тихо забытое ограничение.
-  - **Honesty-правка `docs/05-homepage-state-machine.md`** — по прецеденту Step 3: текущая
-    формулировка раздела про прямой URL описывает только пропуск `hero` (актуально для Step 4);
-    правка должна честно описать, что теперь по прямому URL открывается сам `department-active`, а
-    не только `overview`.
+    `opening` (открытие по прямой ссылке — не пользовательское действие, аналогично тому, как
+    Step 4 уже не анимирует пропуск `hero` при boot). При невалидном/несуществующем `id` —
+    деградация к обычному раскрытому `overview` (регресс уже существующего acceptance criterion
+    Step 4, перепроверяется против нового кода).
+  - **URL при клиентском выборе/переключении/закрытии** (механизм — решение OQ-B,
+    `history.pushState`/`replaceState`): `SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT` устанавливают
+    `?department=<id>` в адресной строке без полной перезагрузки страницы; `CLOSE_DEPARTMENT`/
+    `ESCAPE` убирают параметр, возвращая `/`. Поддержка кнопок «назад»/«вперёд» браузера явно вне
+    scope (см. Out of scope) — сознательно поднятое, а не тихо забытое ограничение.
+  - **Двойная honesty-правка `docs/05-homepage-state-machine.md`**: (a) раздел `hero` — прямой URL
+    с валидным `?department=<id>` теперь честно описан как открывающий сам `department-active`, а
+    не только `overview`; (b) разделы `department-opening`/`department-active`/
+    `department-switching`/`department-closing` — добавляется пометка "Статус реализации
+    (актуально после Step 5)", честно фиксирующая, что state machine/URL-sync/focus management
+    реальны, а "Оболочка 10/90" (буквальная формулировка раздела `department-switching`) — ещё не
+    реализована (временный минимальный блок вместо неё; реализуется в Step 6).
   - **`prefers-reduced-motion`.** Переходы `opening`/`switching`/`closing` — без параллакса/
-    камерных перелётов, заменяются коротким fade либо мгновенным переключением (`docs/07` "Reduced
-    motion"); все функциональные критерии (focus, URL, доступность контента) идентичны с включённой
-    и выключенной анимацией.
-  - **Регрессия low-height fallback** (`docs/08` "Низкий desktop", `@media (max-height: 700px)`,
-    введено в Step 3/4) перепроверяется для нового состояния `department-active` — по-прежнему без
-    документного скролла (только внутренний скролл соответствующей панели при нехватке места),
-    заголовок/CTA не обрезаны.
+    камерных перелётов, заменяются коротким fade либо мгновенным переключением (`docs/07`
+    "Reduced motion"); все функциональные критерии (focus, URL, доступность контента) идентичны с
+    включённой и выключенной анимацией.
+  - **Базовая регрессия no-scroll invariant.** На desktop ≥1280×800 нет полного документного
+    скролла в `department-active` (общий инвариант из Steps 3/4, для нового временного блока);
+    полная регрессия low-height fallback (`docs/08` "Низкий desktop", <700px) для финальной
+    раскладки — задача Step 6 (временный минимальный блок этого шага не обязан точно
+    воспроизводить бюджет высоты финальной 10/90-раскладки — явно поднятое, не молчаливое
+    ограничение).
   - **Server/client граница** (уже зафиксированное ограничение Step 2, не новое решение) —
-    `src/content/*.ts` остаются server-only; вся новая клиентская логика (редьюсер, URL-sync, при
-    необходимости — GSAP-таймлайны) получает данные только как сериализуемые props, не через
-    прямой импорт adapter'ов.
+    `src/content/*.ts` остаются server-only; вся новая клиентская логика (редьюсер, URL-sync)
+    получает данные только как сериализуемые props, не через прямой импорт adapter'ов.
   - **Новые/обновлённые unit-тесты:** `src/tests/unit/features/office-machine/reducer.test.ts` —
     расширяется на все новые состояния/действия (переходы `opening→active`, `active↔switching`,
     `active→closing→overview`, инварианты: активен максимум один отдел, `ESCAPE` эквивалентен
-    `CLOSE_DEPARTMENT` по результату); новые unit-тесты для `DepartmentNavigationRail`,
-    `DepartmentCopy`/`OutcomePanel`/`DepartmentCTA` (или упрощённого эквивалента, по Open question
-    (c)).
-  - **Новые/обновлённые e2e-тесты** (`src/tests/e2e/`): выбор отдела кликом; выбор отдела
-    клавиатурой (`Enter`/`Space` — честная инверсия существующего теста); переключение между двумя
-    отделами без возврата в `overview` и без полной перезагрузки (`docs/05` "Не происходит
-    возврата в overview и полной перезагрузки"); `Escape` закрывает и возвращает focus; явная
-    кнопка «Закрыть» даёт тот же результат; прямой URL с валидным `?department=<id>` открывает
-    отдел сразу для всех 5 id; невалидный `?department=<id>` деградирует к `overview` без ошибки;
-    `prefers-reduced-motion` — переходы функционально работают без анимации; low-height fallback
-    (1280×500) с активным отделом; отсутствие console/hydration-mismatch ошибок — отдельно в
-    `npm run dev` и отдельно в production-сборке (см. Verification commands).
+    закрытию по результату); новые unit-тесты для временного минимального блока содержимого
+    отдела.
+  - **Новые/обновлённые e2e-тесты**: выбор отдела кликом; выбор отдела клавиатурой (`Enter`/
+    `Space` — честная инверсия существующего теста); переключение между двумя отделами без
+    возврата в `overview` и без полной перезагрузки (`docs/05` "Не происходит возврата в overview
+    и полной перезагрузки"); `Escape` закрывает и возвращает focus; явная кнопка «Закрыть» даёт
+    тот же результат; прямой URL с валидным `?department=<id>` открывает отдел сразу для всех 5
+    id; невалидный `?department=<id>` деградирует к `overview` без ошибки; `prefers-reduced-motion`
+    — переходы функционально работают без анимации; отсутствие console/hydration-mismatch ошибок —
+    отдельно в `npm run dev` и отдельно в production-сборке (см. Verification commands).
 - Out of scope:
+  - Полная 10/90-раскладка, `DepartmentNavigationRail`, реальное компонентное дерево
+    `DepartmentExperience`/`DepartmentCopy`/`OutcomePanel`/`DepartmentCTA` (архитектура по OQ-C) —
+    целиком "Step 6 — Desktop 10/90 shell" (см. Dependencies этого шага в разделе Step 6).
+  - `DepartmentScene`/`BeforeAfterSequence`, `beforeSteps`/`automationSteps`/полный `visual`
+    (`docs/12`) — по-прежнему физически отсутствуют в `data/departments.json` (известный gap
+    Step 2, без владельца-шага); ни один вариант, реализуемый здесь, не предполагает их наличие.
+  - `docs/14` "active не только цветом" для `DepartmentNavigationRail` — не применимо, так как
+    rail не существует в этом шаге (переносится в Step 6 вместе с самим компонентом).
+  - Регрессионная проверка low-height fallback (<700px) для финальной 10/90-раскладки — Step 6
+    (см. In scope выше "Базовая регрессия no-scroll invariant").
+  - GSAP — не вводится (решение OQ-A = (b), CSS-классы).
+  - `next/navigation` `useRouter`/`useSearchParams` — не используется (решение OQ-B = (b), сырой
+    `history.pushState`/`replaceState`).
   - Диагностика (`OPEN_DIAGNOSTIC`, `diagnostic-*`), `contact-open` — вне scope всего текущего
-    8-шагового milestone (уже установлено Steps 3/4).
-  - Mobile/tablet-раскладка и touch-специфика (`docs/08` Tablet/Mobile) — Step 6; ручная проверка
-    этого шага — desktop ≥1280px, как в Steps 3/4.
-  - `beforeSteps`/`automationSteps` (структурированные `ProcessStep[]`) и полный `visual`/
-    `DepartmentVisual` (`docs/12`) — по-прежнему физически отсутствуют в `data/departments.json`
-    (известный gap Step 2, без владельца-шага); ни один вариант ответа на Open question (c) не
-    предполагает их наличие.
-  - `OfficeVisualLayer`, WebGL/Canvas — по-прежнему не вводятся (owner: перед стартом Step 7,
-    решение Step 3 Risks не пересматривается здесь).
+    9-шагового milestone (уже установлено Steps 3/4).
+  - Mobile/tablet-раскладка и touch-специфика (`docs/08` Tablet/Mobile) — Step 7 ("Mobile touch
+    flow"); ручная проверка этого шага — desktop ≥1280px, как в Steps 3/4.
+  - `OfficeVisualLayer`, WebGL/Canvas — по-прежнему не вводятся (owner: перед стартом Step 8
+    ("Reduced motion and fallback"); решение Step 3 Risks не пересматривается здесь).
   - Реальная навигация `DepartmentCTA`/хотспотов на `/solutions/*` — эти страницы не существуют
     (`docs/13` Этап 9); `solutionPath` из данных не используется для навигации в этом шаге.
-  - Полноценный `error-fallback`/`FallbackExperience` (`docs/05`) — Step 7, как и раньше.
-  - Автоматизированное axe-сканирование — по-прежнему owner Step 8 (Steps 3/4 precedent не
-    пересматривается).
+  - Полноценный `error-fallback`/`FallbackExperience` (`docs/05`) — Step 8, как и раньше.
+  - Автоматизированное axe-сканирование — по-прежнему owner Step 9 ("Browser acceptance tests").
   - Поддержка кнопок «назад»/«вперёд» браузера (`popstate`) после клиентской смены отдела — явно
-    поднятое, не молчаливое ограничение; естественный кандидат для Step 8 (Playwright acceptance
-    flows) или отдельного будущего шага, если понадобится.
+    поднятое, не молчаливое ограничение; естественный кандидат для Step 9 или отдельного будущего
+    шага.
   - Дозаполнение `data/departments.json` — контентная задача, не назначенная ни одному шагу (уже
     известное решение пользователя, Step 2 Risks/`DECISIONS.md`).
   - Правка `MANIFEST.json`, CI pipeline.
-- Dependencies: Step 4 (`COMPLETED`). Открытые вопросы OQ-A/OQ-B/OQ-C/OQ-D ниже должны получить
-  ответ пользователя до `Plan status: APPROVED` для этого шага — по прецеденту OQ-1/OQ-2/OQ-3
-  Step 4, planner не решает ни один из них молча.
+- Dependencies: Step 4 (`COMPLETED`). OQ-A/OQ-B/OQ-C/OQ-D получили ответ пользователя 2026-07-15
+  (см. `DECISIONS.md`) — открытых вопросов для этого шага больше нет.
 - Expected files:
   - `src/features/office-machine/reducer.ts` (переписывается — новые состояния/действия).
   - `src/features/office-machine/OfficeMachine.tsx` (обновляется — Escape-listener, передача
     `activeDepartmentId`/обработчиков вниз, инициализация из `?department=<id>`).
   - Новый модуль URL-синхронизации (например, `src/features/office-machine/url-sync.ts` или хук
-    `useDepartmentUrlSync` — точное имя/расположение зависит от ответа на Open question (b)).
-  - Условно, только если Open question (a) = GSAP: новый модуль анимационной оркестрации
-    (например, `src/features/office-machine/transitions.ts`) + `package.json`/`package-lock.json`
-    (новая зависимость `gsap`).
+    `useDepartmentUrlSync`) — `history.pushState`/`replaceState` (решение OQ-B).
   - `src/components/office/DepartmentHotspot.tsx` (+ `.module.css`) — реальный `onClick`,
     active-состояние.
   - `src/components/office/OfficeExperience.tsx`, `OfficeSemanticMap.tsx` (+ `.module.css`) —
-    переключение grid/10-90 раскладки.
-  - Новый `src/components/office/DepartmentNavigationRail.tsx` (+ `.module.css`).
-  - Новый каталог `src/components/departments/`: `DepartmentExperience.tsx`, `DepartmentCopy.tsx`,
-    `OutcomePanel.tsx`, `DepartmentCTA.tsx` (+ `.module.css` каждый); условно `DepartmentScene.tsx`/
-    `BeforeAfterSequence.tsx` (+ `.module.css`) — только при выборе варианта (a) Open question (c).
+    временный минимальный блок содержимого отдела рядом с по-прежнему видимыми 5 хотспотами;
+    CSS-классы переходов `opening`/`switching`/`closing`.
   - `src/app/page.tsx` — вычисление/валидация `activeDepartmentId` из `searchParams` через
     `getDepartmentIds()`.
-  - `docs/05-homepage-state-machine.md` — honesty-правка (прямой URL открывает отдел, не только
-    `overview`).
+  - `docs/05-homepage-state-machine.md` — двойная honesty-правка (см. In scope).
   - Обновления существующих тестов, перечисленных в In scope (unit + e2e), включая честную
     инверсию теста "Enter/Space on a hotspot is a no-op".
   - Новые unit/e2e тесты, перечисленные в In scope.
   - `README.md`, `WORKPLAN.md`, `WORKLOG.md`, `DECISIONS.md` (процессные).
 - Acceptance criteria:
-  1. Клик мышью по любому из 5 хотспотов в `overview` открывает соответствующий отдел: он
-     занимает ~90% основной области, остальные 4 отдела показаны в `DepartmentNavigationRail`
-     (~10%); полной перезагрузки/навигации документа не происходит.
-  2. `Enter`/`Space` на сфокусированном хотспоте производит идентичный эффект, что и клик мышью
-     (паритет pointer/keyboard) — честная инверсия существующего теста "Enter/Space on a hotspot
-     is a no-op" (не удалён молча, а переписан и явно задокументирован как намеренная инверсия).
+  1. Клик мышью по любому из 5 хотспотов в `overview` реально открывает соответствующий отдел
+     (`department-active`): `headline`/`problem`/`symptoms`/`outcomes`/CTA/кнопка «Закрыть» видны
+     и доступны; полной перезагрузки/навигации документа не происходит.
+  2. `Enter`/`Space` на сфокусированном хотспоте производит идентичный эффект, что и клик мышью —
+     честная инверсия существующего теста "Enter/Space on a hotspot is a no-op" (не удалён молча).
   3. Активен максимум один отдел одновременно (`docs/05`, инвариант).
-  4. Клик по любому из 4 элементов rail, пока активен другой отдел, переключает отдел напрямую:
-     10/90-оболочка сохраняется, контент/URL меняются, `overview` не показывается в промежутке, нет
+  4. Клик по хотспоту другого отдела, пока активен первый, переключает отдел напрямую
+     (`SWITCH_DEPARTMENT`): содержимое/URL меняются, `overview` не показывается в промежутке, нет
      полной перезагрузки (`docs/05` `department-switching`).
-  5. `Escape`, пока активен отдел (независимо от текущей позиции focus внутри отдела/rail),
-     закрывает отдел, возвращает в `overview`; focus программно возвращается на кнопку-хотспот,
-     которая изначально открыла отдел (`docs/11`).
-  6. Явная, доступная мышью и клавиатурой кнопка «Закрыть»/«Назад» внутри активного отдела
-     производит тот же результат, что и `Escape`.
+  5. `Escape`, пока активен отдел, закрывает его и возвращает в `overview`; focus программно
+     возвращается на кнопку-хотспот, которая изначально открыла отдел (`docs/11`).
+  6. Явная кнопка «Закрыть» внутри активного отдела производит тот же результат, что и `Escape`.
   7. При открытии отдела (`department-opening`) focus переносится на заголовок отдела; заголовок
      программно фокусируем и реально получает DOM-focus (`document.activeElement`).
-  8. Содержимое активного отдела (headline/problem/outcomes/CTA) присутствует в DOM и интерактивно
-     сразу по диспетчу `SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT`, независимо от завершения визуального
-     перехода (Motion rules CLAUDE.md).
-  9. Активный отдел/элемент rail обозначен не только цветом (`docs/14`).
-  10. Прямой переход на `http://localhost:3100/?department=<id>` открывает соответствующий отдел
-      сразу при первой загрузке, без дополнительного клика — проверено для всех 5 валидных id.
-  11. Прямой переход с невалидным/несуществующим `?department=<id>` деградирует к обычному
-      раскрытому `overview` без ошибки, пустой страницы или console error (регресс уже
-      существующего acceptance criterion 6 Step 4, перепроверен против нового кода).
-  12. Клиентский выбор/переключение отдела (`SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT`) обновляет
-      видимый URL на `?department=<id>` без полной перезагрузки страницы (нет `load`-события
-      документа/запроса нового HTML); закрытие (`CLOSE_DEPARTMENT`/`ESCAPE`) убирает параметр,
-      возвращая `/`, также без перезагрузки.
-  13. `prefers-reduced-motion: reduce`: переходы `opening`/`switching`/`closing` — мгновенные или
-      короткий fade без параллакса/камерных перелётов; все функциональные критерии выше (focus,
-      URL, доступность контента) остаются истинными идентично.
-  14. Low-height fallback (`docs/08`, `@media (max-height: 700px)`, 1280×500) продолжает работать
-      при активном отделе: заголовок/CTA не обрезаны, документ не скроллится целиком, внутренний
-      скролл — только у соответствующей панели при нехватке места.
-  15. Нет вертикального скролла документа на desktop ≥1280×800 в состояниях `hero`, `overview` и
-      `department-active` (регресс acceptance criterion 14 Step 3, перепроверен для нового layout).
-  16. `Escape`/кнопка «Закрыть» из `department-active` возвращают ровно в `overview` (все 5
+  8. Содержимое активного отдела присутствует в DOM и интерактивно сразу по диспетчу
+     `SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT`, независимо от завершения визуального перехода
+     (Motion rules CLAUDE.md).
+  9. Прямой переход на `http://localhost:3100/?department=<id>` открывает соответствующий отдел
+     сразу при первой загрузке, без дополнительного клика — проверено для всех 5 валидных id.
+  10. Прямой переход с невалидным/несуществующим `?department=<id>` деградирует к обычному
+      раскрытому `overview` без ошибки, пустой страницы или console error.
+  11. Клиентский выбор/переключение отдела обновляет видимый URL на `?department=<id>` без полной
+      перезагрузки страницы (нет `load`-события документа/запроса нового HTML); закрытие убирает
+      параметр, возвращая `/`, также без перезагрузки.
+  12. `prefers-reduced-motion: reduce`: переходы `opening`/`switching`/`closing` — мгновенные или
+      короткий fade без параллакса/камерных перелётов; все функциональные критерии выше остаются
+      истинными идентично.
+  13. Нет вертикального скролла документа на desktop ≥1280×800 в состояниях `hero`, `overview` и
+      `department-active` (регресс acceptance criterion Step 3/4 — базовая проверка для временного
+      блока; полная low-height regression <700px — задача Step 6).
+  14. `Escape`/кнопка «Закрыть» из `department-active` возвращают ровно в `overview` (все 5
       хотспотов видимы/раскрыты), не в `hero`.
-  17. Ни один client-компонент не импортирует `src/content/*` напрямую (grep-проверка, тот же
+  15. Ни один client-компонент не импортирует `src/content/*` напрямую (grep-проверка, тот же
       инвариант, что в Steps 3/4).
-  18. Существующие регрессионные тесты Step 3/4 (раскрытие `hero → overview`, исключение скрытых
-      хотспотов из Tab-последовательности до раскрытия, no-scroll/low-height/reduced-motion для
+  16. Существующие регрессионные тесты Step 3/4 (раскрытие `hero → overview`, исключение скрытых
+      хотспотов из Tab-последовательности до раскрытия, no-scroll/reduced-motion для
       `hero → overview`) продолжают проходить без ослабления ожиданий — единственный намеренно
       инвертированный тест перечислен в criterion 2.
-  19. Headless-проверка консоли браузера против `npm run dev` (не только против
+  17. Headless-проверка консоли браузера против `npm run dev` (не только против
       `npm run build && npm run start`) не показывает console/page errors на всём потоке выбора
-      отдела (открыть/переключить/закрыть/Escape/прямой URL/невалидный URL) — прямой ответ на
-      hydration-mismatch находку Step 4.
-  20. `docs/05-homepage-state-machine.md` честно описывает теперь-реальные переходы
-      `opening/active/switching/closing` и реальное автооткрытие отдела по прямому URL — не
-      оставлен описывающим только Step-4-эры поведение "пропускает только hero".
-  21. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
+      отдела (открыть/переключить/закрыть/Escape/прямой URL/невалидный URL).
+  18. `docs/05-homepage-state-machine.md` честно описывает реальные переходы
+      `opening/active/switching/closing`, реальное автооткрытие отдела по прямому URL, и честно
+      отмечает отсутствие 10/90-оболочки до Step 6 (не оставлен описывающим только
+      Step-4-эры/добуквенное "Оболочка 10/90 сохраняется" поведение).
+  19. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
       `npm run test:e2e` — все exit 0.
-  22. `git diff --stat` относительно коммита закрытия Step 4 ограничен списком Expected files.
-  23. `DECISIONS.md` содержит записи по OQ-A/OQ-B/OQ-C/OQ-D (и по любым обнаруженным конфликтам
-      между ответами, по прецеденту разрешения конфликта OQ-2/OQ-3 в Step 4) с реальным
-      согласованием пользователя, а не проставленные исполнителем самостоятельно.
+  20. `git diff --stat` относительно коммита закрытия Step 4 ограничен списком Expected files.
+  21. `DECISIONS.md` уже содержит записи по OQ-A/OQ-B/OQ-C/OQ-D с реальным согласованием
+      пользователя (зафиксировано 2026-07-15, до старта этого шага) — новых записей не требуется,
+      если при исполнении не возникнет новых, не предвиденных развилок.
 - Verification commands:
   ```bash
   npm run format:check
@@ -1132,158 +1170,295 @@ directly addressable by URL", которые интуитивно предпол
   без приведённого вывода не считается доказательством (`docs/17` "Skeptic gate").
 - Manual checks:
   - Открыть `http://localhost:3100`, раскрыть `overview`, кликнуть по каждому из 5 хотспотов по
-    очереди — подтвердить: выбранный отдел занимает ~90% области, остальные 4 — в rail,
-    headline/problem/outcomes/CTA видны и доступны.
-  - Кликнуть по каждому из 4 элементов rail — подтвердить переключение без промежуточного возврата
-    в overview, без полной перезагрузки (вкладка Network в DevTools не показывает нового
-    document-запроса), URL меняется на `?department=<новый id>`.
-  - Клавиатура: Tab до хотспота → Enter открывает отдел; Tab внутри отдела достигает
-    кнопки «Закрыть» и CTA; Escape закрывает и возвращает focus на исходный хотспот; повторить для
-    явной кнопки «Закрыть».
+    очереди — подтвердить: отдел открывается, `headline`/`problem`/`symptoms`/`outcomes`/CTA/
+    «Закрыть» видны и доступны.
+  - Кликнуть по хотспоту другого отдела, пока один уже активен — подтвердить переключение без
+    промежуточного возврата в overview, без полной перезагрузки (вкладка Network в DevTools),
+    URL меняется на `?department=<новый id>`.
+  - Клавиатура: Tab до хотспота → Enter открывает отдел; Tab внутри отдела достигает кнопки
+    «Закрыть»; Escape закрывает и возвращает focus на исходный хотспот; повторить для явной кнопки
+    «Закрыть».
   - Прямой переход на `http://localhost:3100/?department=<id>` для всех 5 id — подтвердить
     немедленное открытие нужного отдела без клика.
   - `http://localhost:3100/?department=не-существующий-id` — подтвердить деградацию к обычному
     overview без ошибки.
-  - `prefers-reduced-motion: reduce` в DevTools — переходы происходят мгновенно/коротким fade, весь
-    функционал (focus/URL/контент) идентичен.
-  - Viewport 1280×500 (low-height) с активным отделом — заголовок/CTA не обрезаны, документ не
-    скроллится целиком.
+  - `prefers-reduced-motion: reduce` в DevTools — переходы происходят мгновенно/коротким fade,
+    весь функционал (focus/URL/контент) идентичен.
   - Обе обязательные console-проверки (dev и production) — см. Verification commands.
   - `git diff --stat` относительно коммита закрытия Step 4 — подтвердить рамки Expected files.
 - Risks:
-  - **Самый большой объём одного шага в этом проекте на сегодня** (state machine с нуля + 10/90-
-    раскладка + URL-sync одновременно) — единственное смягчение без пересмотра утверждённого
-    8-шагового скелета: Open question (d) о разбиении на явно выделенные под-фазы либо на отдельные
-    WORKPLAN-шаги.
-  - **Взаимодействие low-height fallback (Step 3/4) с новой 10/90-раскладкой** — media query
-    `max-height: 700px`, зафиксированная для `overview`-грида, не обязательно корректно работает
-    для принципиально другого layout `department-active`; требует отдельной перепроверки, а не
-    переиспользования без изменений.
+  - **Временный "ugly-but-functional" способ переключения без rail** (все 5 хотспотов остаются
+    видимыми рядом с минимальным блоком) может выглядеть как баг при демонстрации пользователю,
+    если не объяснено заранее — смягчается явной пометкой "временно, заменяется в Step 6" в
+    In scope/Objective.
   - **URL-sync — новый класс риска гидратации/рассинхронизации сервер/клиент**, аналогичного
     классу, который уже один раз (Step 4) был пропущен именно потому, что проверялась только
     production-сборка — отсюда обязательная, явно вынесенная dev-mode проверка в Verification
     commands этого шага.
-  - **Возможное введение GSAP** (если Open question (a) = GSAP) — первая новая анимационная
-    зависимость в проекте, первый прецедент lifecycle cleanup для таймлайнов (`docs/09`
-    "Animation": "lifecycle cleanup, lazy timelines"), больший объём для
-    `frontend-architect`/`motion-engineer` milestone review.
+  - **Двойная honesty-правка `docs/05`** — риск повторения того же класса skeptic-находки, что уже
+    случался в Step 3 (round 2 `FAIL` за вводящую в заблуждение формулировку) — смягчается тем,
+    что правка сделана проактивно, в рамках этого же шага, а не постфактум.
+  - **Server/client рефакторинг** — риск случайно протащить `src/content/*` (zod) в client-бандл —
+    смягчается grep-проверкой (acceptance criterion 15) и `frontend-architect` review на
+    milestone.
   - **Content gap (`docs/12` vs `data/departments.json`)** — без `beforeSteps`/`automationSteps`
-    "текущий процесс/сценарий автоматизации" из Core concept CLAUDE.md может быть представлен
-    только неструктурированным `problem`-текстом; риск того, что результат не полностью
-    соответствует духу Core concept до дозаполнения данных — явно вынесено как Open question (c),
-    не решается тихо.
-  - **Ещё одна honesty-правка `docs/05`** — риск повторения того же класса skeptic-находки, что уже
-    дважды случался в Step 3 (round 2 `FAIL` за вводящую в заблуждение формулировку) — смягчается
-    тем, что правка сделана проактивно, в рамках этого же шага, а не постфактум.
+    минимальный блок этого шага показывает только неструктурированный `problem`-текст — тот же
+    известный gap Step 2, не решается здесь и не должен решаться здесь.
   - **Возврат/вперёд браузера не поддерживается** (см. Out of scope) — при демонстрации
     пользователю может выглядеть как баг, если явно не объяснено заранее.
   - **Escape-listener — потенциальный будущий конфликт** с модальными состояниями
     (`diagnostic-*`, `contact-open`), которые появятся значительно позже (`docs/13` Этап 8, вне
     текущего milestone) — не блокирует этот шаг, но стоит отметить для будущего рефакторинга.
+  - Scope creep: соблазн уже сейчас реализовать реальную 10/90-раскладку "заодно" — явно
+    отклоняется ссылкой на решение пользователя (OQ-D, Amendment 3) и на существование отдельного
+    следующего шага ("Step 6 — Desktop 10/90 shell").
 - Rollback: `git revert` диапазона коммитов Step 5 (аддитивно относительно Step 4: редьюсер
-  переписывается, но данные/adapter'ы не меняются; новые компоненты добавляются). Деструктивный
+  переписывается, но данные/adapter'ы не меняются; новые модули добавляются). Деструктивный
   `git reset --hard` — только с явного разрешения пользователя, как в предыдущих шагах.
-- Skeptic verdict (review плана, Phase A): `PASS` (первый раунд, без FAIL/BLOCKED). Проверено:
-  полнота обязательных полей; отсутствие скрытых решений под видом открытых вопросов (In scope/
-  Expected files/Acceptance criteria написаны механизм-агностично для OQ-A/B/C, GSAP- и
-  Scene-related пункты явно помечены "условно, только если..."); полный перенос scope из Step 4
-  Risks (state machine с нуля, 10/90, URL auto-open); наличие обязательной dev-mode
-  console-проверки отдельно от production e2e; соответствие цитат `docs/05/07/08/09/11/12/13/14/17`
-  реальному тексту; корректность bookkeeping-полей для стадии "план не одобрен" (`Status:
-  PROPOSED`); `git diff -- WORKPLAN.md` подтвердил, что правка ограничена секцией Step 5 (Steps
-  1–4, 6–8 и Plan amendments не задеты).
-- Skeptic findings (Phase A): Blocker/Critical/Major — нет. Minor: (1) Expected files безусловно
-  перечисляет `DepartmentCopy.tsx`/`OutcomePanel.tsx`/`DepartmentCTA.tsx`, что верно только если
-  Open question (c) не разрешится в вариант "блокировать контент отдела до дозаполнения данных" —
-  явно не проговорено одним предложением, что в этом случае весь текущий черновик Step 5 требует
-  повторного планирования; (2) не specified Tab-порядок между 90%-областью и
-  `DepartmentNavigationRail` при активном отделе. Оба — уточнения, не блокирующие дефекты.
-- Completion evidence: план не начат (шаг не запущен в реализацию); review проведён read-only,
-  затрагивал только `WORKPLAN.md`.
+- Skeptic verdict: **round 1** (review плана после разбиения, Amendment 3) — `FAIL`: устаревшие
+  перекрёстные ссылки на номера/названия шагов по дореформенной нумерации внутри уже `COMPLETED`
+  секций Step 3/Step 4 (например, "Step 5 (\"Desktop 10/90 shell\")", "Step 7 (\"Reduced motion and
+  fallback\")", "8-шаговый milestone") — часть из них стала не просто устаревшей, а буквально
+  ложной после разбиения; не задокументировано как known issue. Скорректировано точечно (см.
+  `DECISIONS.md` 2026-07-15 "Коррекция: устаревшие перекрёстные ссылки..."), ожидает **round 2**.
+  Предыдущий review плана единого нераздельного черновика "Step 5 — Desktop 10/90 shell" вернул
+  `PASS` (тот, более ранний round 1) — этот более ранний verdict утратил силу после формального
+  разбиения на два шага, так как форма плана изменилась.
+- Skeptic findings: round 1 (после разбиения) — Blocker/Critical/Major: 1 (устаревшие/ложные
+  перекрёстные ссылки на номера шагов, см. выше) — исправлено; Minor: (1) Tab-порядок между
+  оставшимися хотспотами overview и временным минимальным блоком активного отдела не
+  специфицирован; (2) клавиатурное переключение между уже открытыми отделами не покрыто отдельным
+  acceptance criterion (только начальный выбор) — оба Minor не блокируют, к исправлению до начала
+  реализации не обязательны.
+- Completion evidence: _(шаг не начат — план не реализован.)_
 
-### Open questions (Step 5)
+## Step 6 — Desktop 10/90 shell
 
-Все четыре вопроса ниже требуют ответа пользователя (`AskUserQuestion`) до того, как этот план
-может получить `Plan status: APPROVED`, — по прецеденту OQ-1/OQ-2/OQ-3 Step 4, ни один из них не
-решается planner'ом молча.
+- Status: `PROPOSED`
+- Objective: Реализовать полную 10/90-раскладку (`docs/08-responsive-behavior.md` "Desktop
+  ≥1280": "10/90"; Core concept CLAUDE.md; `docs/03-office-map.md` "Режим 10/90") поверх уже
+  работающей state machine выбора отдела, реализованной в "Step 5 — Department selection state
+  machine": выбранный отдел разворачивается в основную область ~90%, остальные четыре — в
+  `DepartmentNavigationRail` (~10%), без изменения уже реализованной в Step 5 логики переходов
+  состояний (`SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT`/`CLOSE_DEPARTMENT`/`ESCAPE`, переходы
+  `opening→active↔switching→closing` через CSS-классы по решению OQ-A, URL-sync через
+  `history.pushState`/`replaceState` по решению OQ-B) — этот шаг не переделывает эту логику,
+  только раскладку и визуальное представление содержимого. Временный "ugly-but-functional" способ
+  переключения отделов из Step 5 (все 5 хотспотов остаются одновременно видимыми рядом с
+  минимальным блоком) заменяется здесь реальным `DepartmentNavigationRail` (`docs/03` "Режим
+  10/90": "Левая панель 10–14%: возврат; пять миниатюр; активное состояние; клавиатурная
+  навигация"). Реальное содержимое 90%-области реализуется по решению пользователя (OQ-C, см.
+  `DECISIONS.md` 2026-07-15 "Step 5: глубина содержимого 90%-области (OQ-C)"): только
+  `DepartmentCopy`/`OutcomePanel`/`DepartmentCTA` (`headline`/`problem`/`symptoms`/`outcomes`/
+  CTA), без `DepartmentScene`/`BeforeAfterSequence` — по прецеденту того, как Step 3 сознательно
+  пропустил `OfficeVisualLayer`. Активный отдел в rail обозначается не только цветом (`docs/14`
+  "Overview": "active не только цветом"). Также выполняется регрессионная проверка low-height
+  fallback (`docs/08` "Низкий desktop", `@media (max-height: 700px)`) для новой раскладки — задача,
+  явно отложенная сюда из Step 5.
 
-**OQ-A. Механизм переходов `opening/switching/closing`.**
-`docs/09` "Стек" перечисляет GSAP без альтернативы, но ни один из шагов 1–4 его не вводил (Step 1
-явно отнёс его к "клиентской интерактивности", Step 4 обошёлся `useReducer` + CSS-классами для
-единственного перехода `hero ↔ overview`). Варианты:
-- (a) GSAP — таймлайны для `opening`/`switching`/`closing` с явным управлением lifecycle
-  (`docs/09` "Animation": lazy timelines, lifecycle cleanup); первая новая npm-зависимость с
-  момента `zod` (Step 2), требует отдельного согласования по тому же прецеденту.
-- (b) CSS-переходы/keyframes, управляемые классами из состояния редьюсера (тот же подход, что уже
-  использован для `hero → overview` в Step 4) — без новой зависимости, но сложнее координировать
-  многошаговые переходы (`opening` → `active`, `active` → `switching` → `active`, `active` →
-  `closing` → `overview`) и определять момент завершения (`transitionend`) для диспетча
-  `OPEN_COMPLETE`/`SWITCH_COMPLETE`/`CLOSE_COMPLETE`.
-- (c) Минимальная версия без промежуточных визуальных переходов вовсе (мгновенное переключение
-  состояний; `opening`/`switching`/`closing` существуют только как книгоучёт для focus-management,
-  без анимации) — откладывает визуальное качество перехода до отдельного будущего шага/
-  art-direction milestone, аналогично тому, как Step 3 отложил `OfficeVisualLayer`.
+  Учтено то же процессное требование, что и в Step 5 (обязательная dev-mode console-проверка, не
+  только production-сборка) — раскладка меняется существенно, риск нового класса
+  hydration/визуальных проблем сопоставим.
+- In scope:
+  - **10/90 grid-раскладка**, заменяющая временную стековую презентацию Step 5. По дереву
+    `docs/09-technical-architecture.md`: `HomepageShell` при активном отделе рендерит
+    `OfficeExperience` (содержит `DepartmentNavigationRail`, ~10%) и новый `DepartmentExperience`
+    (~90%) как соседние top-level-компоненты (не вложенный в `OfficeExperience`, как в дереве
+    `docs/09`), связанные общим grid/flex-контейнером. Точная точка врезки контейнера (в
+    `HomepageShell` или в `OfficeExperience`) — техническая деталь исполнения, не требующая
+    отдельного вопроса пользователю (низкий риск, по прецеденту Step 3 "сортировка хотспотов").
+  - **`DepartmentNavigationRail`** (новый, `src/components/office/DepartmentNavigationRail.tsx` +
+    `.module.css`) — список из 4 доступных кнопок для оставшихся отделов, каждая диспетчерит уже
+    существующий (из Step 5) `SWITCH_DEPARTMENT`. Активный отдел обозначен не только цветом
+    (`docs/14`) — например, текстом/`aria-current="true"`/иконкой. Заменяет временный "все 5
+    хотспотов видимы" механизм Step 5 — старые 5 хотспотов overview больше не показываются
+    одновременно с активным отделом.
+  - **Реальное содержимое отдела** (`src/components/departments/` — новый каталог по дереву
+    `docs/09`): `DepartmentExperience.tsx` (контейнер), `DepartmentCopy.tsx` (`headline`/
+    `problem`/`symptoms`, максимум 3 — `docs/12` "максимум три симптома в основном UI", данные уже
+    содержат ровно 3), `OutcomePanel.tsx` (`outcomes[]`), `DepartmentCTA.tsx` (кнопка с
+    `ctaLabel`, видимая, но no-op — нет реального адресата лида/CRM ни в этом шаге, ни во всём
+    текущем 9-шаговом milestone; не навигирует на `solutionPath`, так как `/solutions/*` не
+    существуют, `docs/13` Этап 9). `DepartmentScene.tsx`/`BeforeAfterSequence.tsx` **не
+    создаются** (решение OQ-C = (b)) — явное, раскрытое ограничение, не молчаливое упущение.
+    Заменяет временный неоформленный блок Step 5 полностью (не расширяет его).
+  - **Tab-порядок между 90%-областью и rail.** Явно решается здесь (было отмечено как
+    Minor-уточнение в предыдущем review нераздельного черновика Step 5): при активном отделе Tab
+    обходит сначала содержимое 90%-области (заголовок → symptoms/outcomes → CTA → кнопка
+    «Закрыть»), затем 4 элемента rail — контент важнее навигации по визуальному весу и по
+    аналогии с уже принятым порядком overview (Step 3: сортировка по `y`, затем `x`). Технический
+    выбор исполнения, низкий риск, легко изменить.
+  - **Перенос Escape/фокус-менеджмента без изменений** — уже реализованы в Step 5; этот шаг
+    только проверяет, что они продолжают работать при новой раскладке (заголовок отдела и кнопка
+    «Закрыть» физически перемещаются в новый `DepartmentExperience`, но их роль в focus management
+    не меняется).
+  - **Контент не зависит от завершения анимации** (Motion rules CLAUDE.md) — перепроверяется для
+    нового дерева `DepartmentCopy`/`OutcomePanel`/`DepartmentCTA`: контент присутствует в DOM и
+    интерактивен сразу по диспетчу, независимо от завершения визуального перехода.
+  - **Регрессия low-height fallback** (`docs/08` "Низкий desktop", `@media (max-height: 700px)`,
+    введено в Step 3/4) — перепроверяется для нового 10/90 layout: заголовок/CTA не обрезаны,
+    документ не скроллится целиком (только внутренний скролл соответствующей панели при нехватке
+    места); это отдельная, более строгая проверка, чем базовая "нет скролла на ≥720px" из Step 5,
+    так как геометрия 10/90 принципиально другая, чем временный стек Step 5.
+  - **`prefers-reduced-motion`** — перепроверка того, что уже реализованные в Step 5 CSS-классовые
+    переходы корректно работают в контексте новой 10/90 CSS-структуры (сам механизм не меняется).
+  - **Server/client граница** (не новое решение) — `src/content/*.ts` остаются server-only; новые
+    компоненты `src/components/departments/*` получают данные только как сериализуемые props.
+  - **Новые/обновлённые unit-тесты:** `DepartmentNavigationRail`, `DepartmentCopy`/`OutcomePanel`/
+    `DepartmentCTA` — рендер реальных данных, `aria-current`/не-только-цвет индикация активного
+    элемента rail.
+  - **Новые/обновлённые e2e-тесты**: 10/90-геометрия (выбранный отдел ~90%, rail ~10%, измерено
+    через `boundingClientRect`); переключение через клик по элементу rail (без промежуточного
+    `overview`, без полной перезагрузки — та же проверка, что уже была в Step 5, теперь через
+    реальный rail, а не через видимые хотспоты); Tab-порядок 90%-область → rail; low-height
+    fallback (1280×500) с активным отделом и новой раскладкой; отсутствие console/
+    hydration-mismatch ошибок — отдельно в `npm run dev` и отдельно в production-сборке.
+- Out of scope:
+  - Логика переходов состояний (`SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT`/`CLOSE_DEPARTMENT`/
+    `ESCAPE`, `opening/active/switching/closing`, URL-sync, честная правка `docs/05`) — уже
+    реализована в Step 5, не переделывается здесь.
+  - `DepartmentScene`/`BeforeAfterSequence`, `beforeSteps`/`automationSteps`/полный `visual`
+    (`docs/12`) — по-прежнему физически отсутствуют в данных (известный gap Step 2); решение
+    OQ-C = (b) их явно исключает.
+  - Диагностика (`OPEN_DIAGNOSTIC`, `diagnostic-*`), `contact-open` — вне scope всего текущего
+    9-шагового milestone.
+  - Mobile/tablet-раскладка и touch-специфика (`docs/08` Tablet/Mobile) — Step 7 ("Mobile touch
+    flow"); ручная проверка этого шага — desktop ≥1280px.
+  - `OfficeVisualLayer`, WebGL/Canvas — по-прежнему не вводятся (owner: перед стартом Step 8
+    ("Reduced motion and fallback")).
+  - Реальная навигация `DepartmentCTA` на `/solutions/*` — эти страницы не существуют (`docs/13`
+    Этап 9).
+  - Полноценный `error-fallback`/`FallbackExperience` — Step 8.
+  - Автоматизированное axe-сканирование — по-прежнему owner Step 9 ("Browser acceptance tests").
+  - Поддержка кнопок «назад»/«вперёд» браузера (`popstate`) — уже поднятое в Step 5 ограничение,
+    не пересматривается здесь.
+  - Дозаполнение `data/departments.json` — контентная задача без владельца-шага.
+  - Правка `MANIFEST.json`, CI pipeline.
+- Dependencies: "Step 5 — Department selection state machine" (`COMPLETED`) — этот шаг строит
+  раскладку строго поверх уже реализованной и принятой пользователем state machine выбора отдела;
+  не может начинаться раньше завершения Step 5.
+- Expected files:
+  - `src/components/office/OfficeExperience.tsx`, `OfficeSemanticMap.tsx` (+ `.module.css`) —
+    переключение временной стековой презентации Step 5 на реальную 10/90 CSS-структуру.
+  - Новый `src/components/office/DepartmentNavigationRail.tsx` (+ `.module.css`).
+  - Новый каталог `src/components/departments/`: `DepartmentExperience.tsx`, `DepartmentCopy.tsx`,
+    `OutcomePanel.tsx`, `DepartmentCTA.tsx` (+ `.module.css` каждый).
+  - `src/components/office/DepartmentHotspot.tsx` (+ `.module.css`) — точечная правка (хотспот
+    больше не остаётся видимым одновременно с активным отделом — временное поведение Step 5
+    убирается).
+  - Обновления существующих тестов Step 5, перечисленных в In scope.
+  - Новые unit/e2e тесты, перечисленные в In scope.
+  - `README.md`, `WORKPLAN.md`, `WORKLOG.md`, `DECISIONS.md` (процессные).
+- Acceptance criteria:
+  1. Клик по хотспоту (или `Enter`/`Space`) открывает отдел: он занимает ~90% основной области
+     (`DepartmentExperience`), остальные 4 отдела показаны в `DepartmentNavigationRail` (~10%);
+     полной перезагрузки/навигации документа не происходит.
+  2. Клик по любому из 4 элементов rail, пока активен другой отдел, переключает отдел напрямую:
+     10/90-оболочка сохраняется, содержимое/URL меняются, `overview` не показывается в
+     промежутке, нет полной перезагрузки (`docs/05` `department-switching`, честно описанный
+     после Step 5).
+  3. Активный отдел/элемент rail обозначен не только цветом (`docs/14`).
+  4. Содержимое активного отдела (`DepartmentCopy`/`OutcomePanel`/`DepartmentCTA`) присутствует в
+     DOM и интерактивно сразу по диспетчу `SELECT_DEPARTMENT`/`SWITCH_DEPARTMENT`, независимо от
+     завершения визуального перехода (Motion rules CLAUDE.md).
+  5. Tab-порядок при активном отделе: сначала содержимое 90%-области (заголовок →
+     symptoms/outcomes → CTA → кнопка «Закрыть»), затем 4 элемента rail.
+  6. `Escape`/явная кнопка «Закрыть» (уже реализованные в Step 5) продолжают работать идентично
+     при новой раскладке — focus программно возвращается на исходную кнопку-хотспот.
+  7. Low-height fallback (`docs/08`, `@media (max-height: 700px)`, 1280×500) работает для новой
+     10/90-раскладки: заголовок/CTA не обрезаны, документ не скроллится целиком, внутренний
+     скролл — только у соответствующей панели при нехватке места.
+  8. Нет вертикального скролла документа на desktop ≥1280×800 в состояниях `hero`, `overview` и
+     `department-active` с реальной 10/90-раскладкой (полная регрессия, не только базовая
+     проверка Step 5).
+  9. `prefers-reduced-motion: reduce` — переходы по-прежнему функциональны в контексте новой
+     раскладки; все функциональные критерии (focus, URL, доступность контента) идентичны.
+  10. Ни один client-компонент не импортирует `src/content/*` напрямую (grep-проверка, тот же
+      инвариант, что в Steps 3/4/5).
+  11. Существующие регрессионные тесты Step 3/4/5 (URL-sync, boot-открытие по ссылке, Escape,
+      honesty `docs/05`) продолжают проходить без ослабления ожиданий — с учётом честных, явно
+      перечисленных изменений (переключение теперь через rail, а не через видимые хотспоты).
+  12. Headless-проверка консоли браузера против `npm run dev` (не только против production) не
+      показывает console/page errors на всём потоке (открыть/переключить через rail/закрыть/
+      Escape/прямой URL) — та же обязательная проверка, что в Step 5, повторно применённая к
+      новой раскладке.
+  13. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
+      `npm run test:e2e` — все exit 0.
+  14. `git diff --stat` относительно коммита закрытия Step 5 ограничен списком Expected files.
+  15. `DECISIONS.md` не требует новых записей для уже решённых OQ-A/B/C/D (сделано 2026-07-15) —
+      новые записи нужны только если при исполнении возникнут новые, не предвиденные развилки.
+- Verification commands:
+  ```bash
+  npm run format:check
+  npm run lint
+  npm run typecheck
+  npm run test
+  npm run build
+  npm run test:e2e
+  ```
+  Плюс отдельная, обязательная, реально выполняемая проверка dev-режима (тот же процессный
+  прецедент, что в Step 5/Step 4 — `npm run test:e2e` проверяет только продовую сборку):
+  ```bash
+  npm run dev
+  # headless Playwright (одноразовый скрипт либо постоянный отдельный test:e2e:dev — конкретный
+  # механизм решается при исполнении, по прецеденту Step 5) против http://localhost:3100: пройти
+  # полный поток с новой 10/90-раскладкой (открыть отдел, переключить через rail, закрыть, Escape,
+  # прямой ?department=<id>) и зафиксировать console/pageerror — ожидается [].
+  # Остановить dev-сервер после проверки.
+  ```
+  Фактический вывод обеих проверок (dev и prod) обязателен в `WORKLOG.md` (`docs/17` "Skeptic
+  gate").
+- Manual checks:
+  - Открыть `http://localhost:3100`, кликнуть по каждому из 5 хотспотов по очереди — подтвердить
+    90/10-геометрию (`boundingClientRect` в DevTools console), содержимое отдела видно.
+  - Кликнуть по каждому из 4 элементов rail — подтвердить переключение без overview, без
+    перезагрузки (Network tab), URL меняется на `?department=<новый id>`.
+  - Клавиатура: подтвердить Tab-порядок 90%-область → rail; `Escape`/кнопка «Закрыть» работают,
+    как в Step 5.
+  - Viewport 1280×500 (low-height) с активным отделом — заголовок/CTA не обрезаны, документ не
+    скроллится целиком.
+  - `prefers-reduced-motion: reduce` в DevTools.
+  - Обе обязательные console-проверки (dev и production).
+  - `git diff --stat` относительно коммита закрытия Step 5 — подтвердить рамки Expected files.
+- Risks:
+  - **Взаимодействие low-height fallback с принципиально новой геометрией** — media query,
+    работавшая для временного стека Step 5, может не переноситься без изменений на реальный 10/90
+    grid; требует отдельной перепроверки, не переиспользования без изменений (тот же класс риска,
+    что уже был явно поднят в нераздельном черновике Step 5, до Amendment 3).
+  - **Убирание временного механизма Step 5** (все 5 хотспотов видимы одновременно с активным
+    отделом) может задеть e2e-тесты Step 5, написанные под старую презентацию — требует честного,
+    не молчаливого обновления (см. Expected files/In scope), не тихого ослабления ожиданий.
+  - **Content gap (`docs/12` vs `data/departments.json`)** — по-прежнему актуален; `DepartmentCopy`/
+    `OutcomePanel` полагаются только на неструктурированный `problem`/`symptoms`/`outcomes[]`, не
+    на `beforeSteps`/`automationSteps`.
+  - **Tab-порядок между двумя top-level-сиблингами** (`OfficeExperience`/`DepartmentExperience`)
+    зависит от порядка в DOM, а не только от визуального CSS-порядка (`order`/grid placement) —
+    нужно явно проверить, что DOM-порядок соответствует решённому Tab-порядку (acceptance
+    criterion 5), а не полагаться на визуальный CSS-reorder, который может разойтись с порядком
+    Tab.
+  - Scope creep: соблазн переделать логику state machine "заодно" — явно отклоняется, эта логика
+    уже реализована и принята в Step 5.
+- Rollback: `git revert` диапазона коммитов Step 6 (аддитивно относительно Step 5: новые
+  компоненты, CSS-раскладка меняется, но редьюсер/URL-sync логика Step 5 не переписывается).
+  Деструктивный `git reset --hard` — только с явного разрешения пользователя, как в предыдущих
+  шагах.
+- Skeptic verdict: **round 1** (review плана после разбиения, Amendment 3) — `FAIL`, вместе со
+  Step 5 (общая находка на весь разбитый план — устаревшие/ложные перекрёстные ссылки на номера
+  шагов в уже `COMPLETED` секциях Step 3/Step 4, см. Step 5 → Skeptic verdict выше и `DECISIONS.md`
+  2026-07-15 "Коррекция: устаревшие перекрёстные ссылки..."); исправлено, ожидает **round 2**. Этот
+  шаг выделен из бывшего единого черновика "Step 5 — Desktop 10/90 shell" по Amendment 3 (см.
+  `DECISIONS.md` 2026-07-15 "OQ-D").
+- Skeptic findings: см. Step 5 → Skeptic findings (общая находка round 1 на оба новых шага, так как
+  оба — части одного и того же разбитого документа); специфичных для именно Step 6 находок round 1
+  не выявил.
+- Completion evidence: _(шаг не начат; зависит от завершения и `COMPLETED`-статуса "Step 5 —
+  Department selection state machine".)_
 
-**OQ-B. Механизм синхронизации URL при клиентском выборе/переключении/закрытии отдела.**
-- (a) Next.js `useRouter`/`useSearchParams` (`next/navigation`) — `router.replace(...)`/
-  `router.push(...)`; идиоматично для App Router, потенциально поддерживает браузерные назад/
-  вперёд "из коробки", но по умолчанию может инициировать повторный рендер серверного дерева
-  (`page.tsx`/`HomepageShell` как async Server Component) при каждой смене URL — нужно явно
-  проверить, что это не приводит к заметной задержке/миганию или повторному вызову adapter'ов
-  `src/content/*` на каждое переключение отдела.
-- (b) Сырой `history.pushState`/`replaceState` — не запускает никакого серверного/React-рендер-
-  цикла, чисто косметическое обновление адресной строки; ближе к буквальному "не происходит…
-  полной перезагрузки" (`docs/05`), но не поддерживает браузерные назад/вперёд без отдельного
-  `popstate`-listener (который в любом случае вне scope этого шага, см. Out of scope), и является
-  первым сырым DOM/browser API вызовом в проекте в обход навигации Next.js.
-
-**OQ-C. Степень детализации содержимого 90%-области.**
-Core concept CLAUDE.md требует показывать "проблему, текущий процесс, сценарий автоматизации,
-результат и CTA", а полное дерево компонентов `docs/09` включает `DepartmentScene`/
-`BeforeAfterSequence`. Но `data/departments.json` (Step 2, известный gap) не содержит
-структурированных `beforeSteps`/`automationSteps` — только неструктурированный `problem`-текст и
-`outcomes[]`.
-- (a) Реализовать полное дерево `docs/09` (`DepartmentScene`, `DepartmentCopy`,
-  `BeforeAfterSequence`, `OutcomePanel`, `DepartmentCTA`) сейчас, но с намеренно сниженной
-  детализацией `BeforeAfterSequence` (единственный текстовый абзац `problem` вместо пошаговой
-  последовательности, так как структурированных шагов нет) — компонентная структура уже готова для
-  будущего дозаполнения данных.
-- (b) Не создавать `DepartmentScene`/`BeforeAfterSequence` в этом шаге вовсе (аналогично тому, как
-  Step 3 сознательно пропустил `OfficeVisualLayer`) — показывать только `DepartmentCopy`
-  (headline/problem)/`OutcomePanel` (outcomes)/`DepartmentCTA`; явное, раскрытое ограничение, не
-  молчаливое упущение.
-- (c) Заблокировать реализацию содержимого отдела в этом шаге до дозаполнения
-  `data/departments.json` полями `beforeSteps`/`automationSteps` (превращает уже известный gap
-  Step 2 в реальный блокер именно сейчас) — самый честный по отношению к Core concept вариант, но
-  останавливает текущий 8-шаговый milestone ради контентной задачи без назначенного владельца.
-  **Если выбран этот вариант — весь текущий черновик Step 5 недействителен и требует повторного
-  планирования** (Expected files/Acceptance criteria выше безусловно предполагают наличие
-  `DepartmentCopy`/`OutcomePanel`/`DepartmentCTA`, что несовместимо с блокировкой; см. Skeptic
-  findings, Minor #1).
-
-**OQ-D. Границы самого шага (процессный вопрос).**
-Решение пользователя при планировании Step 4 (OQ-2 = (c)) объединило в один будущий шаг то, что
-`docs/17-execution-protocol.md` в своём собственном примере "хороших шагов" перечисляет как два
-разных пункта: "4. Реализовать выбор отдела." и "5. Реализовать 10/90 shell." Планировщик обязан
-явно поднять это, а не молча унаследовать увеличенный объём одного шага (инструкция "не объединяй
-крупные задачи").
-- (a) Оставить одним шагом `WORKPLAN.md` ("Step 5"), но исполнять и проверять внутри него двумя
-  последовательными, отдельно верифицируемыми под-фазами (5.1 — state machine выбора отдела с
-  минимальным/неоформленным UI отдела, без 10/90; 5.2 — настоящая 10/90-раскладка и
-  `DepartmentNavigationRail` поверх уже работающей state machine) — не требует пересмотра
-  нумерации Steps 6–8/README, но итоговый diff и blast radius одного шага остаются больше, чем у
-  любого предыдущего шага.
-- (b) Формально разбить на два отдельных шага `WORKPLAN.md` ("Step 5 — Department selection state
-  machine" и "Step 6 — Desktop 10/90 shell"), сдвинув нынешние Steps 6/7/8 → 7/8/9 — требует
-  Amendment к уже утверждённому 8-шаговому скелету (`Approval` → `Approved scope`) и повторного
-  согласования пользователем/skeptic именно этого структурного изменения, но даёт каждому шагу
-  меньший, более однородный diff, ближе к эталонному примеру `docs/17`.
-
-## Step 6 — Mobile touch flow
+## Step 7 — Mobile touch flow
 
 - Status: `PROPOSED`
 - Objective: Создать самостоятельный touch-интерфейс.
-- Dependencies: Step 5 (`COMPLETED`).
+- Dependencies: Step 6 (`COMPLETED`).
 - Expected files: _(детализируется перед стартом шага)_
 - Acceptance criteria:
   1. Нет зависимости от hover.
@@ -1297,11 +1472,11 @@ Core concept CLAUDE.md требует показывать "проблему, т
 - Skeptic findings:
 - Completion evidence:
 
-## Step 7 — Reduced motion and fallback
+## Step 8 — Reduced motion and fallback
 
 - Status: `PROPOSED`
 - Objective: Реализовать reduced-motion и visual fallback.
-- Dependencies: Step 6 (`COMPLETED`).
+- Dependencies: Step 7 (`COMPLETED`).
 - Expected files: _(детализируется перед стартом шага)_
 - Acceptance criteria:
   1. Функции сохраняются.
@@ -1314,11 +1489,11 @@ Core concept CLAUDE.md требует показывать "проблему, т
 - Skeptic findings:
 - Completion evidence:
 
-## Step 8 — Browser acceptance tests
+## Step 9 — Browser acceptance tests
 
 - Status: `PROPOSED`
 - Objective: Зафиксировать основные потоки Playwright.
-- Dependencies: Step 7 (`COMPLETED`).
+- Dependencies: Step 8 (`COMPLETED`).
 - Expected files: _(детализируется перед стартом шага)_
 - Acceptance criteria:
   1. Desktop, keyboard, mobile, URL и reduced-motion flows проходят.
@@ -1394,3 +1569,42 @@ Core concept CLAUDE.md требует показывать "проблему, т
   решённым).
 - User approval: **получено** 2026-07-14, через явный вопрос пользователю ДО начала реализации
   Step 3: "Да, импортировать сейчас".
+
+### Amendment 3
+
+- Status: `APPROVED` (пользователем — сама структурная развилка OQ-D, "разбить план на два шага
+  vs один шаг с под-фазами"; **план обоих новых шагов в разбитой форме ниже отдельно ожидает
+  review skeptic**, см. Step 5/Step 6 → Skeptic verdict).
+- Reason: при планировании "Step 5 — Desktop 10/90 shell" единый черновик объединял то, что
+  `docs/17-execution-protocol.md` в своём собственном примере "хороших шагов" перечисляет как два
+  разных пункта ("4. Реализовать выбор отдела." и "5. Реализовать 10/90 shell."). Skeptic (review
+  плана Step 5, round 1) отметил это как крупнейший blast radius в проекте на сегодня (state
+  machine с нуля + 10/90-раскладка + URL-sync одновременно) — planner явно поднял это как открытый
+  вопрос (OQ-D) вместо того, чтобы молча унаследовать увеличенный объём одного шага, по прямому
+  правилу CLAUDE.md "не объединяй несколько шагов в один проход реализации".
+- Previous scope: единый "Step 5 — Desktop 10/90 shell" (state machine выбора отдела с нуля +
+  10/90-раскладка + URL-sync — всё одним WORKPLAN-шагом); далее "Step 6 — Mobile touch flow",
+  "Step 7 — Reduced motion and fallback", "Step 8 — Browser acceptance tests".
+- New scope: "Step 5 — Department selection state machine" (state machine с нуля, инверсия no-op
+  хотспотов, Escape/явная кнопка «Закрыть», focus management, honesty-правка `docs/05`, реальное
+  автооткрытие отдела по прямому URL и URL-sync при выборе/переключении/закрытии — без
+  10/90-раскладки, содержимое отдела — намеренно минимальный/неоформленный блок) и "Step 6 —
+  Desktop 10/90 shell" (10/90-раскладка, `DepartmentNavigationRail`, реальное содержимое отдела по
+  OQ-C, поверх уже работающей state machine Step 5). Бывшие "Step 6 — Mobile touch flow"/"Step 7 —
+  Reduced motion and fallback"/"Step 8 — Browser acceptance tests" сдвинуты на "Step 7"/"Step 8"/
+  "Step 9" соответственно — без изменения содержательного scope, только номер и внутренние
+  перекрёстные ссылки. `README.md` обновлён до девятистрочной таблицы статусов.
+- Impact: не меняет архитектуру или суммарный содержательный объём работы — тот же набор
+  функциональности (state machine + 10/90-раскладка + URL-sync), ранее объединённый в одном шаге,
+  теперь разделён на два меньших, отдельно верифицируемых шага с собственным skeptic review
+  исполнения у каждого. Общее число шагов утверждённого скелета — 9 вместо 8 (`Approval` →
+  `Approved scope` выше сохранён как есть, историческая запись на момент первоначального
+  утверждения 2026-07-14; это Amendment документирует последующее изменение).
+- Skeptic verdict: review плана Step 5 в его прежней, единой форме вернул `PASS` (round 1, до
+  этого Amendment) — этот verdict **утратил силу** после формального разбиения, так как форма
+  плана изменилась (см. `WORKPLAN.md` → Step 5/Step 6 → Skeptic verdict ниже: оба — "план ещё не
+  проверен skeptic'ом"). Review именно этого структурного разбиения запрошен вместе с
+  представлением обновлённого `WORKPLAN.md` пользователю.
+- User approval: получено 2026-07-15 напрямую через `AskUserQuestion` — выбран вариант "Разбить на
+  два шага (рекомендую)" (OQ-D = (b), см. `DECISIONS.md`, 2026-07-15 "Step 5: разбиение на два
+  отдельных шага WORKPLAN (OQ-D, Amendment 3)").

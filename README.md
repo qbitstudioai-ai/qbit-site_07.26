@@ -26,16 +26,17 @@ README.md синхронно с каждым изменением статуса
 
 ## Статус шагов
 
-| #   | Шаг                               | Статус        |
-| --- | --------------------------------- | ------------- |
-| 1   | Repository and quality foundation | Выполнено     |
-| 2   | Typed content model               | Выполнено     |
-| 3   | Semantic office overview          | Выполнено     |
-| 4   | Homepage state machine            | Выполнено     |
-| 5   | Desktop 10/90 shell               | Не приступили |
-| 6   | Mobile touch flow                 | Не приступили |
-| 7   | Reduced motion and fallback       | Не приступили |
-| 8   | Browser acceptance tests          | Не приступили |
+| # | Шаг                                | Статус        |
+| - | ---------------------------------- | ------------- |
+| 1 | Repository and quality foundation  | Выполнено     |
+| 2 | Typed content model                | Выполнено     |
+| 3 | Semantic office overview           | Выполнено     |
+| 4 | Homepage state machine             | Выполнено     |
+| 5 | Department selection state machine | Не приступили |
+| 6 | Desktop 10/90 shell                | Не приступили |
+| 7 | Mobile touch flow                  | Не приступили |
+| 8 | Reduced motion and fallback        | Не приступили |
+| 9 | Browser acceptance tests           | Не приступили |
 
 Полные критерии и детали каждого шага — `WORKPLAN.md`. История исполнения и доказательства —
 `WORKLOG.md`. Архитектурные и технологические решения — `DECISIONS.md`.
