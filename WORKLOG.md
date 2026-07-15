@@ -1001,3 +1001,144 @@ auto-open) и новым "Step 6 — Desktop 10/90 shell" (10/90-расклад�
   header-логотипа; сознательно не оптимизировался/не пересжимался в рамках этой точечной правки
   (пользователь одобрил файл "как есть"); кандидат на сжатие/векторизацию на будущем
   art-direction milestone (`docs/13` Этап 2).
+
+## Entry 5
+
+- Timestamp: 2026-07-15
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 5 — Department selection state machine
+- Status before: `PROPOSED` (план получил финальный skeptic `PASS` в round 7 цикла коррекции
+  Amendment 3, см. `WORKPLAN.md`)
+- Status after: `AWAITING_SKEPTIC`
+- Trigger/approval: пользователю показан итог закрытия Step 4 (hero-only состояние, ожидаемое для
+  текущего low-fidelity milestone) и представлен финальный план Step 5/Step 6 с прямым вопросом
+  "Подтверждаете начало реализации Step 5?"; ответ пользователя, 2026-07-15: «Я до сих пор не вижу
+  оформление. Если это до сих пор должно быть так. то продолжаем.» — истолковано как подтверждение
+  продолжения работы (см. `WORKPLAN.md` Step 5 Status для полной формулировки трактовки).
+
+### Scope executed
+
+Полностью по In scope плана Step 5 (`WORKPLAN.md`):
+
+- `src/features/office-machine/reducer.ts` — переписан: 6 состояний (`hero`/`overview`/
+  `department-opening`/`department-active`/`department-switching`/`department-closing`), 8 действий
+  (`ACTIVATE_CTA` + новые `SELECT_DEPARTMENT`/`OPEN_COMPLETE`/`SWITCH_DEPARTMENT`/
+  `SWITCH_COMPLETE`/`CLOSE_DEPARTMENT`/`CLOSE_COMPLETE`/`ESCAPE`); `activeDepartmentId` в состоянии;
+  `initOfficeMachineState` принимает `{initialRevealed, initialDepartmentId}` и стартует сразу в
+  `department-active`, если в URL при boot валидный id (без анимации `opening`, по прецеденту
+  пропуска `hero` в Step 4); все guard-инварианты (SWITCH на тот же id — no-op; повторный
+  CLOSE/ESCAPE во время closing — no-op; переходы разрешены только из ожидаемых состояний).
+- `src/features/office-machine/url-sync.ts` (новый) — `useDepartmentUrlSync`: сырой
+  `history.replaceState` (решение OQ-B), синхронизирует `?department=<id>` с `activeDepartmentId`
+  без перезагрузки страницы; no-op, если URL уже совпадает (естественно не создаёт лишних записей
+  на boot).
+- `src/features/office-machine/OfficeMachine.tsx` — таймеры авто-завершения переходов
+  (`OPEN_COMPLETE`/`SWITCH_COMPLETE`/`CLOSE_COMPLETE`, ориентировочные 800/600/700мс по `docs/07`,
+  книгоучёт, не gate для контента); глобальный `keydown`-обработчик `Escape`, активный, пока
+  `activeDepartmentId !== null`; focus-management (заголовок при открытии/переключении,
+  `{preventScroll: true}`; кнопка-хотспот при закрытии, тоже `preventScroll`), реализовано через
+  `useRef` (без опоры на `transitionend`, чтобы не зависеть от реального выполнения CSS-перехода
+  под `prefers-reduced-motion`).
+- `src/components/office/ActiveDepartmentPanel.tsx` (+ `.module.css`, новые) — временный,
+  намеренно неоформленный блок содержимого отдела (headline/problem/до 3 symptoms/outcomes/CTA/
+  кнопка «Закрыть»), явно помечен в коде и в `docs/05` как полностью заменяемый в Step 6.
+- `src/components/office/DepartmentHotspot.tsx` — инверсия no-op: реальный `onClick={() =>
+  onSelect(department.id)}`; стабильный `id="hotspot-<id>"` для focus-return.
+- `src/components/office/OfficeSemanticMap.tsx`, `OfficeExperience.tsx` — проброс
+  `onSelectDepartment`/`onCloseDepartment`/`activeDepartmentId`/`machineView`; временный способ
+  доступа к переключению — все 5 хотспотов остаются видимыми рядом с `ActiveDepartmentPanel` (явно
+  описанный в плане stopgap до `DepartmentNavigationRail` в Step 6).
+- `src/app/page.tsx` — валидация `?department=<id>` через `getDepartmentIds()`, вычисление
+  `initialDepartmentId: DepartmentId | null`.
+- `src/components/homepage/HomepageShell.tsx` — проброс `initialDepartmentId`.
+- `docs/05-homepage-state-machine.md` — двойная honesty-правка: (a) раздел `hero` — прямой URL
+  теперь честно описан как открывающий сам `department-active`, не только `overview`; заодно
+  исправлена устаревшая пометка "Статус реализации (актуально после Step 3)", которая после
+  закрытия Step 4 больше не была обновлена (не замечено на момент закрытия Step 4 — исправлено
+  сейчас, честно, а не молча); (b) разделы `department-opening`/`active`/`switching`/`closing` —
+  добавлена пометка "Статус реализации (актуально после Step 5)": state machine/URL-sync/focus
+  реальны; "левая панель"/"Оболочка 10/90" — ещё нет (Step 6).
+- Обновлены существующие тесты (честная инверсия, не молчаливое ослабление): unit —
+  `department-hotspot.test.tsx`, `office-semantic-map.test.tsx`, `office-experience.test.tsx`,
+  `reducer.test.ts` (полностью переписан), `home-page.test.tsx`; e2e —
+  `office-overview-keyboard.spec.ts` ("Enter/Space on a hotspot is a no-op" → "opens the
+  department"), `office-overview.spec.ts` (`?department=<id>` тест теперь проверяет реальное
+  открытие отдела; no-scroll тест расширен на состояние `department-active`).
+- Новые тесты: `url-sync.test.ts`, `active-department-panel.test.tsx`,
+  `department-selection.spec.ts` (11 сценариев: открытие, единственность активного отдела,
+  переключение без full reload, no-op на уже активном отделе, Space-парность, focus при открытии,
+  Escape + focus-return, кнопка «Закрыть» = Escape, прямой URL для всех 5 id, functional
+  reduced-motion, отсутствие console/hydration ошибок).
+
+### Найденный и исправленный реальный баг (до, не после, зелёного e2e-прогона)
+
+Первый прогон `test:e2e` (production build) дал 5 честных FAIL: клик по хотспоту другого отдела
+(переключение) не долетал до кнопки — Playwright сообщал `<section class="...office">... intercepts
+pointer events`. Root cause: `ActiveDepartmentPanel`, добавленный как flex-сосед `OfficeSemanticMap`
+внутри `.office`, забирал часть высоты у `.zoneList` (`flex: 1; min-height: 0` — сжимался без
+предела), из-за чего %-позиционированные хотспоты сжимались до нечитаемого/некликабельного
+размера. Fix: `.zoneList` получил `flex-shrink: 0; min-height: 340px` **без привязки к
+`@media (max-height: 700px)`** (значения были уже проверены skeptic'ом в Step 3 low-height review)
+— теперь карта хотспотов никогда не сжимается ниже читаемого/кликабельного размера; излишек
+обрабатывается уже существующим внутренним скроллом `.office`. После фикса — все 27/27 e2e
+прошли; отдельно перепроверено `--repeat-each=3` (81/81, flakiness не обнаружена).
+
+Также одна ложная находка в самом e2e-тесте (не в коде): `getByText('Меньше ручной работы')`
+неоднозначен на всей странице — эта строка одновременно является одним из `outcomes` отдела
+"sales" **и** одним из `valuePoints` hero (`data/homepage-copy.json`), которые остаются на
+странице одновременно. Исправлено скоупингом на `getByRole('region', {name: overviewLabel})`
+(панель отдела), а не молчаливым выбором `.first()`.
+
+### Verification commands (все прогнаны реально, вывод ниже)
+
+```bash
+npm run format:check   # All matched files use Prettier code style! (после точечного --write на
+                        # 5 файлов, не прошедших форматирование при первом прогоне)
+npm run lint            # eslint . — 0 problems
+npm run typecheck        # tsc --noEmit — 0 errors
+npm run test              # Test Files 12 passed (12); Tests 86 passed (86)
+npm run build              # next build — Compiled successfully; Route "/" = ƒ (dynamic, как и
+                             # раньше — чтение searchParams)
+npm run test:e2e             # 27 passed (27); повторно --repeat-each=3 → 81 passed (81)
+```
+
+Отдельная, обязательная dev-mode проверка (процессное требование после инцидента Step 4 —
+`npm run dev`, не только production-сборка):
+
+```bash
+npm run dev   # localhost:3100
+# headless Playwright-скрипт (одноразовый, по прецеденту Step 4): полный поток — открыть отдел
+# (sales), переключить (hr), Escape, прямой URL (?department=sales), невалидный URL
+# (?department=does-not-exist) — 0 console/pageerror сообщений, содержащих "error"/"hydrat"
+# (только штатные React DevTools/HMR-логи). Dev-сервер остановлен после проверки.
+```
+
+### Manual checks
+
+- `http://localhost:3100`: hero → overview (клик CTA) → клик по каждому из 5 хотспотов по
+  очереди — каждый открывает соответствующий отдел; клик по другому хотспоту, пока один активен —
+  переключение без промежуточного overview.
+- Клавиатура: Tab до хотспота → Enter/Space открывает отдел; Escape закрывает и возвращает focus.
+- `http://localhost:3100/?department=<id>` для всех 5 id — отдел открыт сразу; `?department=не-
+  существующий-id` — деградация к overview без ошибки.
+- `prefers-reduced-motion: reduce` в DevTools — открытие/переключение/закрытие остаются
+  функциональными.
+- `git diff --stat 4192279` (исключая процессные файлы) — 21 файл (плюс отдельно
+  задокументированный ad hoc коммит логотипа/favicon между Step 4 и Step 5), все в рамках Expected
+  files Step 5 (плюс уже раскрытый ad hoc scope).
+- grep на `'use client'`/`"use client"` — единственная реальная директива в
+  `OfficeMachine.tsx`; grep на runtime-импорты `@/content/departments|homepage-copy|office-zones` —
+  только в `HomepageShell.tsx` (server component, без `"use client"`) — server/client граница не
+  нарушена (acceptance criterion 15).
+
+### Known limitations / перенесено в риски
+
+- Временный "ugly-but-functional" способ переключения (все 5 хотспотов видимы рядом с блоком
+  отдела) — сознательно, заменяется `DepartmentNavigationRail`/10-90-раскладкой в Step 6.
+- Полная low-height regression (`docs/08` "Низкий desktop", <700px) для `department-active` — не
+  тестировалась специально (базовый no-scroll инвариант — да, через AC13); полная регрессия —
+  задача Step 6 (уже так зафиксировано в плане, In scope этого шага её не требовал).
+- Поддержка кнопок «назад»/«вперёд» браузера — не реализована (сознательно, см. WORKPLAN Out of
+  scope).
+- Content gap (`beforeSteps`/`automationSteps` отсутствуют в `data/departments.json`) — уже
+  известный, не решается здесь.

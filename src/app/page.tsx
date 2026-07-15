@@ -1,4 +1,6 @@
 import { HomepageShell } from "@/components/homepage/HomepageShell";
+import { getDepartmentIds } from "@/content/departments";
+import type { DepartmentId } from "@/content/types";
 
 interface HomePageProps {
   searchParams: Promise<{ department?: string }>;
@@ -6,7 +8,14 @@ interface HomePageProps {
 
 export default async function HomePage({ searchParams }: HomePageProps) {
   const params = await searchParams;
-  const initialRevealed = Boolean(params.department);
+  const requestedDepartment = params.department;
+  const initialRevealed = Boolean(requestedDepartment);
+  const initialDepartmentId: DepartmentId | null =
+    requestedDepartment && getDepartmentIds().includes(requestedDepartment as DepartmentId)
+      ? (requestedDepartment as DepartmentId)
+      : null;
 
-  return <HomepageShell initialRevealed={initialRevealed} />;
+  return (
+    <HomepageShell initialRevealed={initialRevealed} initialDepartmentId={initialDepartmentId} />
+  );
 }

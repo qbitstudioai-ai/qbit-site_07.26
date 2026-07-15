@@ -1,17 +1,19 @@
-import type { Department, OfficeZone } from "@/content/types";
+import type { Department, DepartmentId, OfficeZone } from "@/content/types";
 import styles from "./DepartmentHotspot.module.css";
 
 interface DepartmentHotspotProps {
   zone: OfficeZone;
   department: Department;
+  onSelect: (departmentId: DepartmentId) => void;
 }
 
-export function DepartmentHotspot({ zone, department }: DepartmentHotspotProps) {
+export function DepartmentHotspot({ zone, department, onSelect }: DepartmentHotspotProps) {
   const problemId = `department-problem-${department.id}`;
 
   return (
     <button
       type="button"
+      id={`hotspot-${department.id}`}
       className={styles.hotspot}
       style={{
         left: `${zone.x}%`,
@@ -21,6 +23,7 @@ export function DepartmentHotspot({ zone, department }: DepartmentHotspotProps) 
       }}
       aria-label={department.overviewLabel}
       aria-describedby={problemId}
+      onClick={() => onSelect(department.id)}
     >
       <span className={styles.label}>{department.overviewLabel}</span>
       <span id={problemId} className={styles.problem}>

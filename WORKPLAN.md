@@ -909,7 +909,13 @@ directly addressable by URL", которые интуитивно предпол
 
 ## Step 5 — Department selection state machine
 
-- Status: `PROPOSED`
+- Status: `AWAITING_SKEPTIC` (реализация выполнена; все verification commands реально прогнаны
+  (см. `WORKLOG.md`, Entry 5) — format:check/lint/typecheck/test (86/86)/build/test:e2e (27/27,
+  затем `--repeat-each=3` → 81/81) — все exit 0; отдельная обязательная dev-mode проверка (`npm run
+  dev`) — 0 подозрительных console-сообщений. В ходе первого прогона `test:e2e` найден и исправлен
+  реальный CSS-баг (сжатие `.zoneList` ниже кликабельного размера при появлении временного блока
+  отдела — см. WORKLOG Entry 5 "Найденный и исправленный реальный баг"). Ожидает review skeptic
+  исполнения)
 - Objective: Реализовать полную state machine выбора отдела с нуля (`SELECT_DEPARTMENT`/
   `CLOSE_DEPARTMENT`/`ESCAPE`, переходы `opening → active ↔ switching → closing` по
   `docs/05-homepage-state-machine.md`) — весь объём "выбора отдела", явно перенесённый сюда
@@ -1222,7 +1228,7 @@ directly addressable by URL", которые интуитивно предпол
 - Rollback: `git revert` диапазона коммитов Step 5 (аддитивно относительно Step 4: редьюсер
   переписывается, но данные/adapter'ы не меняются; новые модули добавляются). Деструктивный
   `git reset --hard` — только с явного разрешения пользователя, как в предыдущих шагах.
-- Skeptic verdict: **round 1** (review плана после разбиения, Amendment 3) — `FAIL`: устаревшие
+- Skeptic verdict (review плана, Phase A): **round 1** (review плана после разбиения, Amendment 3) — `FAIL`: устаревшие
   перекрёстные ссылки на номера/названия шагов по дореформенной нумерации внутри уже `COMPLETED`
   секций Step 3/Step 4 (например, "Step 5 (\"Desktop 10/90 shell\")", "Step 7 (\"Reduced motion and
   fallback\")", "8-шаговый milestone") — часть из них стала не просто устаревшей, а буквально
@@ -1260,7 +1266,7 @@ directly addressable by URL", которые интуитивно предпол
   вернул `PASS` (тот, более ранний round 1) — этот более ранний verdict утратил силу после
   формального разбиения на два шага, так как форма плана изменилась; текущий round 7 — актуальный,
   финальный verdict для плана в его нынешней, разбитой форме.
-- Skeptic findings: round 1 (после разбиения) — Blocker/Critical/Major: 1 (устаревшие/ложные
+- Skeptic findings (Phase A): round 1 (после разбиения) — Blocker/Critical/Major: 1 (устаревшие/ложные
   перекрёстные ссылки на номера шагов в `WORKPLAN.md`, см. выше) — исправлено; Minor: (1)
   Tab-порядок между оставшимися хотспотами overview и временным минимальным блоком активного
   отдела не специфицирован; (2) клавиатурное переключение между уже открытыми отделами не покрыто
@@ -1269,7 +1275,14 @@ directly addressable by URL", которые интуитивно предпол
   формулировка `Dependencies` Step 6 ("Step 5 ... (`COMPLETED`)") при ещё не начатом Step 5 читается
   двусмысленно вне контекста остального предложения — признано самосогласованным проектным
   соглашением (условие-гейт, не заявление о текущем статусе), не блокирует.
-- Completion evidence: _(шаг не начат — план не реализован.)_
+- Skeptic verdict (review исполнения, Phase B): _(ещё не проверено skeptic'ом — реализация
+  завершена, все verification commands реально прогнаны, см. `WORKLOG.md` Entry 5; ожидает вызова
+  skeptic)_
+- Skeptic findings (Phase B): _(см. Skeptic verdict выше)_
+- Completion evidence: `WORKLOG.md`, Entry 5 — полный список изменённых файлов, реальный вывод всех
+  6 verification commands (86/86 unit, 27/27 e2e, затем `--repeat-each=3` → 81/81, flakiness не
+  обнаружена) и отдельной dev-mode console-проверки (0 подозрительных сообщений); найденный и
+  исправленный в процессе реальный CSS-баг (сжатие `.zoneList`); `git diff --stat 4192279`.
 
 ## Step 6 — Desktop 10/90 shell
 

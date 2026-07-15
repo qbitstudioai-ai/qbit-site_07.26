@@ -4,6 +4,13 @@
   flex: 1;
   min-height: 0;
   padding: 0 var(--space-6) var(--space-6);
+  /* Внутренний скролл панели офиса включён не только при "Низком desktop" (docs/08, ниже), но и
+     всегда — начиная со Step 5 (Amendment 3, DECISIONS.md 2026-07-15) панель может содержать
+     временный минимальный блок активного отдела (ActiveDepartmentPanel) поверх карты с хотспотами;
+     единственный документный контейнер, который не скроллится целиком, — .shell (overflow: hidden,
+     HomepageShell.module.css) — этот внутренний скролл не меняет и не может нарушить тот инвариант
+     (document.documentElement.scrollHeight не растёт от переполнения дочернего flex-контейнера). */
+  overflow-y: auto;
 }
 
 .hint {
@@ -11,15 +18,6 @@
   font-size: 0.875rem;
   color: var(--color-graphite-500);
   margin-bottom: var(--space-3);
-}
-
-/* docs/08 "Низкий desktop": разрешить внутренний скролл content panel вместо обрезания или
-   бесконечного сжатия хотспотов ниже читаемого размера (см. OfficeSemanticMap.module.css). Шапка,
-   hero и CTA остаются вне этого контейнера и не участвуют в скролле. */
-@media (max-height: 700px) {
-  .office {
-    overflow-y: auto;
-  }
 }
 
 /* Step 4: скрыть панель офиса (подсказку + карту) до ACTIVATE_CTA, если JavaScript включён (класс

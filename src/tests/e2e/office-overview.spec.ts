@@ -67,15 +67,20 @@ test.describe("office overview", () => {
     expect(suspicious).toEqual([]);
   });
 
-  test("?department=<id> at boot skips hero-only state and reveals overview immediately, without a click", async ({
+  test("?department=<id> at boot opens the department itself immediately, without a click (Step 5 — honest upgrade of the Step 4 'only skips hero' behavior)", async ({
     page,
   }) => {
     await page.goto("/?department=sales");
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
     await expect(nav.getByRole("button")).toHaveCount(5);
+
+    const salesDepartment = getDepartments().find((d) => d.id === "sales")!;
+    await expect(
+      page.getByRole("heading", { level: 2, name: salesDepartment.headline }),
+    ).toBeVisible();
   });
 
-  test("?department=<invalid id> at boot still reveals overview and does not error (degrades gracefully)", async ({
+  test("?department=<invalid id> at boot still reveals overview, opens no department, and does not error (degrades gracefully)", async ({
     page,
   }) => {
     const consoleErrors: string[] = [];
@@ -86,6 +91,7 @@ test.describe("office overview", () => {
     await page.goto("/?department=does-not-exist");
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
     await expect(nav.getByRole("button")).toHaveCount(5);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
     expect(consoleErrors).toEqual([]);
   });
 
@@ -119,18 +125,31 @@ test.describe("office overview", () => {
     { width: 1920, height: 1080 },
   ];
 
+  async function expectNoDocumentScroll(page: import("@playwright/test").Page) {
+    const { scrollHeight, innerHeight } = await page.evaluate(() => ({
+      scrollHeight: document.documentElement.scrollHeight,
+      innerHeight: window.innerHeight,
+    }));
+    expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
+  }
+
   for (const size of desktopSizes) {
-    test(`fits within one screen without vertical scroll at ${size.width}x${size.height} (docs/08)`, async ({
+    test(`fits within one screen without vertical scroll at ${size.width}x${size.height} in hero, overview, and department-active (docs/08, Step 5 AC13)`, async ({
       page,
     }) => {
       await page.setViewportSize(size);
       await page.goto("/");
+      // hero
+      await expectNoDocumentScroll(page);
+
       await activateCta(page);
-      const { scrollHeight, innerHeight } = await page.evaluate(() => ({
-        scrollHeight: document.documentElement.scrollHeight,
-        innerHeight: window.innerHeight,
-      }));
-      expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
+      // overview
+      await expectNoDocumentScroll(page);
+
+      const nav = page.getByRole("navigation", { name: "Отделы компании" });
+      await nav.getByRole("button").first().click();
+      // department-active (Step 5's temporary minimal block)
+      await expectNoDocumentScroll(page);
     });
   }
 

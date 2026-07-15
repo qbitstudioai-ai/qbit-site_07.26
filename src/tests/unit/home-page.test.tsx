@@ -39,4 +39,20 @@ describe("HomePage", () => {
     );
     expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "true");
   });
+
+  it("boots with the department itself already open when a valid ?department=<id> is given (Step 5)", async () => {
+    render(await HomePage({ searchParams: Promise.resolve({ department: "sales" }) }));
+    const salesDepartment = getDepartments().find((d) => d.id === "sales")!;
+    expect(
+      screen.getByRole("heading", { level: 2, name: salesDepartment.headline }),
+    ).toBeInTheDocument();
+  });
+
+  it("degrades to overview (no department opened, no error) when ?department=<id> is invalid", async () => {
+    const { container } = render(
+      await HomePage({ searchParams: Promise.resolve({ department: "does-not-exist" }) }),
+    );
+    expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "true");
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+  });
 });

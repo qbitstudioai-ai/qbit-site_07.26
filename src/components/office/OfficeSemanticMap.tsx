@@ -1,13 +1,18 @@
-import type { Department, OfficeZone } from "@/content/types";
+import type { Department, DepartmentId, OfficeZone } from "@/content/types";
 import { DepartmentHotspot } from "./DepartmentHotspot";
 import styles from "./OfficeSemanticMap.module.css";
 
 interface OfficeSemanticMapProps {
   departments: Department[];
   officeZones: OfficeZone[];
+  onSelectDepartment: (departmentId: DepartmentId) => void;
 }
 
-export function OfficeSemanticMap({ departments, officeZones }: OfficeSemanticMapProps) {
+export function OfficeSemanticMap({
+  departments,
+  officeZones,
+  onSelectDepartment,
+}: OfficeSemanticMapProps) {
   const zones = officeZones.slice().sort((a, b) => a.y - b.y || a.x - b.x);
 
   return (
@@ -22,7 +27,11 @@ export function OfficeSemanticMap({ departments, officeZones }: OfficeSemanticMa
           }
           return (
             <li key={zone.departmentId} className={styles.zoneItem}>
-              <DepartmentHotspot zone={zone} department={department} />
+              <DepartmentHotspot
+                zone={zone}
+                department={department}
+                onSelect={onSelectDepartment}
+              />
             </li>
           );
         })}

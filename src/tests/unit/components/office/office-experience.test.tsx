@@ -15,6 +15,10 @@ describe("OfficeExperience", () => {
         departments={departments}
         officeZones={officeZones}
         isRevealed={false}
+        machineView="hero"
+        activeDepartmentId={null}
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
       />,
     );
     const section = container.querySelector("section");
@@ -32,9 +36,50 @@ describe("OfficeExperience", () => {
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
+        machineView="overview"
+        activeDepartmentId={null}
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
       />,
     );
     const section = container.querySelector("section");
     expect(section).toHaveAttribute("data-revealed", "true");
+  });
+
+  it("does not render an active department panel when activeDepartmentId is null", () => {
+    render(
+      <OfficeExperience
+        interactionHint="Наведите курсор на отдел"
+        departments={departments}
+        officeZones={officeZones}
+        isRevealed={true}
+        machineView="overview"
+        activeDepartmentId={null}
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+  });
+
+  it("renders the active department's panel AND keeps all 5 hotspots visible (Step 5 temporary switching stopgap)", () => {
+    render(
+      <OfficeExperience
+        interactionHint="Наведите курсор на отдел"
+        departments={departments}
+        officeZones={officeZones}
+        isRevealed={true}
+        machineView="department-active"
+        activeDepartmentId="sales"
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
+      />,
+    );
+    const salesDepartment = departments.find((d) => d.id === "sales")!;
+    expect(
+      screen.getByRole("heading", { level: 2, name: salesDepartment.headline }),
+    ).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: "Отделы компании" });
+    expect(nav.querySelectorAll("button")).toHaveLength(5);
   });
 });

@@ -53,7 +53,7 @@ test("hidden hotspots are not reachable by Tab before ACTIVATE_CTA; Tab visits a
   }
 });
 
-test("Enter/Space on a hotspot is a no-op (no navigation, no console error) — department selection is not part of Step 4", async ({
+test("Enter on a focused hotspot opens the department — honest inversion of the old Step 3/4 no-op test (Step 5 implements SELECT_DEPARTMENT)", async ({
   page,
 }) => {
   const consoleErrors: string[] = [];
@@ -65,14 +65,19 @@ test("Enter/Space on a hotspot is a no-op (no navigation, no console error) — 
   await activateCta(page);
 
   const nav = page.getByRole("navigation", { name: "Отделы компании" });
-  const firstButton = nav.getByRole("button").first();
+  const departments = getDepartments();
+  const firstZoneOverviewLabel = expectedTabOrderLabels()[0];
+  const firstDepartment = departments.find((d) => d.overviewLabel === firstZoneOverviewLabel);
+  const firstButton = nav.getByRole("button", { name: firstDepartment?.overviewLabel });
   await firstButton.focus();
 
-  const urlBefore = page.url();
   await page.keyboard.press("Enter");
-  await page.keyboard.press(" ");
 
-  expect(page.url()).toBe(urlBefore);
+  await expect(
+    page.getByRole("heading", { level: 2, name: firstDepartment?.headline }),
+  ).toBeVisible();
+  // Полной навигации/перезагрузки документа не произошло — только URL (?department=<id>) обновился.
+  expect(new URL(page.url()).searchParams.get("department")).toBe(firstDepartment?.id);
   expect(consoleErrors).toEqual([]);
 });
 

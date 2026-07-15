@@ -1,5 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { OfficeSemanticMap } from "@/components/office/OfficeSemanticMap";
 import { getDepartments } from "@/content/departments";
 import { getOfficeZones } from "@/content/office-zones";
@@ -9,7 +9,13 @@ describe("OfficeSemanticMap", () => {
   const officeZones = getOfficeZones();
 
   it("renders exactly 5 accessible department buttons, scoped to the map nav", () => {
-    render(<OfficeSemanticMap departments={departments} officeZones={officeZones} />);
+    render(
+      <OfficeSemanticMap
+        departments={departments}
+        officeZones={officeZones}
+        onSelectDepartment={() => {}}
+      />,
+    );
     const nav = screen.getByRole("navigation", { name: "Отделы компании" });
     const buttons = within(nav).getAllByRole("button");
     expect(buttons).toHaveLength(5);
@@ -22,7 +28,13 @@ describe("OfficeSemanticMap", () => {
   });
 
   it("orders hotspots in the DOM by y ascending, then x ascending", () => {
-    render(<OfficeSemanticMap departments={departments} officeZones={officeZones} />);
+    render(
+      <OfficeSemanticMap
+        departments={departments}
+        officeZones={officeZones}
+        onSelectDepartment={() => {}}
+      />,
+    );
     const nav = screen.getByRole("navigation", { name: "Отделы компании" });
     const buttons = within(nav).getAllByRole("button");
 
@@ -41,7 +53,13 @@ describe("OfficeSemanticMap", () => {
   });
 
   it("computes hotspot position from office-zones.json, not a hardcoded value", () => {
-    render(<OfficeSemanticMap departments={departments} officeZones={officeZones} />);
+    render(
+      <OfficeSemanticMap
+        departments={departments}
+        officeZones={officeZones}
+        onSelectDepartment={() => {}}
+      />,
+    );
     for (const zone of officeZones) {
       const department = departments.find((d) => d.id === zone.departmentId);
       const button = screen.getByRole("button", { name: department?.overviewLabel });
@@ -50,5 +68,19 @@ describe("OfficeSemanticMap", () => {
       expect(button.style.width).toBe(`${zone.width}%`);
       expect(button.style.height).toBe(`${zone.height}%`);
     }
+  });
+
+  it("clicking a hotspot calls onSelectDepartment with that department's id (Step 5 no-op inversion)", () => {
+    const onSelectDepartment = vi.fn();
+    render(
+      <OfficeSemanticMap
+        departments={departments}
+        officeZones={officeZones}
+        onSelectDepartment={onSelectDepartment}
+      />,
+    );
+    const salesDepartment = departments.find((d) => d.id === "sales")!;
+    fireEvent.click(screen.getByRole("button", { name: salesDepartment.overviewLabel }));
+    expect(onSelectDepartment).toHaveBeenCalledWith("sales");
   });
 });

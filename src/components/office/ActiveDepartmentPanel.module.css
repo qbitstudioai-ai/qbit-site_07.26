@@ -1,0 +1,83 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-graphite-300);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.active {
+  opacity: 1;
+}
+
+.opening {
+  animation: fade-in 0.8s ease;
+}
+
+.switching {
+  animation: fade-in 0.6s ease;
+}
+
+.closing {
+  animation: fade-out 0.7s ease forwards;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-graphite-900);
+}
+
+.heading:focus-visible {
+  outline: 3px solid var(--color-accent-warm);
+  outline-offset: 2px;
+}
+
+.problem {
+  color: var(--color-graphite-700);
+}
+
+.symptoms,
+.outcomes {
+  padding-left: var(--space-4);
+  list-style: disc;
+  color: var(--color-graphite-700);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.cta,
+.close {
+  padding: var(--space-2) var(--space-4);
+  border-radius: 6px;
+  border: 1px solid var(--color-graphite-300);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-weight: 600;
+}

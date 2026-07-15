@@ -1,16 +1,26 @@
 "use client";
 
-import { useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { HeroCopy } from "@/components/homepage/HeroCopy";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
-import type { Department, HomepageCopy, OfficeZone } from "@/content/types";
+import type { Department, DepartmentId, HomepageCopy, OfficeZone } from "@/content/types";
 import { initOfficeMachineState, officeMachineReducer } from "./reducer";
+import { useDepartmentUrlSync } from "./url-sync";
+
+// Ориентировочная длительность (docs/07-motion-system.md "Уровень Transition") — книгоучёт для
+// focus-management/CSS-классов, не строгий acceptance-критерий; под prefers-reduced-motion реальная
+// CSS transition/animation обнуляется глобально (globals.css), эти таймеры лишь продвигают
+// наблюдаемый `view` вперёд по docs/05, не блокируя доступность контента (Motion rules CLAUDE.md).
+const OPEN_DURATION_MS = 800;
+const SWITCH_DURATION_MS = 600;
+const CLOSE_DURATION_MS = 700;
 
 interface OfficeMachineProps {
   copy: HomepageCopy;
   departments: Department[];
   officeZones: OfficeZone[];
   initialRevealed: boolean;
+  initialDepartmentId: DepartmentId | null;
 }
 
 export function OfficeMachine({
@@ -18,23 +28,97 @@ export function OfficeMachine({
   departments,
   officeZones,
   initialRevealed,
+  initialDepartmentId,
 }: OfficeMachineProps) {
   const [state, dispatch] = useReducer(
     officeMachineReducer,
-    initialRevealed,
+    { initialRevealed, initialDepartmentId },
     initOfficeMachineState,
   );
 
-  const handleActivate = () => dispatch({ type: "ACTIVATE_CTA" });
+  useDepartmentUrlSync(state.activeDepartmentId);
+
+  useEffect(() => {
+    if (state.view === "department-opening") {
+      const timer = setTimeout(() => dispatch({ type: "OPEN_COMPLETE" }), OPEN_DURATION_MS);
+      return () => clearTimeout(timer);
+    }
+    if (state.view === "department-switching") {
+      const timer = setTimeout(() => dispatch({ type: "SWITCH_COMPLETE" }), SWITCH_DURATION_MS);
+      return () => clearTimeout(timer);
+    }
+    if (state.view === "department-closing") {
+      const timer = setTimeout(() => dispatch({ type: "CLOSE_COMPLETE" }), CLOSE_DURATION_MS);
+      return () => clearTimeout(timer);
+    }
+  }, [state.view]);
+
+  // Escape закрывает активный отдел из любого department-*-состояния (docs/11).
+  useEffect(() => {
+    if (state.activeDepartmentId === null) return;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        dispatch({ type: "ESCAPE" });
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [state.activeDepartmentId]);
+
+  const previousActiveIdRef = useRef<DepartmentId | null>(null);
+  const lastNonNullActiveIdRef = useRef<DepartmentId | null>(null);
+  const previousViewRef = useRef(state.view);
+
+  useEffect(() => {
+    const previousView = previousViewRef.current;
+    previousViewRef.current = state.view;
+
+    // Focus переносится на заголовок открытого/переключённого отдела (docs/05 department-opening,
+    // docs/11) — срабатывает и при открытии из overview, и при переключении между отделами.
+    if (state.activeDepartmentId && state.activeDepartmentId !== previousActiveIdRef.current) {
+      document
+        .getElementById(`department-heading-${state.activeDepartmentId}`)
+        ?.focus({ preventScroll: true });
+    }
+    if (state.activeDepartmentId) {
+      lastNonNullActiveIdRef.current = state.activeDepartmentId;
+    }
+    previousActiveIdRef.current = state.activeDepartmentId;
+
+    // Focus возвращается на кнопку-хотспот, которая открыла отдел, после завершения закрытия
+    // (docs/11 "после закрытия focus возвращается").
+    if (state.view === "overview" && previousView === "department-closing") {
+      const returnId = lastNonNullActiveIdRef.current;
+      if (returnId) {
+        document.getElementById(`hotspot-${returnId}`)?.focus({ preventScroll: true });
+      }
+    }
+  }, [state.view, state.activeDepartmentId]);
+
+  const handleActivateCta = () => dispatch({ type: "ACTIVATE_CTA" });
+
+  const handleSelectDepartment = (departmentId: DepartmentId) => {
+    if (state.activeDepartmentId === null) {
+      dispatch({ type: "SELECT_DEPARTMENT", departmentId });
+    } else {
+      dispatch({ type: "SWITCH_DEPARTMENT", departmentId });
+    }
+  };
+
+  const handleCloseDepartment = () => dispatch({ type: "CLOSE_DEPARTMENT" });
 
   return (
     <>
-      <HeroCopy copy={copy} onActivate={handleActivate} />
+      <HeroCopy copy={copy} onActivate={handleActivateCta} />
       <OfficeExperience
         interactionHint={copy.interactionHint}
         departments={departments}
         officeZones={officeZones}
-        isRevealed={state.view === "overview"}
+        isRevealed={state.view !== "hero"}
+        machineView={state.view}
+        activeDepartmentId={state.activeDepartmentId}
+        onSelectDepartment={handleSelectDepartment}
+        onCloseDepartment={handleCloseDepartment}
       />
     </>
   );

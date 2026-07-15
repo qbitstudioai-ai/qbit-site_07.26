@@ -10,7 +10,15 @@
   position: relative;
   width: 100%;
   flex: 1;
-  min-height: 0;
+  /* min-height (не 0) и flex-shrink: 0 — не только для "Низкого desktop" (docs/08), но и
+     всегда, начиная со Step 5 (Amendment 3, DECISIONS.md 2026-07-15): временный
+     ActiveDepartmentPanel — сосед .map внутри .office — иначе забрал бы место у карты через flex и
+     сжал бы % -позиционированные хотспоты до нечитаемого/некликабельного размера (реальный баг,
+     пойманный e2e-тестом переключения между отделами — клик промахивался мимо сжавшегося хотспота).
+     Излишек высоты обрабатывается внутренним скроллом .office (см. OfficeExperience.module.css),
+     а не обрезается и не выталкивает документ в постраничный скролл. */
+  flex-shrink: 0;
+  min-height: 340px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -21,15 +29,4 @@
 
 .zoneItem {
   list-style: none;
-}
-
-/* docs/08 "Низкий desktop": ниже 700px высоты .zoneList больше не сжимается вместе с viewport —
-   фиксированный min-height держит хотспоты (позиционированные в % от .zoneList) выше читаемого
-   порога. Излишек высоты обрабатывается внутренним скроллом .office (см.
-   OfficeExperience.module.css), а не обрезается и не выталкивает документ в постраничный скролл. */
-@media (max-height: 700px) {
-  .zoneList {
-    flex-shrink: 0;
-    min-height: 340px;
-  }
 }
