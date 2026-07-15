@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Allqbit",
   description: "Allqbit — прототип интерактивной главной страницы.",
+  icons: {
+    icon: "/logo.svg",
+  },
 };
 
 export default function RootLayout({

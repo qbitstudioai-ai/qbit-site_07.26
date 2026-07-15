@@ -968,3 +968,36 @@ Amendment 3 (`DECISIONS.md` 2026-07-15, "Step 5: разбиение на два 
 объём разделён между новым "Step 5 — Department selection state machine" (state machine, URL
 auto-open) и новым "Step 6 — Desktop 10/90 shell" (10/90-раскладка); dev-mode проверка требуется в
 обоих.
+
+## Ad hoc — Логотип в Header и favicon
+
+- Timestamp: 2026-07-15
+- Trigger: пользователь указал, что логотип должен быть другим, и что он есть на диске
+  ("У тебя должна быть фотография логотипа"), с явным разрешением выбрать удобное время для правки
+  ("Сам определись, когда лучше сделать").
+- Находка перед реализацией: `references/logo/Logo111.svg` — единственный логотип в репозитории —
+  визуально содержит текст **"Qbit StudioAI"**, а не "Allqbit" (совпадает по названию с посторонним
+  проектом "Qbit-Studio-AI", уже упомянутым в `WORKPLAN.md` Step 1 Risks как источник конфликта
+  порта 3000 на этой машине). Это несоответствие названию продукта было явно вынесено пользователю
+  через `AskUserQuestion`, а не тихо принято/отклонено. Ответ пользователя, 2026-07-15: "Да,
+  использовать как есть".
+- Реализация (вне рамок 9-шагового WORKPLAN — точечная, не архитектурная правка, не проходившая
+  planner/skeptic protocol как "substantial task" по масштабу):
+  - `public/logo.svg` — копия `references/logo/Logo111.svg` (SVG-обёртка с встроенным растровым PNG
+    2490×1779, реальный "фотография логотипа", как и предполагал пользователь).
+  - `src/components/homepage/Header.tsx` — `next/image` (`<Image src="/logo.svg" ... />`, не сырой
+    `<img>` — правка сразу по ESLint-предупреждению `@next/next/no-img-element`) добавлен перед
+    текстовым брендом "Allqbit" (текст сохранён — логотип не содержит слова "Allqbit", поэтому
+    текстовый бренд остаётся для ясности, а не заменяется).
+  - `src/components/homepage/Header.module.css` — `.logo { height: var(--space-8); width: auto; }`,
+    `.header` получил `gap: var(--space-2)`.
+  - `src/app/layout.tsx` — `metadata.icons.icon = "/logo.svg"` (Next.js добавляет
+    `<link rel="icon" href="/logo.svg">` рядом с уже существующим `favicon.ico`, не заменяя его).
+- Verification: `npm run format:check`/`lint`/`typecheck` — чисто (после auto-fix `README.md`
+  форматирования, не связанного с этой правкой); визуальная проверка headless Playwright против
+  `npm run dev` — 0 console/pageerror сообщений (только штатные React DevTools/HMR-логи), оба
+  `<link rel="icon">`-тега присутствуют в HTML, логотип рендерится в header (44.8×32px).
+- Known limitation: исходный файл — 162 КБ (растровый PNG, обёрнутый в SVG) — тяжелее типичного
+  header-логотипа; сознательно не оптимизировался/не пересжимался в рамках этой точечной правки
+  (пользователь одобрил файл "как есть"); кандидат на сжатие/векторизацию на будущем
+  art-direction milestone (`docs/13` Этап 2).
