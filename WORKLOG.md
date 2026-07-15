@@ -708,3 +708,173 @@ fallback, реализованный по прямому решению поль
 (включая low-height fallback), задан прямой вопрос об утверждении закрытия; ответ пользователя,
 2026-07-14: "продолжай". `WORKPLAN.md` Step 3 `Status` → `COMPLETED`; `README.md` — строка Step 3 →
 "Выполнено". Step 3 закрыт.
+
+## Entry 4
+
+- Timestamp: 2026-07-15
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 4 — Homepage state machine
+- Status before: `PROPOSED`
+- Status after: `IN_PROGRESS` (реализация выполнена, ожидает skeptic review исполнения)
+
+### Planning history (Step 4)
+
+План прошёл 9 раундов skeptic review (Phase A) — 6 раундов по содержанию черновика с открытыми
+вопросами (OQ-1: библиотека состояния; OQ-2: граница Step 4/Step 5 по глубине выбора отдела; OQ-3:
+поведение прямого URL при boot), финальный `PASS` в round 6 (`94a0ebc`); ещё 3 раунда — по
+bookkeeping-полям после финализации плана ответами пользователя (rounds 7–9, финальный `PASS`
+`8aaa78f`). Пользователь ответил на все три вопроса: OQ-1 = `useState`/`useReducer`; OQ-2 = (c) —
+Step 4 не реализует выбор отдела вовсе; OQ-3 — пользователь изначально выбрал "сразу открывать
+отдел по ссылке", что противоречило уже выбранному OQ-2 = (c) (план сам предвидел этот конфликт);
+основная сессия вернулась к пользователю с уточняющим вопросом, пользователь разрешил конфликт,
+оставив Step 4 минимальным и перенеся реальное автооткрытие отдела по ссылке в Step 5 (см.
+`DECISIONS.md`, 4 записи от 2026-07-15). План представлен пользователю, получено явное
+утверждение: "продолжай" — ответ на прямой вопрос "Do you approve starting implementation of
+Step 4 as described?".
+
+### Scope executed
+
+- `src/features/office-machine/reducer.ts` — чистый `useReducer`-редьюсер: состояние `{ view: "hero"
+  | "overview" }`, действие `ACTIVATE_CTA`, `initOfficeMachineState(initialRevealed)` для
+  начального состояния (boot с `?department=<id>` → сразу `overview`).
+- `src/features/office-machine/OfficeMachine.tsx` — новый `'use client'`-компонент (единственный
+  client-компонент проекта на данный момент): держит `useReducer`, получает `copy`/`departments`/
+  `officeZones`/`initialRevealed` как plain-serializable props от `HomepageShell` (server), не
+  импортирует `src/content/*` напрямую. Рендерит `HeroCopy` + `OfficeExperience`, передаёт
+  `onActivate`/`isRevealed`.
+- `src/components/homepage/HomepageShell.tsx` — теперь принимает `initialRevealed: boolean`,
+  вызывает adapter'ы (`getHomepageCopy`/`getDepartments`/`getOfficeZones`) и рендерит
+  `<OfficeMachine>` внутри `<main>` (структура DOM `main > section.hero + section.office`
+  сохранена, `HomepageShell.module.css` не менялся).
+- `src/components/homepage/HeroCopy.tsx` — принимает `copy`/`onActivate` как props вместо вызова
+  adapter'а напрямую; `primaryCta` получил `onClick={onActivate}`; `secondaryCta` теперь
+  предотвращает нативный переход по `#office-map` (`event.preventDefault()`) и тоже вызывает
+  `onActivate` (обе CTA ведут к одному и тому же раскрытию — решено ранее, Step 3 correction).
+- `src/components/office/OfficeExperience.tsx` (+ `.module.css`) — принимает `departments`/
+  `officeZones`/`isRevealed` как props; при `!isRevealed` добавляет класс `hiddenUntilRevealed`
+  вдобавок к обычному; добавлен `data-revealed={isRevealed}` — стабильный (не хешируемый) хук для
+  unit-тестов, поскольку CSS Modules хеширует классы, а реальное сокрытие через
+  `:global(.js) .hiddenUntilRevealed { display: none; }` не воспроизводится в jsdom/Vitest.
+- `src/components/office/OfficeSemanticMap.tsx` — принимает `departments`/`officeZones` как props
+  вместо вызова `getDepartments()`/`getOfficeZones()` напрямую (соответствует уже
+  зафиксированному ограничению Step 2: adapter'ы — server-only).
+- `src/components/office/DepartmentHotspot.tsx` — **изменений не потребовалось**: компонент уже был
+  полностью prop-based, а его `onClick` уже отсутствовал (no-op) до этого шага — это ровно то
+  поведение, которое требуется при OQ-2 = (c) (выбор отдела не входит в Step 4), поэтому оставлен
+  как есть, а не изменён "для галочки".
+- `src/app/page.tsx` — теперь `async function`, читает `searchParams` (Promise, Next.js 15+ App
+  Router), вычисляет `initialRevealed = Boolean(params.department)` (валидный или нет — сам факт
+  присутствия параметра пропускает `hero`, см. acceptance criterion 5) и передаёт в
+  `HomepageShell`. **Побочный эффект, не являющийся регрессией:** маршрут `/` в `next build`
+  теперь помечен `ƒ` (dynamic/server-rendered on demand) вместо `○` (static) — ожидаемое следствие
+  чтения `searchParams`, не ошибка.
+- `src/app/layout.tsx` — **техника анти-flash** (инженерный выбор исполнения, не вопрос
+  пользователя — см. план, Risks): выбран вариант (a), блокирующий inline `<script>` в `<head>`,
+  синхронно (до первой отрисовки) добавляющий класс `.js` на `<html>`. Без JavaScript класс никогда
+  не появляется — CSS-правило `:global(.js) .hiddenUntilRevealed` не срабатывает, все 5 отделов
+  видны сразу (Step 3 progressive-enhancement инвариант не нарушен). Скрипт статичный, без
+  интерполяции пользовательских данных — безопасен (`dangerouslySetInnerHTML` с константной
+  строкой, не XSS-вектор).
+- Обновлены существующие Step 3 тесты: `hero-copy.test.tsx` (новые props, 2 новых теста на
+  `onActivate`), `office-semantic-map.test.tsx` (props вместо adapter'ов), `home-page.test.tsx`
+  (переписан под async `HomePage`, добавлены тесты на `data-revealed` до/после клика и при boot с
+  `?department=`), `office-overview.spec.ts` и `office-overview-keyboard.spec.ts` (см. ниже).
+- Новые unit-тесты: `src/tests/unit/features/office-machine/reducer.test.ts` (4 теста — initial
+  state оба варианта, `ACTIVATE_CTA` переход, идемпотентность), `src/tests/unit/components/office/
+  office-experience.test.tsx` (2 теста на `data-revealed`/класс `hiddenUntilRevealed` — не
+  предусмотрен явно в Expected files плана, добавлен как естественное дополнение к уже
+  запланированной правке `OfficeExperience.tsx`, не расширение scope).
+- e2e (`office-overview.spec.ts`): переписан рендер-тест (hero виден сразу, хотспоты отсутствуют в
+  дереве доступности — `toHaveCount(0)` — до `ACTIVATE_CTA`; отдельный тест на раскрытие по клику);
+  тест "ignores query string" переписан честно (разметка теперь законно отличается по
+  `?department=`, поэтому сравнивается видимый результат — 5 кнопок в обоих случаях, — а не байты
+  HTML, как было в Step 3); добавлены тесты: раскрытие по `secondaryCta`, отсутствие console/
+  hydration-mismatch ошибок, `?department=<валидный/невалидный id>` раскрывает `overview` сразу без
+  клика; no-scroll и low-height тесты дополнены вызовом `ACTIVATE_CTA` перед измерением.
+  (`office-overview-keyboard.spec.ts`): Tab-порядок тест дополнен проверкой, что скрытые хотспоты
+  недостижимы по Tab до раскрытия; "Enter/Space is a no-op" тест сохранён без инверсии (выбор
+  отдела не входит в Step 4), дополнен предварительным `ACTIVATE_CTA`; reduced-motion тест
+  дополнен `ACTIVATE_CTA`; JS-disabled тест не изменён (не должен ломаться).
+
+### Files changed
+
+`README.md`, `WORKPLAN.md` (статусы), `src/app/layout.tsx`, `src/app/page.tsx`,
+`src/components/homepage/HeroCopy.tsx`, `src/components/homepage/HomepageShell.tsx`,
+`src/components/office/OfficeExperience.tsx` (+ `.module.css`), `src/components/office/
+OfficeSemanticMap.tsx`, `src/features/office-machine/{reducer.ts,OfficeMachine.tsx}` (новые),
+`src/tests/unit/components/homepage/hero-copy.test.tsx`, `src/tests/unit/components/office/
+office-semantic-map.test.tsx`, `src/tests/unit/components/office/office-experience.test.tsx`
+(новый), `src/tests/unit/features/office-machine/reducer.test.ts` (новый),
+`src/tests/unit/home-page.test.tsx`, `src/tests/e2e/office-overview.spec.ts`,
+`src/tests/e2e/office-overview-keyboard.spec.ts`. `src/components/office/DepartmentHotspot.tsx` —
+не изменён (уже соответствовал требованиям, см. Scope executed).
+
+### Commands executed
+
+```bash
+npm run format:check   # 2 файла вне формата -> npm run format -> чисто
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+npm run test:e2e
+npm run test:e2e -- --repeat-each=3   # проверка на flakiness
+npm run dev / npm run build && npm run start   # ручная проверка, см. Manual verification
+```
+
+### Command results
+
+- Exit code: 0 по всем командам после одной итерации `npm run format`.
+- Summary: unit-тесты — 55/55 (10 файлов, включая 2 новых); lint/typecheck — чисто с первого раза;
+  build — успешно (маршрут `/` стал dynamic, см. выше); e2e — 16/16 passed с первого прогона, затем
+  48/48 (`--repeat-each=3`) — flakiness не обнаружена. Единственная ошибка в процессе разработки:
+  первый вариант теста "ignores the ?department= query string" (без-JS сценарий) сравнивал HTML
+  побайтово и упал, так как `data-revealed`/класс `hiddenUntilRevealed` теперь законно зависят от
+  query string независимо от JS — исправлено сравнением видимого результата вместо байтов HTML
+  (см. Scope executed).
+- Output location: вывод команд приведён в сессии основного агента.
+
+### Manual verification
+
+- Scenario: `npm run build && npm run start`, headless Playwright-скрипт (не сохранён в
+  репозитории, удалён после использования) на `http://localhost:3100/`.
+  - Expected: класс `.js` присутствует на `<html>`; хотспоты отсутствуют в дереве доступности до
+    клика; после клика по `primaryCta` — раскрыты (`data-revealed="true"`, 1 nav); без
+    JavaScript — все 5 видны сразу; без console/page errors.
+  - Actual: подтверждено полностью — `has .js class: true`; `nav count before click: 0`; после
+    клика `nav count after click: 1`, `data-revealed after click: true`; `no-JS nav count: 1`;
+    `console/page errors: []`.
+  - **Известное несоответствие в процессе проверки:** первый прогон этого скрипта против `npm run
+    dev` (не production build) показал `nav count after click: 0` — клик не срабатывал. Это не
+    регрессия функциональности, а артефакт тайминга собственного скрипта (клик выполнялся до
+    завершения гидратации в dev-режиме под Turbopack, без ожидания); при повторе с
+    `waitForLoadState('networkidle')` против production-сборки (`npm run start`) — сработало
+    надёжно, что также совпадает с 48/48 стабильными прогонами реального Playwright e2e (который
+    всегда бьёт по production-сборке через `webServer` в `playwright.config.ts`). Раскрыто здесь
+    честно, не скрыто, так как это единственный "красный" результат, полученный в ходе работы.
+  - Скриншот hero-only состояния показан пользователю визуально (текстовое подтверждение в сессии).
+- Scenario: `git status --short` после реализации.
+  - Expected: изменения ограничены Expected files Step 4.
+  - Actual: подтверждено — см. "Files changed" выше; полностью соответствует Expected files плана,
+    за вычетом `DepartmentHotspot.tsx` (не потребовал правки) и добавления
+    `office-experience.test.tsx` (не предусмотрен явно, но прямое следствие уже запланированной
+    правки `OfficeExperience.tsx` — раскрыто как таковое, не скрыто).
+
+### Known limitations
+
+- Маршрут `/` стал dynamic (`ƒ`) вместо static (`○`) в `next build` — ожидаемое, не
+  скрытое следствие чтения `searchParams`; не влияет на acceptance criteria этого шага, но стоит
+  учитывать при будущих Performance-review (CLAUDE.md Performance rules "Render useful HTML
+  immediately") на milestone-проверках.
+- Автоматизированный axe-scan по-прежнему не выполняется (owner — Step 8, как и в Step 3).
+- Первый и единственный на данный момент client-компонент/blocking-script в проекте — оба паттерна
+  впервые появляются в этом шаге; проверены вручную и e2e-тестами на отсутствие flash/hydration-
+  mismatch, но это первый прецедент такого рода в кодовой базе (см. Risks плана).
+
+### Skeptic review
+
+- _(запрошен, см. следующее сообщение сессии)_
+
+### Correction iteration
+
+- _(пусто на момент записи — заполняется при необходимости после skeptic review)_

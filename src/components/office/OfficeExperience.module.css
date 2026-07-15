@@ -21,3 +21,12 @@
     overflow-y: auto;
   }
 }
+
+/* Step 4: скрыть панель офиса (подсказку + карту) до ACTIVATE_CTA, если JavaScript включён (класс
+   .js ставится синхронным inline-скриптом в layout.tsx до первой отрисовки — см. комментарий там).
+   Без JavaScript класс .js никогда не появится, и это правило не сработает — все 5 отделов остаются
+   видимы сразу, как в Step 3 (progressive enhancement, docs/05). display:none также убирает панель
+   из дерева доступности и Tab-последовательности, что и требуется до раскрытия. */
+:global(.js) .hiddenUntilRevealed {
+  display: none;
+}

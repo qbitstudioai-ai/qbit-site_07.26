@@ -31,7 +31,7 @@ README.md синхронно с каждым изменением статуса
 | 1   | Repository and quality foundation | Выполнено     |
 | 2   | Typed content model               | Выполнено     |
 | 3   | Semantic office overview          | Выполнено     |
-| 4   | Homepage state machine            | Не приступили |
+| 4   | Homepage state machine            | В работе      |
 | 5   | Desktop 10/90 shell               | Не приступили |
 | 6   | Mobile touch flow                 | Не приступили |
 | 7   | Reduced motion and fallback       | Не приступили |

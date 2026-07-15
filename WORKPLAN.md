@@ -534,10 +534,10 @@ CLAUDE.md).
 
 ## Step 4 — Homepage state machine
 
-- Status: `PROPOSED` (OQ-1/OQ-2/OQ-3 получили ответ пользователя 2026-07-15, включая разрешение
-  конфликта OQ-2/OQ-3 — см. `DECISIONS.md`; открытых вопросов не осталось; план прошёл полный цикл
-  skeptic review, финальный `PASS` — round 9, `8aaa78f`; ожидает явного утверждения пользователем
-  для перехода в `APPROVED` и старта Phase B)
+- Status: `AWAITING_SKEPTIC` (план утверждён пользователем 2026-07-15: "продолжай" — ответ на прямой
+  вопрос "Do you approve starting implementation of Step 4 as described?"; реализация выполнена
+  (см. `WORKLOG.md`, Entry 4), все verification commands green (55/55 unit, 16/16 + 48/48 e2e),
+  ожидает review исполнения skeptic'ом)
 - Objective: Реализовать переход `hero → overview` по клику любой CTA (`ACTIVATE_CTA`) — при
   включённом JavaScript пять отделов по умолчанию скрыты и раскрываются только после клика по
   `primaryCta` ИЛИ `secondaryCta`; без JavaScript ничего не меняется относительно уже

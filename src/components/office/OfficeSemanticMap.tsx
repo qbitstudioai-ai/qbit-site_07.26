@@ -1,18 +1,20 @@
-import { getDepartmentById } from "@/content/departments";
-import { getOfficeZones } from "@/content/office-zones";
+import type { Department, OfficeZone } from "@/content/types";
 import { DepartmentHotspot } from "./DepartmentHotspot";
 import styles from "./OfficeSemanticMap.module.css";
 
-export function OfficeSemanticMap() {
-  const zones = getOfficeZones()
-    .slice()
-    .sort((a, b) => a.y - b.y || a.x - b.x);
+interface OfficeSemanticMapProps {
+  departments: Department[];
+  officeZones: OfficeZone[];
+}
+
+export function OfficeSemanticMap({ departments, officeZones }: OfficeSemanticMapProps) {
+  const zones = officeZones.slice().sort((a, b) => a.y - b.y || a.x - b.x);
 
   return (
     <nav aria-label="Отделы компании" className={styles.map}>
       <ul id="office-map" className={styles.zoneList}>
         {zones.map((zone) => {
-          const department = getDepartmentById(zone.departmentId);
+          const department = departments.find((d) => d.id === zone.departmentId);
           if (!department) {
             throw new Error(
               `OfficeSemanticMap: no department found for zone.departmentId="${zone.departmentId}"`,

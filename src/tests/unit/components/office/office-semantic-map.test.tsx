@@ -5,13 +5,15 @@ import { getDepartments } from "@/content/departments";
 import { getOfficeZones } from "@/content/office-zones";
 
 describe("OfficeSemanticMap", () => {
+  const departments = getDepartments();
+  const officeZones = getOfficeZones();
+
   it("renders exactly 5 accessible department buttons, scoped to the map nav", () => {
-    render(<OfficeSemanticMap />);
+    render(<OfficeSemanticMap departments={departments} officeZones={officeZones} />);
     const nav = screen.getByRole("navigation", { name: "Отделы компании" });
     const buttons = within(nav).getAllByRole("button");
     expect(buttons).toHaveLength(5);
 
-    const departments = getDepartments();
     for (const department of departments) {
       expect(
         within(nav).getByRole("button", { name: department.overviewLabel }),
@@ -20,16 +22,15 @@ describe("OfficeSemanticMap", () => {
   });
 
   it("orders hotspots in the DOM by y ascending, then x ascending", () => {
-    render(<OfficeSemanticMap />);
+    render(<OfficeSemanticMap departments={departments} officeZones={officeZones} />);
     const nav = screen.getByRole("navigation", { name: "Отделы компании" });
     const buttons = within(nav).getAllByRole("button");
 
-    const expectedOrder = getOfficeZones()
+    const expectedOrder = officeZones
       .slice()
       .sort((a, b) => a.y - b.y || a.x - b.x)
       .map((zone) => zone.departmentId);
 
-    const departments = getDepartments();
     const actualOrder = buttons.map((button) => {
       const label = button.getAttribute("aria-label");
       const department = departments.find((d) => d.overviewLabel === label);
@@ -40,10 +41,8 @@ describe("OfficeSemanticMap", () => {
   });
 
   it("computes hotspot position from office-zones.json, not a hardcoded value", () => {
-    render(<OfficeSemanticMap />);
-    const zones = getOfficeZones();
-    const departments = getDepartments();
-    for (const zone of zones) {
+    render(<OfficeSemanticMap departments={departments} officeZones={officeZones} />);
+    for (const zone of officeZones) {
       const department = departments.find((d) => d.id === zone.departmentId);
       const button = screen.getByRole("button", { name: department?.overviewLabel });
       expect(button.style.left).toBe(`${zone.x}%`);

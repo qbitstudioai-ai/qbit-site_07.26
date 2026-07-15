@@ -1,9 +1,12 @@
-import { getHomepageCopy } from "@/content/homepage-copy";
+import type { HomepageCopy } from "@/content/types";
 import styles from "./HeroCopy.module.css";
 
-export function HeroCopy() {
-  const copy = getHomepageCopy();
+interface HeroCopyProps {
+  copy: HomepageCopy;
+  onActivate: () => void;
+}
 
+export function HeroCopy({ copy, onActivate }: HeroCopyProps) {
   return (
     <section className={styles.hero}>
       <h1 className={styles.headline}>{copy.headline}</h1>
@@ -14,10 +17,17 @@ export function HeroCopy() {
         ))}
       </ul>
       <div className={styles.ctaRow}>
-        <button type="button" className={styles.primaryCta}>
+        <button type="button" className={styles.primaryCta} onClick={onActivate}>
           {copy.primaryCta}
         </button>
-        <a href="#office-map" className={styles.secondaryCta}>
+        <a
+          href="#office-map"
+          className={styles.secondaryCta}
+          onClick={(event) => {
+            event.preventDefault();
+            onActivate();
+          }}
+        >
           {copy.secondaryCta}
         </a>
       </div>

@@ -1,15 +1,29 @@
-import { OfficeExperience } from "@/components/office/OfficeExperience";
+import { getDepartments } from "@/content/departments";
+import { getHomepageCopy } from "@/content/homepage-copy";
+import { getOfficeZones } from "@/content/office-zones";
+import { OfficeMachine } from "@/features/office-machine/OfficeMachine";
 import { Header } from "./Header";
-import { HeroCopy } from "./HeroCopy";
 import styles from "./HomepageShell.module.css";
 
-export function HomepageShell() {
+interface HomepageShellProps {
+  initialRevealed: boolean;
+}
+
+export function HomepageShell({ initialRevealed }: HomepageShellProps) {
+  const copy = getHomepageCopy();
+  const departments = getDepartments();
+  const officeZones = getOfficeZones();
+
   return (
     <div className={styles.shell}>
       <Header />
       <main className={styles.main}>
-        <HeroCopy />
-        <OfficeExperience />
+        <OfficeMachine
+          copy={copy}
+          departments={departments}
+          officeZones={officeZones}
+          initialRevealed={initialRevealed}
+        />
       </main>
     </div>
   );
