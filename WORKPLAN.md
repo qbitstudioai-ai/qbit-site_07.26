@@ -534,9 +534,10 @@ CLAUDE.md).
 
 ## Step 4 — Homepage state machine
 
-- Status: `PROPOSED` (план прошёл skeptic review плана — `PASS`, round 6, `94a0ebc`; **не может
-  получить `APPROVED` до ответа пользователя на Open questions OQ-1/OQ-2/OQ-3 ниже** — planner
-  сознательно не зашил ответы на них как факты)
+- Status: `PROPOSED` (план прошёл skeptic review плана — `PASS`, round 6, `94a0ebc`; OQ-1/OQ-2/OQ-3
+  получили ответ пользователя 2026-07-15, включая разрешение конфликта OQ-2/OQ-3 — см.
+  `DECISIONS.md`; открытых вопросов не осталось; ожидает skeptic review финализированной версии
+  (round 7) и затем явного утверждения пользователем для перехода в `APPROVED`)
 - Objective: Реализовать переход `hero → overview` по клику любой CTA (`ACTIVATE_CTA`) — при
   включённом JavaScript пять отделов по умолчанию скрыты и раскрываются только после клика по
   `primaryCta` ИЛИ `secondaryCta`; без JavaScript ничего не меняется относительно уже
