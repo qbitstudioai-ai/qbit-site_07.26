@@ -534,9 +534,10 @@ CLAUDE.md).
 
 ## Step 4 — Homepage state machine
 
-- Status: `PASSED` (реализация выполнена и прошла независимый skeptic review исполнения — `PASS`,
-  без Blocker/Critical/Major находок; ожидает явного утверждения пользователем для перехода в
-  `COMPLETED`)
+- Status: `IN_PROGRESS` (пользователь, визуально проверяя `npm run dev`, нашёл реальный
+  hydration-mismatch console error в dev-режиме — пропущен и исполнителем, и skeptic'ом, так как
+  оба проверяли только production-сборку; исправлено — см. `WORKLOG.md`, Correction iteration;
+  ожидает повторного skeptic review)
 - Objective: Реализовать переход `hero → overview` по клику любой CTA (`ACTIVATE_CTA`) — при
   включённом JavaScript пять отделов по умолчанию скрыты и раскрываются только после клика по
   `primaryCta` ИЛИ `secondaryCta`; без JavaScript ничего не меняется относительно уже
