@@ -152,7 +152,8 @@ npm run dev   # ручная проверка, затем процесс ост�
   выше) — проект переведён на порт 3100 (host `localhost`); **known issue без owner-шага**: если
   порт 3100 тоже окажется занят в будущем, `reuseExistingServer` может повторить тот же класс
   ошибки — preflight-проверка занятости порта или динамический порт не реализованы и не
-  назначены ни одному из шагов 2–8 (см. `WORKPLAN.md` Step 1 Risks, Amendment 1).
+  назначены ни одному из шагов (на момент записи — 2–8; после Amendment 3, `DECISIONS.md`
+  2026-07-15, — 2–9) (см. `WORKPLAN.md` Step 1 Risks, Amendment 1).
 - MANIFEST.json не обновлён и по-прежнему содержит запись о `README.md` с устаревшим sha256 —
   known issue, зафиксированный в `DECISIONS.md`, не в scope Step 1.
 
@@ -212,7 +213,8 @@ npm run dev   # ручная проверка, затем процесс ост�
   "одобрено", обосновав, почему согласование не нужно. Skeptic указал, что это ровно тот класс
   нарушения, который non-negotiable правило CLAUDE.md ("Never change the plan after approval
   without recording and approving the amendment") призвано предотвращать, и что подобный
-  прецедент подрывает весь skeptic/user-approval gate для оставшихся шагов 2–8.
+  прецедент подрывает весь skeptic/user-approval gate для оставшихся шагов (на момент записи —
+  2–8; после Amendment 3 — 2–9).
 - Required corrections:
   1. Изменить `Amendment 1 → Status` с `APPROVED` на честное значение до реального согласования.
   2. Представить Amendment 1 (порт 3100, host `localhost`) пользователю для явного решения.
