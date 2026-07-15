@@ -1038,7 +1038,12 @@ auto-open) и новым "Step 6 — Desktop 10/90 shell" (10/90-расклад�
   `activeDepartmentId !== null`; focus-management (заголовок при открытии/переключении,
   `{preventScroll: true}`; кнопка-хотспот при закрытии, тоже `preventScroll`), реализовано через
   `useRef` (без опоры на `transitionend`, чтобы не зависеть от реального выполнения CSS-перехода
-  под `prefers-reduced-motion`).
+  под `prefers-reduced-motion`). **Отклонение от плана/OQ-A** (найдено skeptic review исполнения,
+  round 1 — исправлено записью в `DECISIONS.md` 2026-07-15 "Step 5: отклонение от плана —
+  механизм завершения переходов `transitionend` → таймер"): согласованный по OQ-A механизм
+  `transitionend` физически не мог сработать, так как `ActiveDepartmentPanel.module.css`
+  использует CSS `animation`, а не `transition` — это не было изначально зафиксировано как решение,
+  что нарушало AC21.
 - `src/components/office/ActiveDepartmentPanel.tsx` (+ `.module.css`, новые) — временный,
   намеренно неоформленный блок содержимого отдела (headline/problem/до 3 symptoms/outcomes/CTA/
   кнопка «Закрыть»), явно помечен в коде и в `docs/05` как полностью заменяемый в Step 6.
@@ -1109,8 +1114,26 @@ npm run test:e2e             # 27 passed (27); повторно --repeat-each=3 
 npm run dev   # localhost:3100
 # headless Playwright-скрипт (одноразовый, по прецеденту Step 4): полный поток — открыть отдел
 # (sales), переключить (hr), Escape, прямой URL (?department=sales), невалидный URL
-# (?department=does-not-exist) — 0 console/pageerror сообщений, содержащих "error"/"hydrat"
-# (только штатные React DevTools/HMR-логи). Dev-сервер остановлен после проверки.
+# (?department=does-not-exist). Dev-сервер остановлен после проверки.
+```
+
+Буквальный вывод скрипта (не пересказ — по прямому требованию плана: "заявление 'проверено' без
+приведённого вывода не считается доказательством"; изначально в этой записи был только пересказ,
+что skeptic review исполнения (round 1) обоснованно отметил как Minor — исправлено):
+
+```
+ALL MESSAGES:
+[
+  "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+  "[log] [HMR] connected",
+  "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+  "[log] [HMR] connected",
+  "[info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+  "[log] [HMR] connected"
+]
+
+SUSPICIOUS (error/hydrat):
+[]
 ```
 
 ### Manual checks
