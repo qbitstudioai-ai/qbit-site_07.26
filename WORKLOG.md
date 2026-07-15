@@ -1146,9 +1146,14 @@ SUSPICIOUS (error/hydrat):
   существующий-id` — деградация к overview без ошибки.
 - `prefers-reduced-motion: reduce` в DevTools — открытие/переключение/закрытие остаются
   функциональными.
-- `git diff --stat 4192279` (исключая процессные файлы) — 21 файл (плюс отдельно
-  задокументированный ad hoc коммит логотипа/favicon между Step 4 и Step 5), все в рамках Expected
-  files Step 5 (плюс уже раскрытый ad hoc scope).
+- `git diff --stat 4192279` (исключая процессные файлы) — 27 файлов, из них 4 — уже отдельно
+  задокументированный ad hoc коммит логотипа/favicon между Step 4 и Step 5 (не часть Step 5); 23 —
+  реально относятся к Step 5 (исправлено: round 2 skeptic review исполнения обнаружил, что
+  предыдущая цифра "21 файл" не сходилась с реальным подсчётом diff — пересчитано). Все 23 — в
+  рамках Objective/In scope Step 5; два из них (`ActiveDepartmentPanel.tsx`/`.module.css`) не были
+  явно названы построчно в `Expected files` плана (там был описан только пункт "новый минимальный
+  блок содержимого отдела" без указания имени файла) — добавлены в `Expected files` ретроактивной
+  honesty-аннотацией (см. `WORKPLAN.md` Step 5, Expected files).
 - grep на `'use client'`/`"use client"` — единственная реальная директива в
   `OfficeMachine.tsx`; grep на runtime-импорты `@/content/departments|homepage-copy|office-zones` —
   только в `HomepageShell.tsx` (server component, без `"use client"`) — server/client граница не
@@ -1165,3 +1170,45 @@ SUSPICIOUS (error/hydrat):
   scope).
 - Content gap (`beforeSteps`/`automationSteps` отсутствуют в `data/departments.json`) — уже
   известный, не решается здесь.
+
+### Skeptic review (round 1)
+
+- Agent: `skeptic`
+- Verdict: `FAIL`
+- Findings: Major (1) — отклонение от согласованного по OQ-A механизма `transitionend` не
+  зафиксировано как решение (`ActiveDepartmentPanel.module.css` использует CSS `animation`, не
+  `transition` — `transitionend` физически не мог сработать; нарушение AC21). Major (2) — эта же
+  запись (Manual checks) ссылалась на "полную формулировку трактовки" одобрения пользователя в
+  `WORKPLAN.md` Step 5 `Status`, которой там не было (потеряна при более раннем редактировании поля
+  на `AWAITING_SKEPTIC`) — битая перекрёстная ссылка. Minor (3) — вывод dev-mode console-проверки
+  был пересказом, а не буквальным выводом команды. Независимо перепрогнаны
+  `format:check`/`lint`/`typecheck` (чисто), `test` (86/86), `build` (успешно), `test:e2e` (27/27),
+  плюс собственный headless dev-mode прогон skeptic'а (0 подозрительных сообщений) — ни одна
+  находка не затрагивала работоспособность кода.
+- Required corrections: (1) записать отклонение `transitionend`→`setTimeout` в `DECISIONS.md` с
+  контекстом/решением/последствиями, дополнить Risks Step 5; (2) восстановить и расширить полную
+  формулировку трактовки одобрения в `WORKPLAN.md` Step 5 `Status`; (3) заменить пересказ на
+  буквальный вывод dev-mode проверки в этой записи.
+- Evidence reviewed: полный `git show 05296d8` (все файлы), `WORKPLAN.md` Step 5 целиком,
+  independent traced edge cases в редьюсере (быстрое A→B→C, Escape во время opening/closing),
+  grep на `'use client'`/`@/content/*`.
+
+### Correction iteration 1
+
+- Trigger: находки round 1 (см. выше).
+- Fixes: коммит `de2d941` — (1) `DECISIONS.md` 2026-07-15 "Step 5: отклонение от плана — механизм
+  завершения переходов `transitionend` → таймер" (новая запись) + риск в `WORKPLAN.md` Step 5
+  Risks; (2) `WORKPLAN.md` Step 5 `Status` дополнен полной, самодостаточной формулировкой трактовки
+  (буквальная цитата пользователя + объяснение интерпретации, без необходимости уходить в
+  WORKLOG); (3) буквальный (не пересказанный) вывод dev-mode Playwright-скрипта вставлен в эту
+  запись (см. "Verification commands" выше).
+- Verification: production-код не менялся (чисто документальная коррекция) — `git diff --stat
+  05296d8 de2d941` ограничен `DECISIONS.md`/`WORKLOG.md`/`WORKPLAN.md`.
+- New verdict: `PASS` (round 2) — все три находки round 1 независимо подтверждены устранёнными;
+  дополнительный независимый построчный просмотр Step 5 (Objective/In scope/Out of scope/AC/Risks)
+  не нашёл новых Blocker/Critical/Major находок. Minor (не блокирует, оставлено на усмотрение до
+  закрытия шага): (a) в этой записи не было отдельных подразделов "### Skeptic review"/"###
+  Correction iteration" по прецеденту Entry 3/4 — добавлены этой же правкой; (b) заявленное число
+  файлов в `git diff --stat` ("21 файл") не сходилось с реальным подсчётом — пересчитано ("Manual
+  checks" выше), `ActiveDepartmentPanel.tsx`/`.module.css` добавлены в `Expected files` плана
+  ретроактивной honesty-аннотацией.

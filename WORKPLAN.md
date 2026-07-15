@@ -909,13 +909,15 @@ directly addressable by URL", которые интуитивно предпол
 
 ## Step 5 — Department selection state machine
 
-- Status: `AWAITING_SKEPTIC` (реализация выполнена; все verification commands реально прогнаны
+- Status: `PASSED` (реализация выполнена; все verification commands реально прогнаны
   (см. `WORKLOG.md`, Entry 5) — format:check/lint/typecheck/test (86/86)/build/test:e2e (27/27,
   затем `--repeat-each=3` → 81/81) — все exit 0; отдельная обязательная dev-mode проверка (`npm run
   dev`) — 0 подозрительных console-сообщений. В ходе первого прогона `test:e2e` найден и исправлен
   реальный CSS-баг (сжатие `.zoneList` ниже кликабельного размера при появлении временного блока
-  отдела — см. WORKLOG Entry 5 "Найденный и исправленный реальный баг"). Ожидает review skeptic
-  исполнения. **Полная формулировка трактовки одобрения на старт реализации** (перенесено сюда,
+  отдела — см. WORKLOG Entry 5 "Найденный и исправленный реальный баг"). Skeptic review исполнения
+  прошёл 2 раунда (round 1 `FAIL` → фикс → round 2 `PASS`, финальный) — см. Skeptic verdict (Phase
+  B) ниже. Ожидает предъявления пользователю и явного утверждения закрытия. **Полная формулировка
+  трактовки одобрения на старт реализации** (перенесено сюда,
   чтобы перекрёстная ссылка из `WORKLOG.md` Entry 5 указывала на реально существующий текст, а не
   в пустоту — находка skeptic review исполнения, см. Skeptic findings (Phase B) ниже): план
   Step 5/Step 6 был представлен пользователю с прямым вопросом "Подтверждаете начало реализации
@@ -1110,8 +1112,15 @@ directly addressable by URL", которые интуитивно предпол
   - `src/components/office/OfficeExperience.tsx`, `OfficeSemanticMap.tsx` (+ `.module.css`) —
     временный минимальный блок содержимого отдела рядом с по-прежнему видимыми 5 хотспотами;
     CSS-классы переходов `opening`/`switching`/`closing`.
+  - Новый `src/components/office/ActiveDepartmentPanel.tsx` (+ `.module.css`) — сам временный
+    минимальный блок содержимого отдела (**добавлено ретроактивной honesty-аннотацией по итогам
+    round 2 skeptic review исполнения** — изначально в этом списке был описан только сам факт
+    "временный минимальный блок" абзацем выше, без явного имени файла).
   - `src/app/page.tsx` — вычисление/валидация `activeDepartmentId` из `searchParams` через
     `getDepartmentIds()`.
+  - `src/components/homepage/HomepageShell.tsx` — проброс `initialDepartmentId` вниз (**добавлено
+    той же ретроактивной аннотацией** — вытекает из правки `page.tsx` выше, но не была явно
+    названа).
   - `docs/05-homepage-state-machine.md` — двойная honesty-правка (см. In scope).
   - Обновления существующих тестов, перечисленных в In scope (unit + e2e), включая честную
     инверсию теста "Enter/Space on a hotspot is a no-op".
@@ -1311,15 +1320,25 @@ directly addressable by URL", которые интуитивно предпол
   подтверждена независимо, ни один Major не касался работоспособности кода. Все три находки
   устранены точечно: (1) зафиксировано в `DECISIONS.md` 2026-07-15 "Step 5: отклонение от плана...",
   добавлен риск в Risks выше; (2) восстановлена и расширена полная формулировка трактовки в Status
-  этой секции (выше); (3) добавлен буквальный вывод dev-mode прогона в `WORKLOG.md` Entry 5. Ожидает
-  **round 2**.
-- Skeptic findings (Phase B): см. Skeptic verdict выше (round 1) — все три находки исправлены,
-  ожидают повторной проверки.
-- Completion evidence: `WORKLOG.md`, Entry 5 — полный список изменённых файлов, реальный вывод всех
-  6 verification commands (86/86 unit, 27/27 e2e, затем `--repeat-each=3` → 81/81, flakiness не
-  обнаружена) и буквального вывода dev-mode console-проверки; найденный и исправленный в процессе
-  реальный CSS-баг (сжатие `.zoneList`); `git diff --stat 4192279`; независимый повторный прогон
-  skeptic (round 1) всех verification commands + собственный dev-mode прогон — подтверждено.
+  этой секции (выше); (3) добавлен буквальный вывод dev-mode прогона в `WORKLOG.md` Entry 5.
+  **round 2** (финальный, независимый построчный просмотр всей секции Step 5, не только списка
+  находок round 1) — `PASS`: все три находки round 1 подтверждены устранёнными; `git diff --stat
+  05296d8 de2d941` подтверждён ограниченным `DECISIONS.md`/`WORKLOG.md`/`WORKPLAN.md` (production-
+  код не тронут); независимо перепрогнаны `test` (86/86)/`typecheck`/`lint`/`format:check` — чисто.
+  Minor (не блокирует, устранено этой же правкой): (a) в `WORKLOG.md` Entry 5 отсутствовали
+  подразделы "### Skeptic review"/"### Correction iteration" по прецеденту Entry 3/4 — добавлены;
+  (b) заявленное число файлов в `git diff --stat` ("21") не сходилось с реальным подсчётом (27,
+  из них 23 — Step 5) — пересчитано, `ActiveDepartmentPanel.tsx`/`.module.css` и
+  `HomepageShell.tsx` добавлены в Expected files ретроактивной honesty-аннотацией.
+- Skeptic findings (Phase B): round 1 — 2 Major + 1 Minor (см. выше), все устранены; round 2 —
+  Blocker/Critical/Major нет; 2 Minor (см. verdict выше), устранены этой же правкой.
+- Completion evidence: `WORKLOG.md`, Entry 5 (включая подразделы "Skeptic review"/"Correction
+  iteration") — полный список изменённых файлов (27 в diff, 23 относятся к Step 5), реальный вывод
+  всех 6 verification commands (86/86 unit, 27/27 e2e, затем `--repeat-each=3` → 81/81, flakiness
+  не обнаружена) и буквального вывода dev-mode console-проверки; найденный и исправленный в
+  процессе реальный CSS-баг (сжатие `.zoneList`); `git diff --stat 4192279`; независимый повторный
+  прогон skeptic (round 1 и round 2) всех verification commands + собственный dev-mode прогон —
+  подтверждено дважды.
 
 ## Step 6 — Desktop 10/90 shell
 
