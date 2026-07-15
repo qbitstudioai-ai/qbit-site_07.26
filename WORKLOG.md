@@ -715,8 +715,10 @@ fallback, реализованный по прямому решению поль
 - Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
 - Step: Step 4 — Homepage state machine
 - Status before: `PROPOSED`
-- Status after: `PASSED` (реализация выполнена, skeptic review исполнения — `PASS`; ожидает
-  явного утверждения пользователем для перехода в `COMPLETED`)
+- Status after: `IN_PROGRESS` (реализация выполнена, первый skeptic review исполнения — `PASS`
+  (`5b69e69`); затем пользователь нашёл реальный hydration-mismatch баг в dev-режиме — исправлено
+  (`91a4226`), см. "Correction iteration" ниже; ожидает повторного skeptic review этого
+  исправления)
 
 ### Planning history (Step 4)
 
