@@ -6,7 +6,7 @@
 }
 
 .logo {
-  height: var(--space-8);
+  height: calc(var(--space-8) * 2);
   width: auto;
 }
 
