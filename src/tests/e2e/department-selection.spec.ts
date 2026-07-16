@@ -11,7 +11,7 @@ const departments = getDepartments();
 const sales = departments.find((d) => d.id === "sales")!;
 const hr = departments.find((d) => d.id === "hr")!;
 
-test.describe("department selection state machine (Step 5)", () => {
+test.describe("department selection state machine (Step 5, switching UI upgraded to the Step 6 rail)", () => {
   test("clicking a hotspot opens the department: content visible, URL updated, no full page reload", async ({
     page,
   }) => {
@@ -51,12 +51,15 @@ test.describe("department selection state machine (Step 5)", () => {
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(1);
 
-    await nav.getByRole("button", { name: hr.overviewLabel }).click();
+    // Переключение на второй отдел — уже через DepartmentNavigationRail (Step 6), а не через карту
+    // офиса: карта больше не рендерится одновременно с активным отделом (см. WORKPLAN.md Step 6).
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await rail.getByRole("button", { name: hr.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(1);
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
   });
 
-  test("switching between two departments does not pass through overview and does not fully reload (docs/05 department-switching)", async ({
+  test("switching between two departments via the rail does not pass through overview and does not fully reload (docs/05 department-switching)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -67,7 +70,8 @@ test.describe("department selection state machine (Step 5)", () => {
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
-    await nav.getByRole("button", { name: hr.overviewLabel }).click();
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await rail.getByRole("button", { name: hr.overviewLabel }).click();
 
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
     expect(new URL(page.url()).searchParams.get("department")).toBe("hr");
@@ -77,19 +81,20 @@ test.describe("department selection state machine (Step 5)", () => {
     expect(markerSurvived).toBe(true);
   });
 
-  test("clicking the hotspot of the already-active department is a no-op (does not reopen itself)", async ({
+  test("the active department has no clickable affordance to reopen itself: it appears in the rail only as a non-interactive, aria-current marker (Step 6; no-op guard itself is covered at the reducer level, src/tests/unit/features/office-machine/reducer.test.ts)", async ({
     page,
   }) => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    const hotspot = nav.getByRole("button", { name: sales.overviewLabel });
-    await hotspot.click();
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
-    await hotspot.click();
-    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(1);
-    await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await expect(rail.getByRole("button", { name: sales.overviewLabel })).toHaveCount(0);
+    await expect(rail.getByRole("button")).toHaveCount(4);
+    const currentMarker = rail.locator('[aria-current="true"]');
+    await expect(currentMarker).toHaveText(new RegExp(sales.overviewLabel));
   });
 
   test("Space on a focused hotspot also opens the department (pointer/keyboard parity, docs/05 invariant)", async ({
@@ -158,7 +163,7 @@ test.describe("department selection state machine (Step 5)", () => {
     }
   });
 
-  test("prefers-reduced-motion: opening, switching, and closing all remain functional without animation", async ({
+  test("prefers-reduced-motion: opening, switching via the rail, and closing all remain functional without animation", async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
@@ -169,7 +174,8 @@ test.describe("department selection state machine (Step 5)", () => {
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
-    await nav.getByRole("button", { name: hr.overviewLabel }).click();
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await rail.getByRole("button", { name: hr.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
 
     await page.keyboard.press("Escape");
@@ -187,7 +193,8 @@ test.describe("department selection state machine (Step 5)", () => {
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
-    await nav.getByRole("button", { name: hr.overviewLabel }).click();
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await rail.getByRole("button", { name: hr.overviewLabel }).click();
     await page.keyboard.press("Escape");
     await page.goto("/?department=sales");
     await page.goto("/?department=does-not-exist");

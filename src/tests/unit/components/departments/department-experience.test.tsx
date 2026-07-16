@@ -1,14 +1,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { ActiveDepartmentPanel } from "@/components/office/ActiveDepartmentPanel";
+import { DepartmentExperience } from "@/components/departments/DepartmentExperience";
 import { getDepartments } from "@/content/departments";
 
-describe("ActiveDepartmentPanel (temporary Step 5 minimal block — replaced wholesale in Step 6)", () => {
+describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveDepartmentPanel)", () => {
   const department = getDepartments().find((d) => d.id === "sales")!;
 
   it("renders headline as a programmatically focusable h2 with a stable, predictable id", () => {
     render(
-      <ActiveDepartmentPanel
+      <DepartmentExperience
         department={department}
         machineView="department-active"
         onClose={() => {}}
@@ -21,7 +21,7 @@ describe("ActiveDepartmentPanel (temporary Step 5 minimal block — replaced who
 
   it("renders problem, at most 3 symptoms (docs/12), and all outcomes", () => {
     render(
-      <ActiveDepartmentPanel
+      <DepartmentExperience
         department={department}
         machineView="department-active"
         onClose={() => {}}
@@ -39,7 +39,7 @@ describe("ActiveDepartmentPanel (temporary Step 5 minimal block — replaced who
   it("renders a visible CTA button and an explicit close button that calls onClose", () => {
     const onClose = vi.fn();
     render(
-      <ActiveDepartmentPanel
+      <DepartmentExperience
         department={department}
         machineView="department-active"
         onClose={onClose}
@@ -48,5 +48,16 @@ describe("ActiveDepartmentPanel (temporary Step 5 minimal block — replaced who
     expect(screen.getByRole("button", { name: department.ctaLabel })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("exposes an accessible region named after the department's overviewLabel", () => {
+    render(
+      <DepartmentExperience
+        department={department}
+        machineView="department-active"
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByRole("region", { name: department.overviewLabel })).toBeInTheDocument();
   });
 });

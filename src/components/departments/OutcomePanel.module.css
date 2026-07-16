@@ -1,0 +1,12 @@
+.outcomes {
+  padding-left: var(--space-4);
+  list-style: disc;
+  color: var(--color-graphite-700);
+  margin-bottom: var(--space-3);
+}
+
+@media (max-height: 700px) {
+  .outcomes {
+    margin-bottom: var(--space-2);
+  }
+}

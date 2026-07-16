@@ -1213,6 +1213,17 @@ SUSPICIOUS (error/hydrat):
   checks" выше), `ActiveDepartmentPanel.tsx`/`.module.css` добавлены в `Expected files` плана
   ретроактивной honesty-аннотацией.
 
+### Closure
+
+- Timestamp: 2026-07-16
+- Trigger: пользователю ранее предъявлен финальный skeptic `PASS` (round 2) закрытия Step 5, с
+  запросом явного утверждения. Пользователь ответил, 2026-07-16: «Подтверждаю закрытие Step 5.
+  Продолжай согласно плану.» — недвусмысленное согласие (в отличие от истолкованной формулировки
+  approval на старт реализации в начале этой записи).
+- Status after: `COMPLETED` (было `PASSED`).
+- Изменённые файлы этой правки: `WORKPLAN.md` (Step 5 → `Status`/`Completion evidence`),
+  `README.md` (таблица статусов, строка 5 → "Выполнено"), `WORKLOG.md` (эта запись).
+
 ## Ad hoc — Логотип ×2, текст шапки "Allqbit" → "QBit-Studio-Ai"
 
 - Timestamp: 2026-07-15
@@ -1239,3 +1250,393 @@ SUSPICIOUS (error/hydrat):
 - Known issue: видимый текст в шапке ("QBit-Studio-Ai") теперь расходится с названием продукта,
   используемым во всех остальных документах/данных/копирайтинге ("Allqbit") — по прямому решению
   пользователя, не по ошибке; не исправлялось нигде за пределами шапки.
+
+## Entry 6
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 6 — Desktop 10/90 shell
+- Status before: `PROPOSED` (план прошёл общий со Step 5 Phase A skeptic review, round 7 — `PASS`,
+  см. `WORKPLAN.md` Step 6 → Skeptic verdict)
+- Status after: `AWAITING_SKEPTIC`
+- Trigger/approval: после явного подтверждения пользователем закрытия Step 5 ("Подтверждаю закрытие
+  Step 5. Продолжай согласно плану.") пользователю кратко представлен план Step 6 и задан прямой
+  вопрос через `AskUserQuestion` — "Подтверждаете начало реализации Step 6 — Desktop 10/90 shell по
+  плану, изложенному в WORKPLAN.md?"; ответ пользователя, 2026-07-16: «Да, начинай Step 6» —
+  недвусмысленное согласие.
+
+### Scope executed
+
+Полностью по In scope плана Step 6 (`WORKPLAN.md`):
+
+- `src/components/office/OfficeExperience.tsx` — переписан: при `activeDepartmentId === null`
+  рендерит `interactionHint` + `OfficeSemanticMap` (как раньше); при активном отделе рендерит
+  10/90-раскладку (`.shell10x90`) — `DepartmentExperience` (`.mainArea`, идёт первым в DOM) и
+  `DepartmentNavigationRail` (`.railArea`, идёт вторым в DOM) как соседи внутри общего grid-
+  контейнера. Карта офиса (`OfficeSemanticMap`, 5 хотспотов) и содержимое активного отдела больше
+  не рендерятся одновременно — временный "ugly-but-functional" механизм Step 5 полностью убран
+  (замена, не расширение).
+- `src/components/office/OfficeExperience.module.css` — добавлены `.shell10x90` (CSS Grid,
+  `grid-template-areas: "rail main"`, `grid-template-columns: minmax(140px, 14%) 1fr` — визуальный
+  порядок "rail слева" независим от DOM/Tab-порядка "main первым", `docs/03` "10–14%", не буквальные
+  10%/90% — `docs/08` "Не использовать буквальный 10/90"), `.mainArea`/`.railArea`,
+  `@media (max-height: 700px)` regression для нового layout; сталая формулировка комментария про
+  временный `ActiveDepartmentPanel` исправлена на актуальную.
+- `src/components/office/OfficeSemanticMap.module.css` — сталый комментарий про
+  `ActiveDepartmentPanel`-соседа исправлен (min-height guard остаётся, но по новой, актуальной
+  причине — собственная низкая высота карты, не сосед).
+- Новый `src/components/office/DepartmentNavigationRail.tsx` (+ `.module.css`) — принимает все 5
+  отделов; рендерит 4 кликабельных `<button>` (диспетчерят `SWITCH_DEPARTMENT` через уже
+  существующий `onSelectDepartment`) для неактивных отделов и 1 не интерактивный `aria-current`-
+  маркер для активного (решение, зафиксированное отдельно — см. `DECISIONS.md` 2026-07-16 "Step 6:
+  состав DepartmentNavigationRail").
+- Новый каталог `src/components/departments/`: `DepartmentExperience.tsx` (контейнер,
+  `aria-label={department.overviewLabel}`, те же CSS-классы/длительности перехода
+  `opening/switching/closing/active`, что были в удалённом `ActiveDepartmentPanel`),
+  `DepartmentCopy.tsx` (`headline`/`problem`/до 3 `symptoms`, тот же `id="department-heading-<id>"`
+  + `tabIndex={-1}`, на который полагается focus-management `OfficeMachine.tsx`), `OutcomePanel.tsx`
+  (`outcomes[]`), `DepartmentCTA.tsx` (кнопка `ctaLabel`, no-op — нет реального адресата лида).
+  `DepartmentScene`/`BeforeAfterSequence` сознательно не создаются (решение OQ-C, `DECISIONS.md`
+  2026-07-15).
+- Удалены целиком: `src/components/office/ActiveDepartmentPanel.tsx` + `.module.css` (полностью
+  заменены, не расширены — по формулировке плана) и их unit-тест
+  `active-department-panel.test.tsx`.
+- `src/components/office/DepartmentHotspot.tsx`/`.module.css` — **не изменены**: временное поведение
+  "хотспот остаётся видимым одновременно с активным отделом" устранено на уровне выше
+  (`OfficeExperience.tsx` больше не рендерит `OfficeSemanticMap`, пока есть активный отдел), а не
+  правкой самого `DepartmentHotspot` — файл присутствовал в Expected files плана как "может
+  измениться", не как обязательный к изменению (WORKPLAN.md acceptance criterion "ни один файл вне
+  Expected files не изменён" — это верхняя граница, не обязательство).
+- `OfficeMachine.tsx`/`reducer.ts`/`url-sync.ts` — **не изменены** (Out of scope: "этот шаг не
+  переделывает эту логику, только раскладку").
+- Обновлённые тесты (честная инверсия временного Step 5 поведения на реальное Step 6, не молчаливое
+  ослабление): unit — `office-experience.test.tsx` (тест "все 5 хотспотов остаются видимы" заменён
+  на "карта скрыта, rail с 4 кнопками показан"); e2e — `department-selection.spec.ts` (переключение
+  между отделами теперь через rail, не через карту офиса; тест "клик по хотспоту уже активного
+  отдела — no-op" заменён на "активный отдел не имеет кликабельной affordance в rail, только
+  aria-current-маркер" — сам no-op guard уже покрыт на уровне редьюсера,
+  `reducer.test.ts`, не тронут), `office-overview.spec.ts` (2 теста, полагавшихся на "карта всегда
+  видна одновременно с активным отделом" при `?department=<id>`, честно обновлены — с JS и без него
+  — под новое поведение; заголовок и комментарий одного no-scroll теста уточнены "Step 6 10/90
+  shell"/"Step 6 AC8 regression" вместо сталой пометки "Step 5's temporary minimal block").
+- Новые тесты: `department-navigation-rail.test.tsx` (4 кнопки, aria-current на активном, callback с
+  правильным id), `department-experience.test.tsx` (эквивалент старого
+  `active-department-panel.test.tsx` для нового компонента + отдельная проверка `role="region"`),
+  `desktop-10x90-shell.spec.ts` (7 сценариев: geometry rail/main через `boundingClientRect`,
+  переключение через rail без full reload/overview, Tab-порядок CTA→Close→4×rail, aria-current в
+  живом DOM, low-height fallback 1280×500 с активным отделом, prefers-reduced-motion geometry
+  regression, отсутствие console/hydration ошибок на полном потоке).
+- `DECISIONS.md` — 2 новые записи 2026-07-16: (1) "Step 6: состав DepartmentNavigationRail" —
+  честно раскрытая развилка внутри самого утверждённого плана (Step 6 In scope требовал одновременно
+  "4 кнопки" и "docs/03 пять миниатюр" + "активный элемент rail обозначен не только цветом", что
+  само по себе не сходилось без явного решения), разрешена рендером всех 5 с 4 кнопками + 1
+  не интерактивным маркером; (2) "Step 6: длительности CSS-переходов сохранены идентичными Step 5" —
+  подтверждение, что риск дрейфа таймеров, поднятый в записи Step 5 про `transitionend→setTimeout`,
+  не материализовался (`OfficeMachine.tsx` не менялся, CSS-длительности сохранены байт-в-байт).
+
+### Verification commands (все прогнаны реально, вывод ниже)
+
+```bash
+npm run format:check   # "All matched files use Prettier code style!" (после точечного
+                        # npm run format — переформатировал 2 новых файла при первом прогоне:
+                        # DepartmentExperience.tsx, department-navigation-rail.test.tsx)
+npm run lint             # eslint . — без вывода (0 problems)
+npm run typecheck          # tsc --noEmit — без вывода (0 errors)
+npm run test                 # Test Files 13 passed (13); Tests 90 passed (90)
+npm run build                   # next build — Compiled successfully; Route "/" = ƒ (dynamic, без
+                                 # изменений)
+npm run test:e2e                  # 34 passed (34); повторно --repeat-each=3 на трёх изменённых/
+                                   # новых файлах (desktop-10x90-shell.spec.ts,
+                                   # department-selection.spec.ts, office-overview.spec.ts) →
+                                   # 90 passed (90), flakiness не обнаружена
+```
+
+Отдельная, обязательная dev-mode проверка (процессное требование, закреплено с Step 4/5 — `npm run
+dev`, не только production-сборка):
+
+```bash
+npm run dev   # localhost:3100
+# headless Playwright-скрипт (одноразовый, по прецеденту Step 4/5): полный поток — открыть отдел
+# (первый хотспот карты), переключить через rail (первая кнопка rail), Закрыть, прямой URL
+# (?department=logistics), невалидный URL (?department=does-not-exist). Dev-сервер остановлен
+# после проверки.
+```
+
+Буквальный вывод скрипта:
+
+```
+MESSAGES: [
+  "[console:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+  "[console:log] [HMR] connected",
+  "[console:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+  "[console:log] [HMR] connected",
+  "[console:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+  "[console:log] [HMR] connected"
+]
+COUNT: 6
+```
+
+0 сообщений, содержащих `error`/`hydrat` (те же 6 благих HMR/DevTools-сообщений, что и в Step 5).
+
+### Manual checks
+
+- `http://localhost:3100`: hero → overview (клик CTA) → клик по хотспоту карты открывает отдел в
+  10/90-раскладке (rail слева, содержимое отдела справа) → клик по элементу rail переключает без
+  промежуточного overview → «Закрыть»/Escape возвращают в overview с полной картой из 5 хотспотов.
+- Клавиатура: после открытия отдела Tab обходит CTA → «Закрыть» → 4 элемента rail по порядку (тот
+  же порядок сортировки зон, что и у хотспотов overview); rail-элемент активного отдела не получает
+  Tab-фокус (не кнопка).
+- `prefers-reduced-motion: reduce` в DevTools — открытие/переключение/закрытие остаются
+  функциональными, геометрия 10/90 не нарушена.
+- Высота viewport 500px (`1280×500`) с активным отделом — заголовок и кнопка «Закрыть» полностью в
+  пределах экрана, документ не скроллится целиком.
+- `git diff --stat HEAD` (включая процессные файлы) — 24 файла (`git diff --cached --name-status -M0
+  HEAD`): 4 процессных (`DECISIONS.md`/`README.md`/`WORKLOG.md`/`WORKPLAN.md`), 20 — код/тесты; все
+  20 — в рамках Expected files Step 6 (`DepartmentHotspot.tsx`/`.module.css` в списке Expected files
+  как "может измениться", реально не изменены — см. Scope executed выше).
+- grep на `'use client'` — не изменился (единственная директива по-прежнему только в
+  `OfficeMachine.tsx`, который в Step 6 не тронут); grep на runtime-импорты
+  `@/content/departments|homepage-copy|office-zones` — по-прежнему только в серверном
+  `HomepageShell.tsx` — server/client граница не нарушена (acceptance criterion 10).
+
+### Known limitations / перенесено в риски
+
+- Content gap (`beforeSteps`/`automationSteps` отсутствуют в `data/departments.json`) — по-прежнему
+  не решается, `DepartmentCopy`/`OutcomePanel` используют только `problem`/`symptoms`/`outcomes[]`.
+- `OfficeVisualLayer`/WebGL — по-прежнему не введены (owner: перед стартом Step 8).
+- Ширина rail (`minmax(140px, 14%)`) не тестировалась на промежуточных десктопных ширинах между
+  1280px и 1920px отдельно от уже покрытых e2e-размеров (`1280×800` в `desktop-10x90-shell.spec.ts`,
+  `1280/1440/1920` в no-scroll регрессии `office-overview.spec.ts`) — низкий риск, geometry-формула
+  (`minmax`) масштабируется линейно.
+
+### Skeptic review (round 1)
+
+- Agent: `skeptic`
+- Verdict: `FAIL`
+- Findings: Major (1) — на момент вызова индекс git был рассинхронизирован: `WORKPLAN.md` и
+  `WORKLOG.md` были застейджены через `git add -A` до финальных правок этой же записи (полного
+  текста Entry 6 и обновления `WORKPLAN.md` Step 6 `Status` на `AWAITING_SKEPTIC` с результатами
+  verification commands) — `git status` показывал `MM` (staged version отставала от рабочего
+  дерева). При коммите в этот момент `WORKLOG.md` Entry 6 (единственная запись с доказательствами
+  Step 6) не попал бы в коммит вовсе — нарушение правила CLAUDE.md "Preserve evidence in
+  WORKLOG.md". Minor (2) — `docs/03-office-map.md` "возврат" как отдельный элемент левой панели
+  физически не в `DepartmentNavigationRail` (кнопка «Закрыть» — в `DepartmentExperience`) — но это
+  унаследовано из уже утверждённого текста плана Step 6, не новое решение исполнения; отмечено как
+  нюанс для `ux-strategist` на milestone review, не блокирует. Minor (3) — описание dev-mode
+  console-проверки не упоминало явно нажатие Escape (только кнопку «Закрыть») — функционально
+  эквивалентно (тот же `CLOSE_DEPARTMENT`, независимо перепроверено skeptic'ом без console-шума).
+  Все функциональные acceptance criteria (1–15) и вся заявленная реализация независимо
+  переподтверждены как реальные — skeptic самостоятельно перепрогнал все 6 verification commands
+  (чисто/90/90/успешно/34/34), проверил geometry/Tab-порядок/aria-current/no-scroll живьём через
+  `npm run dev`, подтвердил `ActiveDepartmentPanel`/`DepartmentHotspot`/`OfficeMachine.tsx`/
+  `reducer.ts`/`url-sync.ts` соответствуют заявленному (первый удалён полностью, остальные три —
+  побайтово не тронуты), и признал реконструкцию `DepartmentNavigationRail` (`DECISIONS.md`
+  2026-07-16) разумным примирением, а не неавторизованным изменением scope.
+- Required corrections: (1) `git add WORKPLAN.md WORKLOG.md`, чтобы `git diff --cached HEAD` и
+  `git diff HEAD` совпадали побайтово; (2) правок кода/тестов не требуется.
+- Evidence reviewed: полный `git diff --cached HEAD`/`git diff HEAD`/`git status --short`, все
+  новые/изменённые файлы Step 6, независимый прогон всех 6 verification commands +
+  `--repeat-each=3`, три ad hoc Playwright-скрипта против живого `npm run dev`, grep на
+  `'use client'`/`@/content/*`.
+
+### Correction iteration 1
+
+- Trigger: находка round 1 (Major, staging рассинхронизирован).
+- Fix: `git add WORKPLAN.md WORKLOG.md` — оба файла полностью застейджены; код/тесты не менялись.
+- Verification: `diff <(git diff --cached HEAD) <(git diff HEAD)` — пусто (побайтовое совпадение).
+  `git status --short` — все 24 файла в одном из состояний `M`/`A`/`D`/`R` без `MM`/`AM`-комбинаций.
+- New verdict: `FAIL` (round 2) — git-индекс подтверждён синхронизированным, но `WORKPLAN.md`
+  Step 6 не получил ожидаемых по прецеденту Step 5 полей `Skeptic verdict (Phase B)`/`Skeptic
+  findings (Phase B)`, а `Completion evidence` по-прежнему буквально утверждал "шаг не начат" —
+  противоречие полю `Status` в той же секции.
+
+### Correction iteration 2
+
+- Trigger: находка round 2 (Major, отсутствующие/противоречивые Phase B bookkeeping-поля в
+  `WORKPLAN.md`).
+- Fix: `WORKPLAN.md` Step 6 — существовавшее поле `Skeptic verdict`/`Skeptic findings`
+  переименовано в `Skeptic verdict (review плана, Phase A)`/`Skeptic findings (Phase A)` (было
+  безымянным, хотя по содержанию — чистый Phase A); добавлены новые поля `Skeptic verdict (review
+  исполнения, Phase B)` (round 1 `FAIL` → round 2 `FAIL` → эта правка) и `Skeptic findings (Phase
+  B)`; `Completion evidence` заменён с "шаг не начат" на реальную ссылку на `WORKLOG.md` Entry 6
+  (включая подразделы "Skeptic review (round 1)"/"Correction iteration 1") и фактические числа
+  (24 файла, 90/90 unit, 34/34→90/90 e2e).
+- Verification: правка ограничена `WORKPLAN.md` — `git diff --cached HEAD -- WORKPLAN.md` содержит
+  только Step 6 bookkeeping-поля, описанные выше (плюс не связанная с этой правкой, уже существующая
+  строка `Status` Step 5). `src/**` не менялся этой правкой: сравнение diff `src/**` относительно
+  HEAD до и после этой правки (round 1/round 2 baseline) — идентично, файлы/число изменений те же,
+  что уже независимо проверил skeptic в round 1 (20 файлов, 652 insertions/140 deletions). Это
+  сравнение "между раундами", а не утверждение, что `git diff HEAD --stat -- src` пуст относительно
+  HEAD — Step 6 ещё не закоммичен, поэтому эта команда по-прежнему показывает полный diff
+  реализации Step 6, что и ожидаемо на этой стадии (round 3 нашёл, что предыдущая формулировка этой
+  строки была неточной и читалась как обратное — исправлено этой правкой; см. "Correction iteration
+  3" ниже).
+
+### Correction iteration 3
+
+- Trigger: находки round 3 (Major — неточная, буквально ложная формулировка строки `Verification` в
+  "Correction iteration 2" выше; Minor — `Completion evidence` в `WORKPLAN.md` не перечислял
+  "Correction iteration 2").
+- Fix: (1) переформулирована строка `Verification` в "Correction iteration 2" выше — заменено
+  ложное "`git diff HEAD --stat -- src` — пусто" на точное описание фактически выполненной
+  проверки (отсутствие новых изменений в `src/**` между round 1/round 2 и этой правкой, не
+  утверждение о пустоте самой команды относительно ещё не закоммиченного HEAD); (2) `WORKPLAN.md`
+  Step 6 `Completion evidence` дополнен упоминанием "Correction iteration 2" в списке подразделов
+  `WORKLOG.md`; `Skeptic verdict (review исполнения, Phase B)`/`Skeptic findings (Phase B)`
+  дополнены записью round 3.
+- Verification: правка ограничена `WORKPLAN.md`/`WORKLOG.md` (формулировки, не код); `git diff
+  --cached HEAD -- src` не менялся этой правкой (сравнение с состоянием на момент round 1/round 2 —
+  без новых изменений).
+- New verdict: `FAIL` (round 4) — сама эта запись ("Correction iteration 3") на момент вызова round 4
+  ошибочно утверждала, что `Completion evidence` был дополнен упоминанием "и, ретроактивно, этой
+  записи" (то есть себя самой) — по факту `Completion evidence` тогда содержал только "Correction
+  iteration 1"/"Correction iteration 2", без "Correction iteration 3"; кроме того, `Completion
+  evidence` по-прежнему буквально говорил "подтверждено дважды", хотя к тому моменту уже прошло 3
+  раунда review исполнения (round 1/2/3) — внутреннее противоречие с полем `Skeptic verdict` той же
+  секции. Ложная фраза "(и, ретроактивно, этой записи)" удалена из этой записи выше (была
+  фактически неточной формулировкой того, что предполагалось сделать, а не того, что было
+  сделано). См. "Correction iteration 4" ниже — исправление сделано одной цельной правкой, а не
+  очередным точечным патчем одной строки, по прямой рекомендации skeptic'а после четвёртого подряд
+  находки этого класса.
+
+### Correction iteration 4
+
+- Trigger: находка round 4 (Major — `Completion evidence` в `WORKPLAN.md` не содержал "Correction
+  iteration 3", хотя формулировка "Correction iteration 3" утверждала обратное; отдельно —
+  "подтверждено дважды" в том же поле не совпадало с реальным числом раундов Phase B review
+  (к этому моменту — 4)).
+- Подход: по прямой рекомендации skeptic'а (round 4: "если 5-й раунд снова найдёт дефект этого же
+  класса — сделать один полный, аккуратный повторный вычитывающий проход всего Phase B bookkeeping
+  вместо точечного патча одной строки") это исправление сделано не как очередной точечный патч, а
+  как единая, целиком переписанная версия блока `WORKPLAN.md` Step 6 `Skeptic verdict (review
+  исполнения, Phase B)`/`Skeptic findings (Phase B)`/`Completion evidence`, вручную сверенная
+  построчно с реальным содержанием `WORKLOG.md` Entry 6 (все 5 реально существующих подразделов:
+  "Skeptic review (round 1)", "Correction iteration 1"–"Correction iteration 4") перед записью, а
+  не написанная "вперёд" (до применения) с расчётом на последующее совпадение.
+- Fix: `WORKPLAN.md` Step 6 — исправлена ложная фраза "(и, ретроактивно, этой записи)" в
+  "Correction iteration 3" выше (см. New verdict там же); `Skeptic verdict (review исполнения,
+  Phase B)`/`Skeptic findings (Phase B)` дополнены записью round 4; `Completion evidence` переписан
+  целиком, перечисляет все 5 реальных подразделов `WORKLOG.md` Entry 6 и корректное число раундов
+  review исполнения (4, не "дважды").
+- Verification: код/тесты не менялись, только `WORKPLAN.md`/`WORKLOG.md`; перед записью вручную
+  сверен список подразделов этой записи (`## Entry 6` целиком, снизу вверх) с итоговым текстом
+  `Completion evidence` — расхождений не найдено. **Честная поправка постфактум (после round 5,
+  см. "Correction iteration 5" ниже): этот пункт "Verification" сам оказался неполным** — сверка
+  проверила список подразделов `WORKLOG.md`, но не заметила, что правка `WORKPLAN.md` оставила два
+  дублирующих бюллета `Skeptic findings (Phase B)` рядом (старый и новый) — реальную находку round 5.
+
+### Correction iteration 5
+
+- Trigger: находка round 5 (Major, `BLOCKED`) — правка "Correction iteration 4" оставила в
+  `WORKPLAN.md` Step 6 два бюллета `- Skeptic findings (Phase B):` подряд (строки 1609 и 1628 на
+  момент находки) — старую, не обновлённую версию и новую, переписанную, — вместо замены одного
+  другим. Skeptic независимо определил это как тот же класс дефекта, что round 2–4 (текст расходится
+  с реальным состоянием документа), в самой механической форме (буквальный дубль), и прямо
+  порекомендовал не открывать ещё один раунд в прежнем виде без решения пользователя.
+- Fix: `WORKPLAN.md` Step 6 — поля `Skeptic verdict (review исполнения, Phase B)`/`Skeptic findings
+  (Phase B)`/`Completion evidence` переписаны целиком заново, одним связным текстом (не патчем поверх
+  уже испорченного): кратко суммирована история всех 5 раундов без дублирования; `Status` переведён
+  в `BLOCKED`. `README.md` статус Step 6 обновлён на "Не приступили" (по mapping-таблице
+  `PROPOSED`/`APPROVED`/`BLOCKED` → "Не приступили"). `DECISIONS.md` — новая запись 2026-07-16 "Step
+  6: остановка Phase B correction loop после round 5 BLOCKED", честно фиксирующая, что дальнейший
+  выбор (открывать ли round 6 или принять текущее состояние) передан пользователю напрямую, а не
+  решён исполнителем самостоятельно — по прямой рекомендации skeptic'а и по протоколу CLAUDE.md
+  "Phase C" для случая, когда требуется остановиться и запросить решение.
+- Verification: `grep -c "^- Skeptic findings (Phase B):"` внутри диапазона `## Step 6`–`## Step 7`
+  файла `WORKPLAN.md` — ровно 1 (было 2). Код/тесты не менялись — `git diff HEAD --stat -- src`
+  по-прежнему 20 файлов/652 insertions/140 deletions, идентично всем предыдущим 5 раундам.
+- Итог: пользователю задан прямой вопрос через `AskUserQuestion` о том, как продолжать — открыть
+  round 6 сейчас (дубль устранён, других известных находок нет) или принять текущее функциональное
+  состояние Step 6 как достаточное для закрытия, учитывая, что реализация независимо подтверждалась
+  корректной 5 раз подряд и ни разу не менялась.
+
+### Closure
+
+- Timestamp: 2026-07-16
+- Trigger: пользователю задан прямой вопрос через `AskUserQuestion` с тремя вариантами (открыть
+  round 6; принять текущее состояние и закрыть Step 6 — рекомендовано; упростить формат bookkeeping
+  и продолжить). Ответ пользователя: «Принять текущее состояние и закрыть Step 6 (рекомендация)».
+- Status after: `COMPLETED` (было `BLOCKED`).
+- Honestly recorded: Step 6 закрыт **без формального `PASS`** от skeptic — Phase B review прошёл 5
+  раундов (round 1–4 `FAIL`, round 5 `BLOCKED`) и был остановлен явным решением пользователя, а не
+  доведён до чистого `PASS`. Все 5 находок были bookkeeping-дефектами процессных документов
+  (`WORKPLAN.md`/`WORKLOG.md`), независимо и многократно подтверждённых skeptic'ом как не
+  затрагивающие функциональную реализацию/тесты/архитектуру/accessibility/производительность — все
+  15 acceptance criteria и все 6 verification commands были независимо перепроверены skeptic'ом 5 раз
+  подряд (включая живую проверку в браузере на каждом из первых пяти раундов) и ни разу не потребовали
+  изменений в `src/**`. Полная история решения — `DECISIONS.md` 2026-07-16 "Step 6: остановка Phase B
+  correction loop после round 5 BLOCKED".
+- Изменённые файлы этой правки: `WORKPLAN.md` (Step 6 → `Status`/`Completion evidence`),
+  `README.md` (таблица статусов, строка 6 → "Выполнено"), `DECISIONS.md` (дополнена запись
+  результатом согласования), `WORKLOG.md` (эта запись).
+
+## Entry 7
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7 — Mobile touch flow (Phase A — планирование, реализация ещё не начата)
+- Status before: `PROPOSED` (пустой скелет: только Objective/Dependencies/3 голых acceptance
+  criteria)
+- Status after: `PROPOSED` (детальный план вставлен, ждёт skeptic Phase A round 3 `PASS` + ответов
+  пользователя на OQ-M1–OQ-M4 + решения о коммите Step 6, прежде чем перейти в `APPROVED`)
+
+### Scope of this entry
+
+Планирование, не исполнение — код не менялся. `planner`-агент прочитал `CLAUDE.md`, `docs/03/05/
+08/09/11/13/14`, весь `WORKPLAN.md` (Steps 1–6), `DECISIONS.md`, реальный код
+(`src/components/office/*`, `src/components/departments/*`, `src/features/office-machine/*`,
+`src/components/homepage/*`, `src/app/layout.tsx`, `playwright.config.ts`,
+`data/homepage-copy.json`) и составил детальный план Step 7 (Objective/In scope/Out of scope/
+Dependencies/Expected files/20 acceptance criteria/Verification commands/Manual checks/Risks/
+Rollback) плюс 4 Open Questions (OQ-M1 — диапазон Tablet 768–1279px; OQ-M2 — глубина реализации
+свайпа; OQ-M3 — представление списка/переключение между отделами; OQ-M4 — судьба `interactionHint`
+на мобильном). План вставлен в `WORKPLAN.md` целиком.
+
+### Skeptic review (Phase A, round 1)
+
+- Agent: `skeptic`
+- Verdict: `FAIL`
+- Findings: Critical (1) — план ссылался на "коммит закрытия Step 6" (acceptance criterion 18,
+  Manual checks) как на существующий, хотя Step 6 на тот момент был только застейджен, не
+  закоммичен. Major (2) — предложенный CSS-механизм скрытия `DepartmentNavigationRail` на ≤767px
+  (снятие `"rail"` из `grid-template-areas` без `display:none`) технически не скрывает элемент.
+  Minor (3) — не назван риск вложенных независимо скроллящихся контейнеров. Minor (4) — `.zoneList`
+  не имеет `display:flex` в реальном коде, план не упоминал явное добавление.
+- Required corrections: (1) честно раскрыть в `Dependencies`, что Step 6 не закоммичен, и добавить
+  явную зависимость — коммит закрытия Step 6 должен появиться до старта реализации Step 7, с
+  разрешения пользователя; (2) добавить явное `.railArea { display: none; }` внутри
+  `@media (max-width: 767px)`; (3) добавить пункт в Risks; (4) явно упомянуть добавление
+  `display: flex`.
+- Evidence reviewed: полный текст плана, `CLAUDE.md`, `docs/03/08/09/14`, реальный застейдженный
+  код (`DepartmentHotspot.tsx`, `OfficeSemanticMap.tsx`/`.module.css`, `OfficeExperience.tsx`/
+  `.module.css`, `layout.tsx`, `playwright.config.ts`), `git log`/`git status`/`git diff --cached
+  --stat`, `data/homepage-copy.json`.
+
+### Correction iteration 1
+
+- Trigger: находки round 1 (см. выше).
+- Fix: `WORKPLAN.md` Step 7 — `Dependencies` дополнена (честное раскрытие + явная зависимость от
+  коммита закрытия Step 6); параграф "Активный отдел на ≤767px" дополнен явным `display: none`;
+  параграф "Overview на ≤767px" дополнен явным `display: flex`; в `Risks` добавлен пункт про
+  вложенный скролл.
+- Verification: код не менялся (план ещё не реализуется) — правка ограничена текстом плана в
+  `WORKPLAN.md`.
+- New verdict: `FAIL` (round 2) — все 4 находки round 1 независимо переподтверждены устранёнными и
+  технически корректными (сверено построчно с реальным застейдженным CSS), но новый Major:
+  `Skeptic verdict`/`Skeptic findings` этой же секции оставались плейсхолдером
+  `_(ожидает review плана)_`, хотя round 1 уже реально состоялся — план не фиксировал собственную
+  историю review, и `WORKLOG.md` не содержал ни одной записи про Step 7.
+
+### Correction iteration 2
+
+- Trigger: находка round 2 (Major, bookkeeping-поля Phase A не заполнены).
+- Fix: `WORKPLAN.md` Step 7 `Skeptic verdict (Phase A)`/`Skeptic findings (Phase A)` заполнены
+  реальной историей round 1/round 2; `Completion evidence` обновлён (ждёт round 3 + OQ-ответы +
+  решение о коммите); добавлена эта запись `WORKLOG.md` Entry 7.
+- Verification: код не менялся, только `WORKPLAN.md`/`WORKLOG.md`.
+- New verdict: `PASS` (round 3, финальный для Phase A) — bookkeeping-поля проверены на отсутствие
+  дублей (по прецеденту Step 6 round 5 — сверено явно, дублей не найдено), подразделы
+  `WORKLOG.md` Entry 7 сверены построчно со списком, заявленным в `Completion evidence`, git-индекс
+  синхронизирован, `git diff HEAD --stat -- src` — без изменений (чистое планирование). Все 4
+  находки round 1 независимо переподтверждены устранёнными. План готов к показу пользователю вместе
+  с OQ-M1–OQ-M4 и вопросом о коммите, закрывающем Step 6.

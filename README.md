@@ -32,8 +32,8 @@ README.md синхронно с каждым изменением статуса
 | 2   | Typed content model                | Выполнено     |
 | 3   | Semantic office overview           | Выполнено     |
 | 4   | Homepage state machine             | Выполнено     |
-| 5   | Department selection state machine | В работе      |
-| 6   | Desktop 10/90 shell                | Не приступили |
+| 5   | Department selection state machine | Выполнено     |
+| 6   | Desktop 10/90 shell                | Выполнено     |
 | 7   | Mobile touch flow                  | Не приступили |
 | 8   | Reduced motion and fallback        | Не приступили |
 | 9   | Browser acceptance tests           | Не приступили |

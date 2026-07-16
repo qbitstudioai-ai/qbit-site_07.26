@@ -1,0 +1,164 @@
+import { expect, test } from "@playwright/test";
+import { getHomepageCopy } from "../../content/homepage-copy";
+import { getDepartments } from "../../content/departments";
+import { getOfficeZones } from "../../content/office-zones";
+
+async function activateCta(page: import("@playwright/test").Page) {
+  const copy = getHomepageCopy();
+  await page.getByRole("button", { name: copy.primaryCta }).click();
+}
+
+const departments = getDepartments();
+const officeZones = getOfficeZones();
+const sales = departments.find((d) => d.id === "sales")!;
+const hr = departments.find((d) => d.id === "hr")!;
+
+// Тот же порядок, что и в OfficeExperience.tsx/OfficeSemanticMap.tsx (сортировка зон по y, затем
+// x) — используется, чтобы предсказать Tab-порядок оставшихся 4 элементов rail.
+const otherDepartmentsInRailOrder = officeZones
+  .slice()
+  .sort((a, b) => a.y - b.y || a.x - b.x)
+  .map((zone) => departments.find((d) => d.id === zone.departmentId)!)
+  .filter((department) => department.id !== "sales");
+
+test.describe("desktop 10/90 shell (Step 6)", () => {
+  test("active department occupies the majority of the width, the rail a minority, rail visually to the left (docs/03 'Левая панель 10–14%')", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+
+    const railBox = await page.getByRole("navigation", { name: "Панель отделов" }).boundingBox();
+    const mainBox = await page.getByRole("region", { name: sales.overviewLabel }).boundingBox();
+    expect(railBox).not.toBeNull();
+    expect(mainBox).not.toBeNull();
+
+    const totalWidth = railBox!.width + mainBox!.width;
+    expect(railBox!.width / totalWidth).toBeGreaterThan(0.05);
+    expect(railBox!.width / totalWidth).toBeLessThan(0.2);
+    expect(mainBox!.width / totalWidth).toBeGreaterThan(0.75);
+    expect(railBox!.x).toBeLessThan(mainBox!.x);
+  });
+
+  test("switching via the rail keeps the 10/90 shell: no full reload, URL updates, overview is never shown in between", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await rail.getByRole("button", { name: hr.overviewLabel }).click();
+
+    await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("department")).toBe("hr");
+    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
+  });
+
+  test("Tab order while a department is active: 90%-area content (CTA, then Close) before the rail's 4 items (WORKPLAN.md Step 6 acceptance criterion 5)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    // Заголовок получает программный focus сразу после открытия (docs/05 department-opening).
+    await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: sales.ctaLabel })).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(page.getByRole("button", { name: "Закрыть" })).toBeFocused();
+
+    for (const department of otherDepartmentsInRailOrder) {
+      await page.keyboard.press("Tab");
+      await expect(page.getByRole("button", { name: department.overviewLabel })).toBeFocused();
+    }
+  });
+
+  test("the active department is marked in the rail not only by color: aria-current is present in the live DOM", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+
+    const current = page.locator('[aria-current="true"]');
+    await expect(current).toHaveCount(1);
+    await expect(current).toContainText(sales.overviewLabel);
+  });
+
+  test("low-height desktop (docs/08 'Низкий desktop') with an active department: heading/CTA never clipped, document does not scroll as a whole, panels scroll internally", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 500 });
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+
+    const heading = page.getByRole("heading", { level: 2, name: sales.headline });
+    const headingBox = await heading.boundingBox();
+    expect(headingBox).not.toBeNull();
+    expect(headingBox!.y).toBeGreaterThanOrEqual(0);
+    expect(headingBox!.y + headingBox!.height).toBeLessThanOrEqual(500);
+
+    const closeButton = page.getByRole("button", { name: "Закрыть" });
+    await closeButton.scrollIntoViewIfNeeded();
+    const closeBox = await closeButton.boundingBox();
+    expect(closeBox).not.toBeNull();
+    expect(closeBox!.y).toBeGreaterThanOrEqual(0);
+    expect(closeBox!.y + closeBox!.height).toBeLessThanOrEqual(500);
+
+    const { scrollHeight, innerHeight } = await page.evaluate(() => ({
+      scrollHeight: document.documentElement.scrollHeight,
+      innerHeight: window.innerHeight,
+    }));
+    expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
+  });
+
+  test("prefers-reduced-motion: rail switching stays functional, geometry regression", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await rail.getByRole("button", { name: hr.overviewLabel }).click();
+    await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
+
+    const railBox = await page.getByRole("navigation", { name: "Панель отделов" }).boundingBox();
+    const mainBox = await page.getByRole("region", { name: hr.overviewLabel }).boundingBox();
+    expect(railBox!.width).toBeLessThan(mainBox!.width);
+  });
+
+  test("no console/hydration-mismatch errors across open/switch/close/direct-URL with the 10/90 shell (production build)", async ({
+    page,
+  }) => {
+    const messages: string[] = [];
+    page.on("console", (msg) => messages.push(msg.text()));
+    page.on("pageerror", (err) => messages.push(err.message));
+
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await rail.getByRole("button", { name: hr.overviewLabel }).click();
+    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.goto("/?department=logistics");
+
+    const suspicious = messages.filter((text) => /error|hydrat/i.test(text));
+    expect(suspicious).toEqual([]);
+  });
+});

@@ -62,7 +62,7 @@ describe("OfficeExperience", () => {
     expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
   });
 
-  it("renders the active department's panel AND keeps all 5 hotspots visible (Step 5 temporary switching stopgap)", () => {
+  it("renders DepartmentExperience and the 4-button DepartmentNavigationRail, and hides the office map (Step 6 10/90 shell)", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
@@ -79,7 +79,11 @@ describe("OfficeExperience", () => {
     expect(
       screen.getByRole("heading", { level: 2, name: salesDepartment.headline }),
     ).toBeInTheDocument();
-    const nav = screen.getByRole("navigation", { name: "Отделы компании" });
-    expect(nav.querySelectorAll("button")).toHaveLength(5);
+    // Карта офиса (5 хотспотов) больше не рендерится одновременно с активным отделом — заменена
+    // DepartmentNavigationRail (см. WORKPLAN.md Step 6 Expected files: DepartmentHotspot больше не
+    // остаётся видимым одновременно с активным отделом).
+    expect(screen.queryByRole("navigation", { name: "Отделы компании" })).not.toBeInTheDocument();
+    const rail = screen.getByRole("navigation", { name: "Панель отделов" });
+    expect(rail.querySelectorAll("button")).toHaveLength(4);
   });
 });

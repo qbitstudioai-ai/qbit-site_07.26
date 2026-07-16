@@ -67,12 +67,15 @@ test.describe("office overview", () => {
     expect(suspicious).toEqual([]);
   });
 
-  test("?department=<id> at boot opens the department itself immediately, without a click (Step 5 — honest upgrade of the Step 4 'only skips hero' behavior)", async ({
+  test("?department=<id> at boot opens the department itself immediately, without a click (Step 5 — honest upgrade of the Step 4 'only skips hero' behavior; office map replaced by the Step 6 rail)", async ({
     page,
   }) => {
     await page.goto("/?department=sales");
-    const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(nav.getByRole("button")).toHaveCount(5);
+    // Начиная со Step 6 карта офиса (5 хотспотов) не сосуществует с активным отделом — заменена
+    // DepartmentNavigationRail (4 кнопки оставшихся отделов).
+    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await expect(rail.getByRole("button")).toHaveCount(4);
 
     const salesDepartment = getDepartments().find((d) => d.id === "sales")!;
     await expect(
@@ -95,7 +98,7 @@ test.describe("office overview", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("without JavaScript, all 5 hotspots are present immediately regardless of ?department=", async ({
+  test("without JavaScript, the initial state (overview or a directly-linked department) still renders correctly", async ({
     browser,
   }) => {
     const context = await browser.newContext({ javaScriptEnabled: false });
@@ -103,7 +106,7 @@ test.describe("office overview", () => {
 
     // Без JavaScript класс .js никогда не появляется, поэтому правило
     // ":global(.js) .hiddenUntilRevealed { display: none; }" не срабатывает ни при каком значении
-    // query string — визуально все 5 хотспотов видны сразу в обоих случаях. Разметка при этом
+    // query string — визуально все 5 хотспотов видны сразу без параметра. Разметка при этом
     // законно отличается (data-revealed/hiddenUntilRevealed зависят от searchParams независимо от
     // JS — см. Step 4 acceptance criterion 5), поэтому сравнивается видимый результат, а не байты
     // HTML (в отличие от Step 3, где query string вообще не влиял на разметку).
@@ -111,9 +114,19 @@ test.describe("office overview", () => {
     const navWithoutQuery = page.getByRole("navigation", { name: "Отделы компании" });
     await expect(navWithoutQuery.getByRole("button")).toHaveCount(5);
 
+    // ?department=<id> вычисляет начальное состояние редьюсера (department-active) уже на сервере
+    // (initOfficeMachineState вызывается синхронно при первом рендере) — SSR-разметка одинакова с
+    // JS и без него; интерактивность (клик по rail) без JS не работает, но начальный рендер отдела
+    // — работает (честное отличие от Step 5, где карта офиса оставалась рядом с временным блоком
+    // всегда, независимо от JS — см. WORKPLAN.md Step 6 Out of scope).
     await page.goto("/?department=sales");
-    const navWithQuery = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(navWithQuery.getByRole("button")).toHaveCount(5);
+    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await expect(rail.getByRole("button")).toHaveCount(4);
+    const salesDepartment = getDepartments().find((d) => d.id === "sales")!;
+    await expect(
+      page.getByRole("heading", { level: 2, name: salesDepartment.headline }),
+    ).toBeVisible();
 
     await context.close();
   });
@@ -134,7 +147,7 @@ test.describe("office overview", () => {
   }
 
   for (const size of desktopSizes) {
-    test(`fits within one screen without vertical scroll at ${size.width}x${size.height} in hero, overview, and department-active (docs/08, Step 5 AC13)`, async ({
+    test(`fits within one screen without vertical scroll at ${size.width}x${size.height} in hero, overview, and department-active (docs/08, Step 5 AC13, Step 6 AC8 regression)`, async ({
       page,
     }) => {
       await page.setViewportSize(size);
@@ -148,7 +161,7 @@ test.describe("office overview", () => {
 
       const nav = page.getByRole("navigation", { name: "Отделы компании" });
       await nav.getByRole("button").first().click();
-      // department-active (Step 5's temporary minimal block)
+      // department-active (Step 6 10/90 shell)
       await expectNoDocumentScroll(page);
     });
   }
