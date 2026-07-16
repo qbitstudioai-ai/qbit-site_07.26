@@ -17,7 +17,8 @@ CLAUDE.md).
 
 - `CLAUDE.md` (Mandatory strict execution protocol, Architecture/Copy/Motion/Responsive/
   Accessibility/Performance rules, Quality gate, First milestone)
-- `docs/00-product-brief.md` … `docs/19-work-log-template.md`
+- `docs/00-product-brief.md` … `docs/16-open-questions.md` (`docs/17–19` — process-protocol
+  duplicates of `CLAUDE.md`, удалены 2026-07-16, см. `DECISIONS.md` "Аудит и облегчение workflow")
 - `data/departments.json`, `data/homepage-copy.json`, `data/office-zones.json`
 - `references/` (визуальные референсы пяти отделов, overview, логотип)
 - Пользовательские сообщения: запрос на планирование с обязательным ведением статуса в
@@ -33,6 +34,12 @@ CLAUDE.md).
   каждого шага 2–8 будет заново пройден через planner → skeptic review плана → отдельное
   утверждение пользователя непосредственно перед своим стартом** — сейчас утверждено начало
   исполнения только Step 1 в полном объёме, описанном ниже.
+- **Пересмотрено 2026-07-16 (аудит workflow, см. `DECISIONS.md`):** правило выше — источник
+  токен-затратного цикла "re-plan перед каждым шагом", устранённого этой правкой. Начиная с этой
+  даты: любой ещё не начатый шаг (Step 7.2/7.3/7.5/8/9) реализуется напрямую по уже написанному в
+  этом файле объёму — без повторного вызова `planner`, если только не меняется scope или skeptic не
+  проваливает один и тот же шаг подряд несколько раз (`CLAUDE.md` "Mandatory strict execution
+  protocol", пункт 5). Уже утверждённые/пройденные шаги (1–7) это правило не переоткрывает.
 - Amendment 3 (2026-07-15): скелет шагов расширен с 8 до 9 по прямому решению пользователя (OQ-D
   = (b) — "Разбить на два шага", см. `DECISIONS.md`, 2026-07-15 "Step 5: разбиение на два
   отдельных шага WORKPLAN (OQ-D, Amendment 3)"). Единый черновик "Step 5 — Desktop 10/90 shell"
@@ -46,6 +53,14 @@ CLAUDE.md).
   OQ-M3 = (b) (горизонтальная карусель вместо вертикального списка). Скелет теперь — 9
   канонически пронумерованных шагов + Step 7.5. Полная формальная запись — см. `Plan amendments`
   → `Amendment 4` ниже.
+- Amendment 5 (2026-07-16): по решению пользователя (`AskUserQuestion`, «Прятать и на Tablet
+  (Recommended)», см. `DECISIONS.md` 2026-07-16 "OQ-T1 переопределён") исходный ответ OQ-T1 = (b)
+  ("показывать как есть") для уже `APPROVED` "Step 7.5 — Tablet touch flow" отменён:
+  `interactionHint` теперь скрывается на Tablet тоже, тем же безусловным CSS-правилом, что вводит
+  черновой "Step 7.2 — Overview full-screen (hide hero)". Затронуты Objective/In scope/Expected
+  files/Acceptance criterion 12/"Open questions" Step 7.5 — старый текст сохранён для истории,
+  помечен переопределённым, не удалён. Полная формальная запись — см. `Plan amendments` →
+  `Amendment 5` ниже.
 
 ## Step 1 — Repository and quality foundation
 
@@ -1641,7 +1656,21 @@ directly addressable by URL", которые интуитивно предпол
 
 ## Step 7 — Mobile touch flow
 
-- Status: `APPROVED` — **исходный черновик прошёл skeptic Phase A rounds 1–3 (2026-07-16) в
+- Status: `COMPLETED` (пользователь явно подтвердил закрытие, 2026-07-16: «Step 7 подтверждаю.
+  Переходи к следующему шагу.» — недвусмысленное согласие после сверки визуала прототипа с планом).
+- Status history: `PASSED` (2026-07-16, Phase B — skeptic Phase B round 2 `PASS`, без находок).
+- Skeptic verdict (review исполнения, Phase B): round 1 — `FAIL` (1 Critical + 3 Major + 1 Minor,
+  "no plan amendment required"), устранено в "Correction iteration 1" (`WORKLOG.md` Entry 8); round 2
+  — `PASS` (без находок, "no plan amendment required") — независимо перепроверены все 5 фиксов round 1
+  плюс полный набор verification commands (`test:e2e` 50/50, остальные 5 команд чисто).
+- Skeptic findings (Phase B): round 1 — (1) Critical: ложное "проверено вручную" про 320px в Entry 8,
+  прямо противоречившее собственному разделу "Manual checks" той же записи; (2) Major: AC 7 не
+  проверялся ни на одной второй характерной высоте; (3) Major: DevTools Manual checks пропущены
+  целиком без явной пометки как опциональные; (4) Major: AC 13 не проверен для мобильного
+  `department-active` Tab-порядка; (5) Minor: `.card` без явного `min-width: 44px`. Все 5 устранены —
+  подробности и код-diff см. `WORKLOG.md` Entry 8 "Correction iteration 1". round 2 — находок нет.
+- Status (history): `IN_PROGRESS` (2026-07-16, начало Phase B execution) → `APPROVED` — **исходный
+  черновик прошёл skeptic Phase A rounds 1–3 (2026-07-16) в
   варианте, построенном на default-предположении OQ-M3 = (a) (вертикальный список + полноэкранная
   карточка без прямого переключения). Пользователь ответил на все четыре открытых вопроса
   (`DECISIONS.md`, 2026-07-16 "Step 7: ответы на OQ-M1–OQ-M4"): OQ-M3 = (b) (горизонтальная
@@ -2093,9 +2122,17 @@ directly addressable by URL", которые интуитивно предпол
   `FAIL` → round 3 `PASS`, полная история — три раунда, все находки устранены и независимо
   переподтверждены). Все ранее гейтившие пункты закрыты 2026-07-16: (a) OQ-M5 (конфликт с `docs/03`)
   = (a) "подтвердить карусель, поправить docs/03" — `docs/03-office-map.md` "Mobile" честно
-  переписан; (b) OQ-T1 (Step 7.5) = (b) "показывать как есть"; (c) схема нумерации "Step 7.5"
+  переписан; (b) OQ-T1 (Step 7.5) = (b) "показывать как есть" (**тем же днём переопределён
+  `Amendment 5`** — см. `DECISIONS.md` "OQ-T1 переопределён"); (c) схема нумерации "Step 7.5"
   подтверждена (`Amendment 4`). `Status` переведён в `APPROVED` этой же правкой — см.
   `DECISIONS.md` 2026-07-16 "Step 7/Step 7.5: OQ-M5, схема нумерации..." для полного согласования.
+  **Phase B (реализация, 2026-07-16):** выполнена полностью по плану выше, без изменения scope —
+  доказательства (список изменённых файлов, реальный вывод всех 6 verification commands, отдельная
+  dev-mode console-проверка, known limitations) см. `WORKLOG.md` Entry 8. Skeptic Phase B round 1 —
+  `FAIL` (1 Critical + 3 Major + 1 Minor, устранены в "Correction iteration 1", без amendment); round
+  2 — `PASS`, без находок (`WORKLOG.md` Entry 8 "Skeptic review (Phase B, round 2)"). `Status`
+  переведён в `PASSED` этой же правкой — ждёт явного подтверждения пользователем для перехода в
+  `COMPLETED` (README.md "Правила статусов").
 
 ## Open questions (Step 7) — OQ-M1–OQ-M5 RESOLVED 2026-07-16
 
@@ -2195,13 +2232,482 @@ pointer and touch").
   правка `data/*.json`, которая до сих пор явно оставалась вне scope каждого предыдущего шага;
   потребует отдельного согласования на расширение scope.
 
+## Step 7.2 — Overview full-screen (hide hero)
+
+- Status: `APPROVED` (2026-07-16) — план прошёл planner Phase A и skeptic Phase A round 3 `PASS`,
+  без открытых вопросов/блокеров. `APPROVED` разрешает старт реализации, не является отчётом о
+  выполнении.
+- Status history: `PROPOSED` → planner Phase A (2026-07-16, полностью детализирован) → `BLOCKED`
+  (skeptic Phase A round 1 — противоречие с `APPROVED` Step 7.5 OQ-T1=(b)) → пользователь разрешил
+  противоречие через `AskUserQuestion` (`DECISIONS.md` "OQ-T1 переопределён"), `Amendment 5`
+  формально обновил Step 7.5 → `PROPOSED` → `FAIL` (skeptic Phase A round 2 — AC12 Step 7.5 не
+  привязан ни к одному verification-пункту) → исправлено inline (без нового согласования
+  пользователя — правка не меняла решение, только дополняла verification-план) → `PROPOSED` →
+  `APPROVED` (skeptic Phase A round 3 `PASS`, 2026-07-16).
+- Objective: В состоянии `overview` (`docs/05-homepage-state-machine.md`, правка 2026-07-16) и во
+  всех `department-*`-состояниях скрыть весь hero-блок (заголовок, подзаголовок, короткие
+  обещания, обе CTA) и подсказку `interactionHint` ("Наведите курсор на отдел") — офис (карта
+  отделов на Desktop/Tablet, карусель на Mobile) занимает весь экран под `Header`. Hero остаётся
+  видимым только в состоянии `hero` (до `ACTIVATE_CTA`) — не меняется (`docs/05` "## hero").
+  Решение принято пользователем и не пересматривается этим планом (`DECISIONS.md` 2026-07-16
+  "Overview: офис на весь экран, hero скрывается") — эта секция только детализирует реализацию.
+
+  **Почему это один шаг, а не несколько.** Скрытие hero и `interactionHint` — одно решение
+  пользователя (одна запись `DECISIONS.md`), но технически неотделимо от трёх прямых следствий,
+  найденных при этом Phase A review (не открытые вопросы — обоснованные технические решения,
+  описанные ниже): (1) `HeroCopy` — единственный focusable-блок, содержащий сам элемент, по
+  которому пользователь только что кликнул (`primaryCta`/`secondaryCta`) — его скрытие без
+  дополнительной меры означает потерю фокуса на `<body>`, что напрямую нарушает уже принятое
+  `docs/11-accessibility.md` ("Focus" — "отсутствие потери focus при transition"); (2) `.office`
+  ранее не имел собственного верхнего отступа, потому что визуальный отступ от `Header`
+  обеспечивал `padding` самого `HeroCopy` — без него карта/карусель окажутся вплотную к `Header`;
+  (3) `interactionHint` рендерится в той же ветке `OfficeExperience.tsx`, что уже частично скрыта
+  ограниченным CSS-правилом (Step 7, только ≤767px) — расширение этого правила на все ширины
+  логически то же самое действие, что и решение про hero, и правится тем же коммитом. Разносить
+  эти три следствия по отдельным шагам означало бы либо оставить очевидную регрессию доступности
+  между шагами (недопустимо), либо создать искусственно несамостоятельные шаги, которые нельзя
+  верифицировать по отдельности — оба варианта хуже одного связного шага.
+
+  **Технические решения этого шага (Phase A, не открытые вопросы):**
+  1. **Механизм скрытия HeroCopy — тот же паттерн, что уже используется для `OfficeExperience`
+     (`isRevealed`/`hiddenUntilRevealed`), не новый; проп называется иначе, чем на
+     `OfficeExperience`, во избежание одноимённого пропа с противоположным смыслом** (skeptic
+     Phase A round 1, non-blocking: `isRevealed=true` значит "показан" на `OfficeExperience", но
+     значило бы "скрыт" на `HeroCopy` — то же значение, обратный смысл имени). `OfficeMachine.tsx`
+     уже вычисляет `const isRevealed = state.view !== "hero"` и передаёт его в `OfficeExperience`.
+     Тот же булев (то же значение, не инверсия) передаётся новым проп **`isHiddenAfterReveal`** в
+     `HeroCopy` (не `isRevealed` — другое имя для того же значения, чтобы имя пропа совпадало с
+     его эффектом на каждом конкретном компоненте); `HeroCopy` применяет новый CSS-класс
+     (например, `styles.hiddenAfterReveal`) при `isHiddenAfterReveal === true`.
+     `HeroCopy.module.css` получает правило `:global(.js) .hiddenAfterReveal { display: none; }`
+     — **обязательно `:global(.js)`-gated, как у `hiddenUntilRevealed`, а НЕ безусловное
+     `display:none`** (в отличие от решения 3 ниже про `interactionHint`) — это единственный
+     способ сохранить уже принятое и протестированное no-JS поведение (`docs/05` "## hero":
+     "Без JavaScript... hero и overview рендерятся одновременно" — этот абзац прямо не меняется
+     данным шагом). Ошибочное безусловное скрытие сломало бы уже пройденный e2e-тест
+     `office-overview-keyboard.spec.ts` "works with JavaScript disabled...".
+  2. **Focus-management после `ACTIVATE_CTA` — новая ветка в уже существующем `useEffect`
+     `OfficeMachine.tsx`** (том же, что уже обрабатывает focus при открытии/закрытии отдела, не
+     новый эффект). Условие `state.view === "overview" && previousView === "hero"` (тот же принцип,
+     что уже используется для `previousView === "department-closing"`); при срабатывании — focus
+     программно переводится на первый доступный интерактивный элемент внутри только что
+     раскрытой панели офиса: первую кнопку внутри `[aria-label="Отделы компании"]` (Desktop/
+     Tablet) либо, если она не видима (`offsetParent === null`), первую кнопку внутри
+     `[aria-label="Карусель отделов"]` (Mobile) — тот же принцип "перебрать кандидатов, взять
+     первый видимый", что уже применён для close-fallback (Step 7, AC 6). Специально НЕ
+     привязывается к конкретному `departmentId`/сортировке зон в `OfficeMachine.tsx` — это
+     избегает дублирования сортировки `officeZones` по (y,x), уже инкапсулированной в
+     `OfficeSemanticMap.tsx`/`OfficeExperience.tsx`: DOM-порядок кнопок внутри `nav[aria-label=
+     "Отделы компании"]` уже совпадает с этой сортировкой (проверено по коду
+     `OfficeSemanticMap.tsx`), поэтому "первая кнопка в DOM" эквивалентна "первому отделу по
+     принятому порядку" без явного пересчёта.
+     **Обоснование отсутствия race condition** (тот же класс анализа, что независимо
+     переизведён skeptic'ом для close-fallback в Step 7 round 3): переход `hero → overview` по
+     `ACTIVATE_CTA` — синхронный, без промежуточного таймера/`*-opening`-состояния (в отличие от
+     открытия отдела); `isRevealed`/новый hero-класс обновляются в одном React-commit; `useEffect`
+     выполняется после коммита DOM, когда `.hiddenUntilRevealed` уже снят и хотспоты/карусель уже
+     имеют `offsetParent !== null` — безопасно вызывать `.focus()` сразу.
+     **На boot (`initialRevealed=true` через `?department=...`, включая невалидный id) эта ветка
+     не срабатывает** — `previousViewRef` инициализируется текущим `state.view` при монтировании
+     (`useRef(state.view)`, а не `null`), поэтому на первом рендере `previousView === state.view`
+     и переход не детектируется — тот же, уже существующий инвариант, что и у close-fallback
+     (не переиспользуется явно, но следует из уже существующего кода без изменений в этой части).
+  3. **`interactionHint` — расширение уже существующего CSS-правила Step 7, не новый
+     механизм.** `OfficeExperience.module.css`: `@media (max-width: 767px) { .hint { display:
+     none; } }` заменяется на безусловное `.hint { display: none; }` (без media-обёртки,
+     без `:global(.js)`-обёртки — умышленно ДРУГОЙ механизм, чем у hero, п.1). Разница обоснована:
+     формулировка решения пользователя ("подсказка... полностью скрывается на ВСЕХ
+     breakpoint'ах") не делает исключения для no-JS, а `:hover`/`:focus`-раскрытие
+     `overviewProblem` у `DepartmentHotspot` — чистый CSS-псевдокласс, продолжающий работать без
+     JS независимо от исчезновения текстовой подсказки; сохранение `HeroCopy` рендерящимся в
+     no-JS (п.1) не требует того же для `interactionHint`, так как это два отдельных, явно
+     разведённых в тексте решения пользователя случая. Разметка (`<p>{interactionHint}</p>`) и
+     проп `interactionHint`/`copy.interactionHint` (схема `HomepageCopy`) НЕ удаляются — тот же
+     принцип минимального diff, что уже применён к Step 7 (CSS-сокрытие, не удаление кода/схемы).
+  4. **Верхний отступ `.office`.** `OfficeExperience.module.css` `.office { padding: 0
+     var(--space-6) var(--space-6); }` → `padding: var(--space-6);` (единообразный отступ по
+     всем сторонам, восстанавливает визуальный зазор от `Header`, ранее обеспечивавшийся
+     собственным `padding` исчезающего `HeroCopy`). Безусловное изменение (не gated ни по
+     breakpoint, ни по `.js`) — в состоянии `hero` `.office` целиком скрыт через
+     `hiddenUntilRevealed`, поэтому изменение отступа там невидимо и безопасно. Точное значение
+     (переиспользование токена `var(--space-6)`, того же, что был у `HeroCopy`) — рекомендация,
+     не жёсткое требование; финальная величина — техническая настройка исполнителя при визуальной
+     проверке (тот же прецедент, что desktop-значение 14% rail в Step 6).
+  5. **Без анимации/перехода.** Исчезновение hero — мгновенный CSS-класс-тоггл, без fade/transition
+     (тот же паттерн, что уже используется для `hiddenUntilRevealed`); полировка motion — вне
+     scope текущего low-fidelity milestone (см. Out of scope).
+
+- In scope:
+  - `HeroCopy.tsx`/`HeroCopy.module.css` — новый проп `isHiddenAfterReveal`, новый CSS-класс/
+    правило скрытия (решение 1).
+  - `OfficeMachine.tsx` — проброс `isHiddenAfterReveal` в `HeroCopy`; новая ветка в существующем
+    focus-management `useEffect` (решение 2). Редьюсер/действия/состояния **не меняются**
+    (те же 6 состояний/8 действий, что и в Steps 5–7).
+  - `OfficeExperience.module.css` — безусловное скрытие `.hint` (решение 3); верхний отступ
+    `.office` (решение 4).
+  - Обновление существующих unit/e2e тестов Steps 3–7, чьи допущения устарели из-за этого шага
+    (полный список — см. Expected files/Risks ниже, а не общая формулировка).
+  - Новые unit/e2e тесты, специфично проверяющие: исчезновение hero/подсказки на всех
+    breakpoint'ах и во всех `department-*`-состояниях; сохранение фокуса после `ACTIVATE_CTA`;
+    сохранение no-JS поведения hero; регрессия отступа/отсутствия наложения с `Header`.
+  - `README.md` — исправление уже устаревшей строки статуса "7" (`Не приступили` →
+    `Выполнено`, отражая явное подтверждение пользователя) и добавление строки "7.2".
+- Out of scope:
+  - `Step 7.3` (Department view redesign, боль/выгода 20/80, фото в панели) — не реализуется
+    этим шагом; `DepartmentExperience`/`DepartmentCopy`/`OutcomePanel` внутреннее содержимое не
+    трогается, только внешний контейнер `.office` (отступ) и соседний `HeroCopy` (видимость).
+  - `Step 7.5` (Tablet-специфичные CSS-адаптации: ширина rail, hover-gating, тап-таргеты) — не
+    реализуется этим шагом; Tablet автоматически наследует эффект этого шага (общий код), но
+    формальное автоматизированное e2e-покрытие Tablet-диапазона остаётся ответственностью Step
+    7.5 (её Dependencies уже ссылаются на этот шаг) — этот шаг ограничивается ручной DevTools-
+    проверкой на Tablet-ширинах (см. Manual checks), не новым `*.spec.ts`-файлом для Tablet.
+  - Mobile-карусель — внутренняя логика `MobileDepartmentCarousel`/`CarouselNavControls` (Step 7,
+    только что подтверждён) не меняется; этот шаг только влияет на видимость соседнего `HeroCopy`
+    и на общий CSS `.hint`.
+  - Fade/transition-анимация исчезновения hero — намеренно не вводится (решение 5).
+  - Правка `data/*.json`/`content/schema.ts`/`content/types.ts` — не требуется; поле
+    `interactionHint` остаётся в модели данных, просто не рендерится видимо.
+  - Правка `docs/05-homepage-state-machine.md`/`docs/03-office-map.md` — не требуется этим шагом:
+    оба уже honesty-поправлены 2026-07-16, ДО этого Phase A прохода (см. `DECISIONS.md`); если
+    при реализации обнаружится новое расхождение текста с фактическим поведением — обязательна
+    честная правка тем же коммитом (не молчаливое игнорирование), но заранее это не планируется.
+  - `Header.tsx`/`Header.module.css` — не меняются; визуальный отступ решается со стороны
+    `.office` (решение 4), не со стороны `Header`, чтобы не расширять blast radius на компонент,
+    прямо не упомянутый в решении пользователя.
+  - Новые npm-зависимости — не вводятся.
+  - Реальная device-лаборатория, автоматизированное axe-сканирование, диагностика,
+    `contact-open`, `OfficeVisualLayer`/WebGL, `/solutions/*`-навигация, `popstate`, дозаполнение
+    `data/departments.json`, `MANIFEST.json`, CI pipeline — все уже установленные для Steps 3–7
+    исключения остаются в силе без изменений.
+- Dependencies: **Step 7 (`COMPLETED`, подтверждено пользователем 2026-07-16)** — прямая,
+  функциональная зависимость: этот шаг правит тот же `OfficeExperience.module.css` и тот же
+  `OfficeMachine.tsx`, что и Step 7, и его Expected files описаны как diff поверх результата
+  Step 7 (включая `MobileDepartmentCarousel`/фокус-fallback на `mobile-department-carousel-card`).
+  **Важный факт, найденный при подготовке этого Phase A (не блокер, но должен быть учтён
+  исполнителем до начала работы):** по состоянию git на момент этого review код-изменения Step 7
+  (`MobileDepartmentCarousel.tsx`, правки `OfficeExperience.tsx`/`OfficeMachine.tsx` и т.д.) **ещё
+  не закоммичены** — существуют как unstaged/untracked изменения рабочего дерева (`git status`).
+  Рекомендация: закоммитить результат Step 7 отдельным коммитом ДО начала реализации Step 7.2 —
+  иначе `git diff --stat`-проверка (Acceptance criteria) и чистый rollback этого шага не будут
+  однозначно отделимы от несохранённых изменений Step 7. Это решение процесса, не архитектуры —
+  не требует Amendment, только последовательности действий исполнителя (коммит — с явного согласия
+  пользователя, `CLAUDE.md` "Safety").
+- Expected files:
+  - `src/components/homepage/HeroCopy.tsx` — новый проп `isHiddenAfterReveal: boolean`, условный
+    CSS-класс.
+  - `src/components/homepage/HeroCopy.module.css` — новое `:global(.js)`-gated правило скрытия
+    (решение 1).
+  - `src/features/office-machine/OfficeMachine.tsx` — проброс `isHiddenAfterReveal` в `HeroCopy`; новая
+    ветка в существующем focus-management `useEffect` (решение 2). Единственная логическая
+    правка помимо проброса пропа.
+  - `src/components/office/OfficeExperience.module.css` — безусловное `.hint { display: none; }`
+    (решение 3, замена media-scoped правила Step 7); отступ `.office` (решение 4).
+  - `src/tests/unit/components/homepage/hero-copy.test.tsx` — все 5 существующих `render(<HeroCopy
+    copy={copy} onActivate={...} />)` дополняются `isHiddenAfterReveal={false}` (сохраняет
+    буквальное текущее поведение тестов без изменения их смысла); новый 6-й тест:
+    `isHiddenAfterReveal={true}` → скрывающий класс присутствует (структурная проверка, как для
+    `OfficeExperience` — реальное CSS-сокрытие остаётся верифицируемым только в e2e, тот же
+    задокументированный лимит jsdom).
+  - `src/tests/unit/home-page.test.tsx` — новый тест: после клика по `primaryCta`
+    `document.activeElement` — не `<body>`, а элемент внутри `nav[aria-label="Отделы компании"]`
+    (структурная проверка нового focus-management, решение 2); 6 существующих тестов — без
+    изменений содержания (проверено выше построчно: ни один не зависит от видимости hero после
+    `ACTIVATE_CTA`).
+  - `src/tests/e2e/office-overview.spec.ts`:
+    - Rewrite теста "low-height desktop... heading/CTA never clipped..." (текущие строки ~169–208):
+      проверки `boundingBox` для `h1`/`primaryCta` переносятся ДО `activateCta(page)` (состояние
+      `hero`, где эти элементы по-прежнему обязаны быть видимы и не обрезаны — регрессия
+      неизменна); проверки минимального размера хотспотов остаются ПОСЛЕ `activateCta(page)`
+      (состояние `overview`) без изменений.
+    - Новый тест: после `activateCta(page)` — `h1`/`primaryCta`/`secondaryCta`/текст
+      `interactionHint` отсутствуют в дереве доступности (`toHaveCount(0)`/`not.toBeVisible()`);
+      после клика по хотспоту (переход в `department-active`) — та же проверка повторяется
+      (регрессия сохранения скрытости во всех `department-*`-состояниях, п. Objective/AC 3).
+    - Новый тест (или расширение предыдущего): сразу после `activateCta(page)`, без каких-либо
+      `Tab`, `document.activeElement` — первая кнопка `nav[aria-label="Отделы компании"]`
+      (проверка решения 2 на Desktop).
+  - `src/tests/e2e/office-overview-keyboard.spec.ts` — Rewrite теста "hidden hotspots are not
+    reachable by Tab before ACTIVATE_CTA..." (текущие строки ~19–54): убрать цикл "Tab до 20 раз,
+    пока не достигнут первый хотспот" (основан на устаревшем допущении "primaryCta/secondaryCta
+    предшествуют карте в Tab-порядке"); заменить на прямую проверку — сразу после
+    `activateCta(page)` фокус уже на первом хотспоте (`expectedOrder[0]`, без Tab), затем
+    `Tab` по оставшимся 4 (тот же итог — полный проход по 5 хотспотам с видимым focus-ring,
+    просто с исправленной начальной точкой).
+  - `src/tests/e2e/mobile-touch-flow.spec.ts` — новый тест: после `activateCta(page)` на
+    мобильном viewport — `h1`/`primaryCta`/`secondaryCta`/`interactionHint`-текст отсутствуют;
+    `document.activeElement.id === "mobile-department-carousel-card"` (решение 2 на Mobile, ранее
+    Step 7 явно НЕ реализовывал скрытие hero — см. Risks).
+  - `README.md` — строка "7" исправлена на `Выполнено`; новая строка "7.2" (`Не приступили` до
+    старта реализации).
+  - `WORKPLAN.md` (эта секция — переходы статуса по ходу исполнения), `WORKLOG.md` (новая запись
+    при исполнении).
+  - **Явно НЕ входят:** `docs/05-homepage-state-machine.md`, `docs/03-office-map.md` (уже честно
+    поправлены до этого Phase A, см. Out of scope); `content/schema.ts`, `content/types.ts`,
+    `data/*.json` (модель данных не меняется); `Header.tsx`/`.module.css`; редьюсер
+    `src/features/office-machine/reducer.ts` (те же состояния/действия); `DepartmentExperience`/
+    `DepartmentCopy`/`OutcomePanel`/`DepartmentCTA`/`MobileDepartmentCarousel`/
+    `CarouselNavControls`/`OfficeSemanticMap`/`DepartmentHotspot` — их внутреннее содержимое не
+    меняется этим шагом (только внешний `.office`-контейнер и `HeroCopy`).
+
+- Acceptance criteria:
+  1. В состоянии `hero` (до `ACTIVATE_CTA`) `HeroCopy` (заголовок/подзаголовок/обещания/обе CTA)
+     видим без изменений относительно Step 3/4 — регрессия.
+  2. Сразу после `ACTIVATE_CTA` (любой из двух CTA) весь `HeroCopy`-блок отсутствует в дереве
+     доступности (не просто визуально скрыт) — проверено для primary и secondary CTA отдельно.
+  3. `HeroCopy` остаётся скрытым во ВСЕХ состояниях `overview`/`department-opening`/
+     `department-active`/`department-switching`/`department-closing`, включая после открытия
+     конкретного отдела — не только сразу после раскрытия overview.
+  4. `interactionHint` ("Наведите курсор на отдел") не присутствует в дереве доступности ни на
+     одной ширине — Desktop (≥1280px), Tablet (768–1279px, ручная проверка), Mobile (≤767px) —
+     расширение уже принятого для Mobile правила Step 7 на все ширины.
+  5. Сразу после `ACTIVATE_CTA`, без единого нажатия `Tab`, `document.activeElement` — реальный,
+     видимый, focusable элемент внутри только что раскрытой панели офиса (первый хотспот на
+     Desktop/Tablet; `mobile-department-carousel-card` на Mobile), не `<body>` — проверено для
+     обеих CTA (primary/secondary) и отдельно для Desktop/Mobile viewport.
+  6. Существующее focus-management поведение (программный focus на заголовок при открытии
+     отдела; возврат focus на хотспот/карточку карусели при закрытии) не регрессирует — те же
+     проверки Steps 5–7 проходят без изменений их логики/ожиданий.
+  7. `.office`-панель визуально не соприкасается с `Header` (измеримый зазор, соответствующий
+     ранее использовавшемуся отступу `HeroCopy`) ни на одном из ранее проверенных viewport'ов
+     (1280×720/800, 1440×900, 1920×1080, 1280×500 "низкий desktop", 375×812/667/851, 320px).
+  8. Инвариант "документ не скроллится целиком" (Steps 3–7) не регрессирует ни на одном из ранее
+     проверенных viewport'ов после добавления верхнего отступа `.office`.
+  9. Без JavaScript (`javaScriptEnabled:false`) hero и полностью раскрытый офис (или напрямую
+     открытый по `?department=<id>` отдел) по-прежнему рендерятся одновременно в одном статичном
+     HTML — регрессия, поведение `docs/05` "## hero" не меняется этим шагом.
+  10. `office-overview.spec.ts` "low-height desktop" тест по-прежнему подтверждает "заголовок/
+      навигация/CTA не обрезаются" (`docs/08` "Низкий desktop") — с проверками `h1`/`primaryCta`
+      корректно перенесёнными в состояние `hero`, проверками хотспотов — в состоянии `overview`.
+  11. `office-overview-keyboard.spec.ts` подтверждает полный Tab-обход всех 5 хотспотов с видимым
+      focus-ring, начиная от корректной новой стартовой точки (первый хотспот сразу после
+      `ACTIVATE_CTA`, без предварительных Tab).
+  12. `hero-copy.test.tsx` — все 6 тестов (5 существующих + 1 новый) проходят; `isHiddenAfterReveal`
+      обязательный проп, задействован во всех вызовах.
+  13. `home-page.test.tsx` — все 7 тестов (6 существующих без изменения содержания + 1 новый)
+      проходят.
+  14. `mobile-touch-flow.spec.ts` — новый тест подтверждает скрытие hero/подсказки и корректный
+      focus-target на мобильном после `ACTIVATE_CTA` (Step 7 этого не проверял и не реализовывал
+      — честное закрытие пробела, а не тихая регрессия).
+  15. Полная регрессия существующих e2e-сьютов (`office-overview`, `office-overview-keyboard`,
+      `desktop-10x90-shell`, `department-selection`, `mobile-touch-flow`) — без ослабления каких-
+      либо других, не связанных с hero, ожиданий.
+  16. `data-revealed`-атрибут/механизм `OfficeExperience` (существующий, Step 4+) не изменён и не
+      переиспользован для `HeroCopy` — у `HeroCopy` вводится независимый, параллельный механизм
+      (тот же принцип, другая пара проп/класс).
+  17. Ни один компонент, изменённый этим шагом, не импортирует `src/content/*` напрямую
+      (grep-регрессия).
+  18. Нет console/page errors на всём потоке (`hero → ACTIVATE_CTA → overview → открытие отдела →
+      переключение → закрытие`) — отдельно `npm run dev`, отдельно production-сборка.
+  19. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
+      `npm run test:e2e` — все exit 0.
+  20. `git diff --stat` относительно коммита закрытия Step 7 (см. Dependencies — рекомендуется
+      закоммитить Step 7 первым отдельным коммитом) ограничен списком Expected files.
+  21. Ни одна новая npm-зависимость не добавлена.
+  22. `README.md` отражает актуальный статус: "7" → `Выполнено`, "7.2" — добавлена строка.
+
+- Verification commands:
+  ```bash
+  npm run format:check
+  npm run lint
+  npm run typecheck
+  npm run test
+  npm run build
+  npm run test:e2e
+  ```
+  Плюс обязательная dev-mode console-проверка (тот же процессный прецедент, что Steps 5/6/7):
+  ```bash
+  npm run dev
+  # headless Playwright против http://localhost:3100: полный поток hero → ACTIVATE_CTA →
+  # overview → открытие отдела → переключение → закрытие, отдельно на Desktop (1280x800) и Mobile
+  # (375x812, hasTouch/isMobile) viewport — зафиксировать console/pageerror, ожидается [].
+  # Остановить dev-сервер после проверки.
+  ```
+
+- Manual checks:
+  - Chrome DevTools: Desktop (1280×800, 1920×1080), низкий Desktop (1280×500), Tablet-спот-чек
+    (768×1024, 1024×768 — только визуальная проверка отсутствия наложения/скроллбага, без
+    формального Tablet e2e-сьюта, см. Out of scope), Mobile (375×812, 320px крайний случай) —
+    подтвердить: hero мгновенно исчезает по клику любой CTA; заметный, но не чрезмерный зазор
+    между `Header` и панелью офиса; подсказка нигде не появляется.
+  - Клавиатура: Tab от загрузки страницы → CTA → Enter/клик → фокус сразу на первом хотспоте/
+    карточке карусели → Tab по остальным → Enter открывает отдел → Escape закрывает, фокус
+    возвращается.
+  - `prefers-reduced-motion: reduce` — быстрый регрессионный проход (новых анимаций не вводится).
+  - No-JS проверка вручную (`/` и `/?department=<id>`) — hero и офис/открытый отдел видны
+    одновременно, как раньше.
+  - `git diff --stat` относительно коммита закрытия Step 7.
+
+- Risks:
+  - **Focus-management — новая функциональная логика, не просто CSS** (решение 2) — самый
+    высокий риск этого шага; требует независимой skeptic-проверки анализа "нет race condition"
+    (см. Objective), а не принятия на слово. Ошибка здесь — реальная accessibility-регрессия
+    (`docs/11`), а не bookkeeping-находка.
+  - **Два существующих e2e-теста требуют переписывания, а не только повторного прогона**
+    (`office-overview.spec.ts` "low-height desktop"; `office-overview-keyboard.spec.ts` "hidden
+    hotspots...") — риск случайного ослабления исходной гарантии при переносе проверок; смягчается
+    явными AC 10/AC 11, требующими сохранения ТОЙ ЖЕ гарантии, только в правильном состоянии.
+  - **Два разных, намеренно НЕ унифицированных механизма скрытия** (`HeroCopy` — `:global(.js)`-
+    gated; `interactionHint` — безусловный) — риск, что при реализации кто-то "исправит"
+    несогласованность и случайно сломает no-JS fallback hero; явно задокументировано как
+    намеренное решение (Objective, решения 1/3), не оплошность.
+  - **Отступ `.office` — визуальная величина, требующая ручной проверки, не только автоматической**
+    — риск недостаточного/избыточного зазора на разных viewport'ов; смягчается Manual checks на
+    полном наборе уже проверявшихся ранее размеров, включая самый тесный (1280×500).
+  - **Известный, явно принятый UX-компромисс:** после этого шага `interactionHint` — единственная
+    существовавшая текстовая подсказка о hover-взаимодействии с хотспотами — исчезает на Desktop
+    (и, по `Amendment 5`, на Tablet тоже) полностью; `overviewProblem` по-прежнему раскрывается по
+    `:hover`/`:focus`, но без текстовой подсказки пользователь должен обнаружить это сам. Это
+    прямое, осознанное следствие решения пользователя (`DECISIONS.md` 2026-07-16, обе записи —
+    исходная и "OQ-T1 переопределён"), не дефект этого шага — зафиксировано здесь для прозрачности,
+    не как блокирующая находка.
+  - **Non-blocking (skeptic Phase A round 1) — дополнено:** безусловный (не `:global(.js)`-gated)
+    механизм скрытия `interactionHint` (решение 3) убирает подсказку и из no-JS fallback на
+    Desktop/Tablet, где раньше она была видна без JavaScript — тот же компромисс, что описан выше,
+    просто действует независимо от наличия JS. Ни один существующий тест не проверял no-JS-
+    видимость `interactionHint` специально, поэтому это не скрытая регрессия покрытия, только
+    ранее неявная грань уже принятого решения.
+  - **Незакоммиченный Step 7** (см. Dependencies) — риск нечистого `git diff --stat`/rollback,
+    если исполнение начнётся до коммита результата Step 7.
+  - Scope creep: соблазн "заодно" начать Step 7.3 (боль/выгода панель) или Tablet-специфичные
+    правки (Step 7.5) под предлогом "раз уже трогаем `.office`" — явно отклоняется, оба шага
+    остаются отдельными, со своим Phase A.
+- Rollback: `git revert` коммит(ов) этого шага — аддитивно/CSS-класс-based поверх уже
+  `COMPLETED`/`PASSED` Steps 3–7 (редьюсер, URL-sync, схема данных не меняются). Деструктивный
+  `git reset --hard` — только с явного разрешения пользователя.
+- Milestone review: не применимо к этому отдельному шагу (`CLAUDE.md` "Milestone review... не на
+  каждом шаге") — отложено до завершения текущего milestone (Steps 7/7.2/7.3/7.5/8/9).
+- Skeptic verdict (Phase A): round 1 — `BLOCKED` (2026-07-16) — все технические утверждения плана о
+  текущем коде проверены и подтверждены точными (нет придуманных фактов); анализ отсутствия race
+  condition для нового focus-fallback независимо переизведён и признан верным. Блокировала не сама
+  реализация Step 7.2, а необнаруженное planner'ом прямое противоречие с уже `APPROVED` Step 7.5 —
+  устранено пользователем (`DECISIONS.md` "OQ-T1 переопределён") и `Amendment 5`. Round 2 — `FAIL` —
+  новый AC12 Step 7.5 (введён `Amendment 5`) не был привязан ни к одному конкретному
+  verification-пункту (ни e2e-перечисление `tablet-touch-flow.spec.ts`, ни `Manual checks` не
+  проверяли `interactionHint` на Tablet) — исправлено добавлением явных проверок, без нового
+  согласования пользователя (правка не меняла решение). Round 3 — `PASS` (2026-07-16) — AC12 теперь
+  прослеживается до конкретных e2e/Manual-check пунктов на том же уровне, что остальные AC плана;
+  полный grep по `WORKPLAN.md` на "OQ-T1"/"показывать как есть" не нашёл блокирующих несоответствий
+  (один опциональный non-blocking пункт — см. ниже); текст `Amendment 5` подтверждён согласованным
+  с фактически внесёнными правками. План готов к `APPROVED`.
+- Skeptic findings (Phase A, round 1):
+  - **Blocking — RESOLVED via `Amendment 5`.** Objective/AC4 этого шага требуют, чтобы `interactionHint` "не присутствовал в
+    дереве доступности ни на одной ширине", явно включая Tablet (768–1279px). Но уже `APPROVED`
+    Step 7.5 содержит прямо противоположное, отдельно утверждённое пользователем решение
+    **OQ-T1 = (b) "Показывать как есть"** со своим Acceptance criterion 12: `interactionHint`
+    виден на 768–1279px без изменений относительно Desktop. Это решение зафиксировано в
+    `DECISIONS.md` ("Step 7/Step 7.5: OQ-M5, схема нумерации..., OQ-T1 — финальные ответы")
+    непосредственно ПЕРЕД записью "Overview: офис на весь экран, hero скрывается", на которой
+    построен Step 7.2. `docs/05` honesty-правка тоже не делает исключения для Tablet. Ни в одном
+    поле Step 7.2 (Objective/In scope/Out of scope/Risks) это прямое противоречие не упомянуто и
+    не разрешено — план либо тихо отменяет уже утверждённый AC12 Step 7.5 без Amendment
+    (запрещено `CLAUDE.md` "Never change the plan after approval without recording and approving
+    the amendment"), либо сам содержит невыполнимое AC4. Требуется явное решение пользователя:
+    имел ли он в виду отменить OQ-T1 для Tablet, когда сказал "подсказка... полностью
+    скрывается" (сформулировано при сверке Desktop/Mobile-скриншотов, без явного упоминания
+    Tablet) — до тех пор Step 7.2 не может перейти в `APPROVED`.
+  - Non-blocking: Risks не называет отдельно, что безусловный (не `:global(.js)`-gated) механизм
+    скрытия `interactionHint` (решение 3) также убирает подсказку из no-JS fallback на Desktop/
+    Tablet, где раньше она была видна — стоит явно упомянуть в Risks при следующей правке, не
+    блокирует.
+  - Non-blocking — FIXED: имя пропа `isRevealed` у `HeroCopy` имело инвертированную семантику
+    относительно того же пропа у `OfficeExperience` (то же значение, противоположный визуальный
+    эффект). Исправлено: проп у `HeroCopy` переименован в `isHiddenAfterReveal` (то же значение,
+    имя совпадает с эффектом на этом конкретном компоненте) — см. Objective, решение 1.
+  - Non-blocking: заголовок теста `office-overview-keyboard.spec.ts` "hidden hotspots are not
+    reachable by Tab before ACTIVATE_CTA..." станет чуть неточным после описанного rewrite (фокус
+    ставится напрямую, не только через Tab) — косметика.
+- Skeptic findings (Phase A, round 2):
+  - **Blocking — FIXED.** Новый AC12 Step 7.5 (введённый `Amendment 5`, «`interactionHint` НЕ
+    виден на 768–1279px») не был привязан ни к одному конкретному verification-пункту — ни
+    e2e-перечисление `tablet-touch-flow.spec.ts`, ни `Manual checks` Step 7.5 не проверяли
+    `interactionHint` на Tablet, при том что Step 7.2 → Out of scope прямо передаёт эту
+    ответственность Step 7.5. Исправлено: добавлены явные проверки в In scope (e2e bullet) и
+    Manual checks Step 7.5, обе со ссылкой на AC12.
+  - Non-blocking — FIXED: Step 7.5 `Status` и `Completion evidence` bullets содержали
+    неаннотированный устаревший текст "OQ-T1 = (b) показывать как есть" — оба дополнены ссылкой на
+    `Amendment 5`.
+  - Non-blocking — FIXED: top-level "## Approval" не упоминал `Amendment 5` — добавлен абзац.
+- Skeptic findings (Phase A, round 3): блокирующих находок нет. Non-blocking (не исправлено,
+  явно принято как есть): Step 7 (не Step 7.5) → `Completion evidence` тоже содержит
+  неаннотированный текст "OQ-T1 (Step 7.5) = (b) «показывать как есть»" — исторический факт о том,
+  что гейтило approval Step 7 в момент его закрытия, не текущее утверждение о поведении Tablet;
+  канонический источник (Step 7.5 → Status/Completion evidence/"Open questions") уже корректно
+  аннотирован. Отложено до следующей правки этой строки, не блокирует.
+- Completion evidence: план прошёл skeptic Phase A round 3 `PASS` (после round 1 `BLOCKED` → round
+  2 `FAIL` → round 3 `PASS`); все блокеры устранены, открытых вопросов нет. Ждёт фактического старта
+  реализации (Dependencies: Step 7 `COMPLETED`).
+
+## Step 7.3 — Department view redesign (pain/gain panel)
+
+- Status: `PROPOSED` — черновик, как и Step 7.2: пользователь дал прямое решение по структуре, но
+  **planner/skeptic Phase A review ещё не проводился** — пользователь явно попросил "пока акцент на
+  это не делаем, просто фиксируем" (`DECISIONS.md` 2026-07-16 "Department-active: панель с фото +
+  колонки..."). Полноценный Phase A обязателен перед `APPROVED` (`CLAUDE.md`).
+- Objective: Перестроить состояние `department-active` (`docs/03-office-map.md` "Режим 10/90",
+  правка 2026-07-16) под структуру, описанную пользователем:
+  1. Левая панель (10–14%) — у каждого из 5 отделов название **и собственное фото** (не только
+     текст, как сейчас в `DepartmentNavigationRail`); позади панели — общее фото офиса, которое
+     темнеет/бледнеет, когда отдел открыт (не исчезает полностью).
+  2. Основная область — **не одна колонка, а две**, примерно 20/80: левая (20%) — ровно **5**
+     кликабельных/фокусируемых пунктов "боли" отдела; правая (80%) — при выборе конкретного пункта
+     показывает именно его "выгоду" (что получит бизнес, решив ИМЕННО эту проблему — не общий список
+     результатов отдела).
+- **Технический факт, найденный при подготовке черновика (не открытый вопрос):** текущая модель
+  данных не подходит для связки "боль → выгода" один-к-одному. Сейчас `Department.symptoms:
+  string[]` (максимум 3 в UI, `docs/12-content-data-model.md` "Правила") и `Department.outcomes:
+  string[]` (5 штук, независимый список) — раздельные, несвязанные массивы. Новая структура требует
+  типа вида `painPoints: { pain: string; gain: string }[]` длиной ровно 5, заменяющего оба текущих
+  поля — правка `content/types.ts`, `src/content/schema.ts` (zod), `docs/12-content-data-model.md` и
+  реального содержимого `data/departments.json` для всех 5 отделов (сейчас заполнено только по 3
+  симптома/5 результатов на отдел — ещё не в форме пар).
+- **Черновой пример текста для "Дирекция" (по просьбе пользователя "текст можешь написать, но потом
+  будем править" — НЕ финальная копия, только чтобы зафиксировать структуру и тон):**
+  1. Боль: "Отчёты собираются вручную из разных таблиц и чатов." → Выгода: "Данные сами собираются в
+     одну сводку — меньше ручной работы для команды."
+  2. Боль: "Данные разных отделов не совпадают между собой." → Выгода: "Единая картина по всем
+     отделам — не нужно сверять цифры вручную."
+  3. Боль: "Статусы и отклонения приходится запрашивать самому." → Выгода: "Уведомление об отклонении
+     приходит само — раньше, чем об этом спросит руководитель."
+  4. Боль: "Проблема становится заметна только после жалобы." → Выгода: "Проблема видна раньше — до
+     того, как она стала жалобой."
+  5. Боль: "Решения принимаются на устаревших или неполных данных." → Выгода: "Решения принимаются
+     быстрее — на основе актуальной картины, а не устаревших таблиц."
+  Аналогичные 5 пар нужны для остальных 4 отделов (Продажи/Поддержка/HR/Логистика) — не написаны,
+  черновик только для одного отдела, чтобы не тратить усилия на копию до подтверждения структуры.
+- In scope: _(детализируется на Phase A — на момент черновика известно: фото в
+  `DepartmentNavigationRail`; бледнеющий фон офиса за панелью; замена одноколоночной
+  `DepartmentExperience` на 20/80-раскладку "боль/выгода"; новая модель данных `painPoints`; контент
+  для всех 5 отделов)_.
+- Out of scope: _(детализируется на Phase A)_ — предварительно: советы ассистента (2)–(4) из
+  `DECISIONS.md` этой же записи (реагирующий на боль CTA; подсветка соседних отделов) — пользователь
+  их не подтвердил и не отклонил, не входят в этот черновик без отдельного решения.
+- Dependencies: Step 7.2 (`PROPOSED`) — оба шага меняют один и тот же `OfficeExperience`/
+  `DepartmentExperience` слой, должны пройти Phase A вместе или последовательно, во избежание
+  конфликтующих правок.
+- Expected files: _(детализируется на Phase A)_
+- Acceptance criteria: _(детализируется на Phase A)_
+- Verification commands: _(детализируется на Phase A)_
+- Manual checks: _(детализируется на Phase A)_
+- Risks:
+  - Реальное изменение модели данных (`painPoints` вместо `symptoms`/`outcomes`) — затрагивает
+    контент всех 5 отделов, не только вёрстку; потребует полной новой копии (25 пар), не только
+    правки компонентов.
+  - Пользователь всё ещё сверяет остальные экраны прототипа — scope может измениться до `APPROVED`.
+  - Уже пройденные/ожидающие подтверждения Steps 3–7 могут потребовать пересмотра тестов, которые
+    полагаются на текущую структуру `symptoms`/`outcomes` (та же категория риска, что и в Step 7.2).
+- Rollback: _(детализируется на Phase A)_
+- Skeptic verdict: _(не проводился — план ещё не готов к review)_
+- Skeptic findings: _(не проводился)_
+- Completion evidence: _(шаг не начат)_
+
 ## Step 7.5 — Tablet touch flow
 
 - Status: `APPROVED` (новый шаг, добавлен Amendment 4 — см. "## Plan amendments" ниже; skeptic Phase A
-  прошёл вместе со Step 7, round 3 `PASS` (2026-07-16); ответ пользователя на OQ-T1 получен
-  2026-07-16 — «(b) Показывать как есть». Реализация не начата и не может начаться до фактического
-  закрытия Step 7 — см. Dependencies; `APPROVED` разрешает старт после этого условия, не является
-  отчётом о выполнении.)
+  прошёл вместе со Step 7, round 3 `PASS` (2026-07-16); исходный ответ пользователя на OQ-T1 получен
+  2026-07-16 — «(b) Показывать как есть» — **тем же днём переопределён `Amendment 5`** (см. "## Plan
+  amendments" ниже и `DECISIONS.md` "OQ-T1 переопределён"): `interactionHint` теперь скрывается на
+  Tablet тоже. Реализация не начата и не может начаться до фактического закрытия Step 7 — см.
+  Dependencies; `APPROVED` разрешает старт после этого условия, не является отчётом о выполнении.)
 - Objective: Адаптировать уже реализованный и принятый Desktop 10/90 shell (Step 6, `COMPLETED`,
   коммит `5756d8d`) для pointer-опционального touch-использования на ширинах viewport 768–1279px
   (`docs/08-responsive-behavior.md` "Tablet 768–1279": "hover не обязателен; выбор кликом/касанием;
@@ -2258,16 +2764,18 @@ pointer and touch").
     исполнителя (прецедент: desktop-значение 14% само было таким же исполнительским решением в
     Step 6), не требует отдельного согласования. Обе колонки (`rail`/`main`) СОХРАНЯЮТСЯ — Tablet не
     переходит на одну колонку, как Mobile.
-  - **[OQ-T1 = (b), получено 2026-07-16] `interactionHint`.** Пользователь выбрал «Показывать как
-    есть» — `interactionHint` остаётся видимым на 768–1279px без изменений (в отличие от Mobile,
-    где OQ-M4 = (a) скрывает его). Правило скрытия в `OfficeExperience.module.css` (введённое в
-    Step 7 для `max-width: 767px`) **не обобщается** на Tablet-диапазон — никакого нового CSS-
-    правила для `interactionHint` этот шаг не добавляет, подсказка наследует уже принятое Step 3/6
-    поведение как есть. Известный, явно принятый content-mismatch: единственная существующая строка
-    копии буквально описывает hover ("Наведите курсор на отдел"), которого Tablet не гарантирует
-    (`docs/08` "hover не обязателен") — пользователь принял это как известный, не блокирующий
-    компромисс (тот же класс решения, что доступный, но не выбранный для Mobile вариант OQ-M4=(b)),
-    не требующий правки `data/homepage-copy.json`.
+  - **[OQ-T1 = (b), получено 2026-07-16, ПЕРЕОПРЕДЕЛЁН 2026-07-16 — см. `Amendment 5`]
+    `interactionHint`.** Исходный ответ пользователя был «Показывать как есть» — подсказка должна
+    была остаться видимой на 768–1279px без изменений. Этот ответ **отменён тем же днём** при
+    подготовке Step 7.2 ("Overview full-screen (hide hero)"): skeptic Phase A обнаружил
+    противоречие между этим OQ-T1=(b) и требованием Step 7.2 скрыть `interactionHint` на всех
+    ширинах; пользователь явно выбрал скрыть подсказку и на Tablet тоже (`DECISIONS.md` 2026-07-16
+    "OQ-T1 переопределён"). Механизм: безусловное CSS-правило `.hint { display: none; }`
+    (`OfficeExperience.module.css`, вводится Step 7.2, без media-обёртки) уже покрывает Tablet —
+    этот шаг **не добавляет собственного CSS** для `interactionHint`, только подтверждает
+    регрессию (подсказка отсутствует) на Tablet-ширинах. Старый текст этого пункта (варианты (a)/
+    (b)/(c) и мотивировка "показывать как есть") сохранён ниже в "Open questions (Step 7.5)" для
+    истории/трассируемости, не удалён.
   - **Тап-таргеты ≥44×44 CSS px** — измерение (не изменение по умолчанию) для: хотспотов карты
     (`DepartmentHotspot`), кнопок `DepartmentNavigationRail`, `DepartmentCTA`, кнопки «Закрыть» — на
     характерных Tablet-размерах (портрет 768×1024, альбом 1024×768, крайняя узкая 768px). Если
@@ -2306,7 +2814,9 @@ pointer and touch").
     desktop-эталон); тап-таргеты ≥44×44; граничные ширины 767/768/1279/1280px; регрессия клавиатуры;
     `prefers-reduced-motion`; отсутствие console/hydration-mismatch ошибок — отдельно в `npm run dev`
     и отдельно в production-сборке; полная регрессия существующих Desktop (≥1280px) И Mobile
-    (≤767px) e2e-сьютов без ослабления ожиданий.
+    (≤767px) e2e-сьютов без ослабления ожиданий. **Дополнено `Amendment 5`:** отдельная проверка —
+    `interactionHint` отсутствует в дереве доступности на 768×1024 и 1024×768 (регрессия AC12,
+    безусловное правило Step 7.2 покрывает и Tablet — см. Dependencies на Step 7.2).
 
 - Out of scope:
   - `MobileDepartmentCarousel`/`CarouselNavControls` (Step 7) — не используются на Tablet;
@@ -2342,14 +2852,23 @@ pointer and touch").
   начинается, пока Step 7 не получит `APPROVED` и не будет фактически реализован/закрыт (во
   избежание параллельных правок одного и того же `OfficeExperience.module.css` и по прямому указанию
   пользователя, OQ-M1 = (c)). Ответ пользователя на OQ-T1 получен 2026-07-16, зафиксирован в
-  `DECISIONS.md` — см. "Open questions (Step 7.5)" ниже.
+  `DECISIONS.md` — см. "Open questions (Step 7.5)" ниже. **Дополнено 2026-07-16 (пользователь сверил
+  визуал overview с планом):** этот шаг также зависит от нового **Step 7.2 (`Overview full-screen
+  (hide hero)`, `PROPOSED`)**, вставленного между Step 7 и этим шагом — Tablet должен строиться на
+  уже исправленном поведении `overview` (hero скрыт, офис на весь экран), а не наследовать
+  устаревшее (`docs/05` "overview", правка 2026-07-16). **Дополнено 2026-07-16 (сверка визуала
+  department-active):** также зависит от нового **Step 7.3 (`Department view redesign (pain/gain
+  panel)`, `PROPOSED`)** — Tablet использует тот же `DepartmentExperience`/`DepartmentNavigationRail`,
+  что и Desktop, поэтому должен строиться на уже исправленной 20/80-раскладке "боль/выгода" и фото в
+  панели, а не наследовать устаревшую одноколоночную структуру.
 
 - Expected files:
   - `src/components/office/DepartmentHotspot.module.css` — обобщение hover-gating правила
     `.problem` до `max-width: 1279px`.
   - `src/components/office/OfficeExperience.module.css` — новый
     `@media (min-width: 768px) and (max-width: 1279px)` блок: более широкая колонка rail;
-    `interactionHint` не затрагивается (OQ-T1 = (b), "показывать как есть" — правило не добавляется).
+    `interactionHint` скрыт безусловным правилом Step 7.2 (`.hint { display: none; }`) — регрессия
+    на Tablet-ширинах, не новая правка этим шагом (`Amendment 5`, переопределяет прежний OQ-T1=(b)).
   - `src/components/office/DepartmentNavigationRail.module.css` — условно, только если измерение
     найдёт тап-таргет <44×44.
   - `src/components/departments/DepartmentCTA.module.css`, `DepartmentExperience.module.css` —
@@ -2389,8 +2908,9 @@ pointer and touch").
       (карта+широкий rail); на 1279px — Tablet; на 1280px — Desktop-раскладка Step 6 без изменений
       (rail — узкая desktop-ширина, не Tablet-широкая) — все четыре значения проверены явно, не
       предполагаются по непрерывности.
-  12. `interactionHint` виден на 768–1279px без изменений относительно Desktop (OQ-T1 = (b),
-      «показывать как есть» — регрессия отсутствия нового CSS-правила, не активное изменение).
+  12. `interactionHint` НЕ виден на 768–1279px (безусловное CSS-правило Step 7.2, `Amendment 5`,
+      переопределяет прежний OQ-T1=(b)) — регрессия отсутствия наложения/остатков подсказки на
+      Tablet-ширинах, та же проверка, что на Desktop/Mobile.
   13. Полная регрессия существующих Desktop (≥1280px) e2e-сьютов (Steps 3–6) — без ослабления
       ожиданий.
   14. Полная регрессия существующих Mobile (≤767px) e2e-сьютов (Step 7) — без ослабления ожиданий;
@@ -2428,7 +2948,8 @@ pointer and touch").
 - Manual checks:
   - Chrome DevTools device toolbar: iPad портрет (768×1024), iPad альбом (1024×768), типичный
     Android-планшет (например, 800×1280) — подтвердить карту+широкий rail (не карусель, не одна
-    колонка), отсутствие обрезки, читаемые тап-таргеты.
+    колонка), отсутствие обрезки, читаемые тап-таргеты; `interactionHint` нигде не появляется
+    (`Amendment 5`, AC12).
   - Граничные ширины 767/768/1279/1280px — визуально подтвердить переключение между тремя
     раскладками без промежуточных «сломанных» состояний.
   - Touch-симуляция — полный поток тапами.
@@ -2482,20 +3003,27 @@ pointer and touch").
 - Skeptic findings (Phase A): см. Step 7 → `Skeptic findings` выше — общие находки, разделённые по
   раундам; ни одна не относится конкретно к Step 7.5.
 - Completion evidence: план прошёл skeptic Phase A round 3 `PASS` (вместе со Step 7); все открытые
-  вопросы получили ответ пользователя 2026-07-16 (OQ-T1 = (b) "показывать как есть"; OQ-M5 = (a)
+  вопросы получили ответ пользователя 2026-07-16 (**исходный** OQ-T1 = (b) "показывать как есть",
+  **тем же днём переопределён `Amendment 5`** — см. `DECISIONS.md` "OQ-T1 переопределён"; OQ-M5 = (a)
   "подтвердить карусель, честно поправить `docs/03`" — см. Step 7 → "Open questions (Step 7)";
   схема нумерации "Step 7.5" подтверждена — см. `Amendment 4`). Ждёт фактического закрытия Step 7
   (см. Dependencies), от которого зависит старт реализации этого шага.
 
 ## Open questions (Step 7.5) — RESOLVED 2026-07-16
 
-**OQ-T1. Копия `interactionHint` ("Наведите курсор на отдел") на Tablet (768–1279px).**
+**OQ-T1. Копия `interactionHint` ("Наведите курсор на отдел") на Tablet (768–1279px).** —
+`RESOLVED (2026-07-16) → ПЕРЕОПРЕДЕЛЁН (2026-07-16)`, см. `Amendment 5`.
 Прямой аналог уже решённого для Mobile OQ-M4, применённый к новому диапазону. Единственная
 существующая строка в `data/homepage-copy.json` буквально предписывает hover, который `docs/08`
-Tablet прямо называет необязательным ("hover не обязателен"). **Ответ пользователя (2026-07-16,
-`AskUserQuestion`): вариант (b)** — «Показывать как есть». Полный текст исходных вариантов сохранён
-ниже для истории/трассируемости; решение уже зафиксировано в основной секции Step 7.5 выше и в
-`DECISIONS.md`.
+Tablet прямо называет необязательным ("hover не обязателен"). **Исходный ответ пользователя
+(2026-07-16, `AskUserQuestion`): вариант (b)** — «Показывать как есть». **Тем же днём, при
+подготовке Step 7.2, этот ответ переопределён** — skeptic Phase A обнаружил, что он противоречит
+требованию Step 7.2 скрыть `interactionHint` на всех ширинах; пользователь, получив прямой вопрос
+об этом противоречии (`AskUserQuestion`), выбрал скрыть подсказку и на Tablet тоже (`DECISIONS.md`
+2026-07-16 "OQ-T1 переопределён"). Итоговое поведение: `interactionHint` скрыт на Tablet тем же
+безусловным CSS-правилом, что Step 7.2 вводит для всех ширин — Step 7.5 не добавляет отдельного
+CSS. Полный текст исходных вариантов сохранён ниже для истории/трассируемости, старое решение (b)
+не удалено, только помечено переопределённым.
 - (a) Не рендерить `interactionHint` на 768–1279px тоже (тем же CSS-скрытием, что уже принято для
   Mobile, обобщённым до `max-width: 1279px`) — правка контента не требуется. Default черновика, не
   выбран.
@@ -2543,7 +3071,9 @@ Tablet прямо называет необязательным ("hover не о�
   review Step 7/Step 7.5 (Amendment 4, 2026-07-16):** Step 7.5 физически вставлена между Step 7 и
   этим шагом и должна завершиться первой (см. "Step 7.5 — Tablet touch flow" → Dependencies); текст
   этого шага (кроме этой строки) сознательно не переписывается по Amendment 4 (нумерация Step
-  8/Step 9 не сдвигается).
+  8/Step 9 не сдвигается). **Дополнено 2026-07-16:** между Step 7 и Step 7.5 также вставлены новые
+  Step 7.2 (`Overview full-screen (hide hero)`, `PROPOSED`) и Step 7.3 (`Department view redesign
+  (pain/gain panel)`, `PROPOSED`) — тот же принцип (нелинейная метка, не сдвиг нумерации).
 - Expected files: _(детализируется перед стартом шага)_
 - Acceptance criteria:
   1. Функции сохраняются.
@@ -2749,3 +3279,57 @@ Tablet прямо называет необязательным ("hover не о�
   напрямую через `AskUserQuestion` (OQ-M1 = (c), см. `DECISIONS.md`). Схема нумерации ("Step 7.5"
   вместо буквального сдвига) отдельно подтверждена пользователем 2026-07-16, тоже через
   `AskUserQuestion` — оба согласования получены, см. `DECISIONS.md`.
+
+### Amendment 5
+
+- Status: `APPROVED` (пользователь подтвердил 2026-07-16 через `AskUserQuestion`, вариант «Прятать и
+  на Tablet (Recommended)»).
+- Reason: skeptic Phase A review (round 1) плана Step 7.2 ("Overview full-screen (hide hero)")
+  обнаружил, что Objective/AC4 этого шага (скрыть `interactionHint` на ВСЕХ ширинах, включая Tablet)
+  прямо противоречит уже `APPROVED` Step 7.5 — там пользователь ранее ответил на **OQ-T1 = (b)**
+  «Показывать как есть»: `interactionHint` на Tablet (768–1279px) должен был остаться видимым без
+  изменений, со своим Acceptance criterion 12. Ни planner (Step 7.2 Phase A), ни исходная запись
+  `DECISIONS.md` "Overview: офис на весь экран, hero скрывается" не заметили и не обсуждали Tablet
+  явно — решение принималось при сверке только Desktop/Mobile-скриншотов. Skeptic вернул `BLOCKED`
+  (не `FAIL`) именно потому, что это прямое противоречие между двумя решениями пользователя,
+  требующее его явного выбора, а не находка, устранимая правкой одного шага в одну сторону
+  односторонне (`WORKPLAN.md` Step 7.2 → Skeptic findings round 1; `DECISIONS.md` 2026-07-16
+  "OQ-T1 переопределён").
+- Previous scope: Step 7.5 (`APPROVED`) — Objective/In scope содержит пункт «[OQ-T1 = (b), получено
+  2026-07-16] `interactionHint`... остаётся видимым на 768–1279px без изменений»; Expected files —
+  «`interactionHint` не затрагивается (OQ-T1 = (b))»; Acceptance criterion 12 — «`interactionHint`
+  виден на 768–1279px без изменений относительно Desktop (OQ-T1 = (b))»; "Open questions (Step 7.5)"
+  фиксирует OQ-T1 как `RESOLVED` = (b).
+- New scope: Step 7.5 — пункт про `interactionHint` в Objective/In scope переписан: подсказка
+  скрывается на Tablet тем же безусловным CSS-правилом, что вводит Step 7.2 (`.hint { display:
+  none; }` без media-обёртки) — Step 7.5 сам не добавляет нового CSS для этого (правило уже
+  безусловно на все ширины после Step 7.2), только подтверждает регрессию на Tablet-ширинах.
+  Expected files — строка «`interactionHint` не затрагивается» заменена на «`interactionHint`
+  скрыт безусловным правилом Step 7.2 — регрессия на Tablet, не новая правка». Acceptance criterion
+  12 заменён: «`interactionHint` НЕ виден на 768–1279px (безусловное правило Step 7.2) — регрессия
+  отсутствия наложения/остатков подсказки на Tablet-ширинах». "Open questions (Step 7.5)" OQ-T1
+  помечен `RESOLVED (2026-07-16) → ПЕРЕОПРЕДЕЛЁН 2026-07-16` со ссылкой на эту запись и
+  `DECISIONS.md`, старый ответ (b) сохранён для истории/трассируемости, не удалён.
+  Step 7.2 (см. секцию выше) — Status возвращён из `BLOCKED` в `PROPOSED` (готов к skeptic Phase A
+  round 2, противоречие устранено); текст Objective/AC4/Risks Step 7.2 не меняется — они уже
+  требовали скрытия на Tablet, именно это оказалось правильным после решения пользователя.
+  **Дополнено при skeptic Phase A round 2 (`FAIL`, non-blocking-класса дыра в верификации):** новый
+  AC12 не был привязан ни к одному конкретному verification-пункту — исправлено добавлением
+  явной проверки `interactionHint` в `In scope`/e2e-перечисление `tablet-touch-flow.spec.ts` и в
+  `Manual checks` Step 7.5 (та же правка, без нового согласования пользователя — она не меняет
+  ничьего решения, только дополняет план проверки уже принятого AC12). Заодно аннотированы два
+  оставшихся места с устаревшим необновлённым текстом OQ-T1=(b) (`Status`, `Completion evidence`
+  Step 7.5) и добавлена строка про этот Amendment в top-level "## Approval".
+- Impact: единственное затронутое architecture-решение — механизм скрытия `interactionHint` остаётся
+  ровно тем, что уже описан в Step 7.2 (решение 3, безусловный CSS, без `:global(.js)`-gate); Step
+  7.5 теряет единственную Tablet-специфичную особенность видимости hint, приобретённую в OQ-T1 = (b),
+  но не теряет ничего из остальных 19 своих acceptance criteria (rail-ширина, hover-gating, тап-
+  таргеты, клавиатура, breakpoint-границы и т.д. — не затронуты). Оба шага (7.2 и 7.5) теперь
+  взаимно непротиворечивы.
+- Skeptic review: находка, приведшая к этому Amendment, — результат Step 7.2 Phase A round 1
+  (`BLOCKED`). Сам текст Amendment 5 и обновлённые секции Step 7.2/Step 7.5 подлежат отдельному
+  skeptic Phase A review (round 2) перед переводом Step 7.2 в `APPROVED` — по тому же прецеденту,
+  что Amendment 3/4 (текст amendment проверяется вместе с планом затронутых шагов, не отдельно).
+- User approval: получено 2026-07-16 напрямую через `AskUserQuestion` — вариант «Прятать и на Tablet
+  (Recommended)», см. `DECISIONS.md` "OQ-T1 переопределён: `interactionHint` скрывается и на
+  Tablet".

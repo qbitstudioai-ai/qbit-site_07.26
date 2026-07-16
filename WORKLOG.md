@@ -12,6 +12,11 @@
 - исправления после FAIL;
 - остаточные риски.
 
+**Формат с 2026-07-16 (аудит workflow, см. `DECISIONS.md`):** новые записи — фактами, не
+повествованием. Список изменений/команд/verdict, без пересказа хода обсуждения и без цитирования
+предыдущих раундов целиком — исправленный факт заменяет старый, а не добавляется рядом с ним. Записи
+до этой даты не переписываются (сохраняются как есть, это реальная история).
+
 ---
 
 ## Entry 1
@@ -1794,3 +1799,502 @@ Rollback) плюс 4 Open Questions (OQ-M1 — диапазон Tablet 768–127
   формулировок.
 - Итог: Step 7 и Step 7.5 — `APPROVED`, готовы к Phase B (реализация). Step 7.5 не может начаться
   раньше фактического закрытия Step 7 (Dependencies).
+
+## Entry 8
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7 — Mobile touch flow (Phase B — реализация)
+- Status before: `APPROVED`
+- Status after: `IN_PROGRESS` → `AWAITING_SKEPTIC` (эта запись)
+- Trigger: новая сессия, пользователь попросил продолжить работу; план Step 7 уже `APPROVED` с
+  предыдущей сессии (skeptic Phase A round 3 `PASS`, все открытые вопросы закрыты) — реализация не
+  была начата. `WORKPLAN.md` Step 7 `Status` переведён в `IN_PROGRESS` перед началом кода.
+
+### Scope executed
+
+Полностью по In scope плана Step 7 (`WORKPLAN.md`):
+
+- Новый `src/components/office/CarouselNavControls.tsx` (+ `.module.css`) — презентационный, без
+  собственной бизнес-логики; `previousLabel`/`nextLabel`/`onPrevious`/`onNext`; `display: none` по
+  умолчанию, `display: flex` только на `max-width: 767px`; кнопки `min-width/min-height: 44px`.
+  Переиспользуется в двух местах (см. ниже) без дублирования разметки.
+- Новый `src/components/office/MobileDepartmentCarousel.tsx` (+ `.module.css`) — рендерится
+  `OfficeExperience.tsx` в ветке `overview` рядом с `OfficeSemanticMap` (оба в DOM, видимость по CSS).
+  Локальное `useState<number>(0)` (`previewIndex`) — не диспетчерит редьюсер, не меняет URL; сбрасывается
+  к 0 при каждом новом входе в `overview` естественно (overview-ветка размонтируется/монтируется
+  заново, существующее поведение `OfficeExperience.tsx`). Карточка — `<button id="mobile-department-
+  carousel-card">` со стабильным, не зависящим от отдела id (тот же паттерн, что `DepartmentHotspot`:
+  `aria-label`/`aria-describedby`), `overviewLabel`/`overviewProblem` всегда видимы (без hover/focus).
+- `src/features/office-machine/OfficeMachine.tsx` — точечная правка focus-restoration `useEffect`:
+  fallback теперь пробует `hotspot-<returnId>` (Desktop/Tablet), затем стабильный
+  `mobile-department-carousel-card` (mobile), выбирая первый кандидат с `offsetParent !== null`.
+  Редьюсер/действия/остальной файл не изменены.
+- `src/components/office/OfficeExperience.tsx` — overview-ветка рендерит `MobileDepartmentCarousel`
+  (проп `departments={sortedDepartments}`, тот же массив, что уже вычислялся для rail — переиспользован,
+  не продублирован); department-active-ветка передаёт вниз в `DepartmentExperience` два новых пропа
+  (`departments`, `onSelectDepartment`).
+- `src/components/office/OfficeExperience.module.css` — `.hint` скрыт на `≤767px` (OQ-M4 = (a));
+  `.shell10x90` на `≤767px` — `grid-template-columns: 1fr`, `grid-template-areas: "main"`, явный
+  `.railArea { display: none; }` (без явного `display:none` CSS Grid не убрал бы элемент из
+  несовпадающей области — найдено при skeptic Phase A review, теперь применено в коде).
+- `src/components/office/OfficeSemanticMap.module.css` — одна новая строка:
+  `@media (max-width: 767px) { .map { display: none; } }`. `OfficeSemanticMap.tsx`/
+  `DepartmentHotspot.tsx`/`.module.css` не изменены (по решению плана: карусель — новый компонент,
+  не переиспользующий абсолютно-позиционированный хотспот).
+- `src/components/departments/DepartmentExperience.tsx` (+ `.module.css`) — новые пропы
+  `departments: Department[]`, `onSelectDepartment`; вычисляет `previousDepartment`/`nextDepartment`
+  wrap-around по модулю длины массива относительно `department.id`; рендерит `CarouselNavControls`
+  новым блоком после `.actions` (видим только на `≤767px`); `.close` получил `min-height: 44px` на
+  `≤767px`.
+- `≤767px`-проходка (typography/spacing/tap targets), без изменения контракта:
+  `DepartmentCopy.module.css`, `OutcomePanel.module.css`, `DepartmentCTA.module.css` (`min-height: 44px`
+  на CTA), `HeroCopy.module.css` (`.ctaRow` в колонку, `.primaryCta`/`.secondaryCta` `min-height: 44px`),
+  `Header.module.css` (уменьшённый логотип/бренд на `≤767px`, `flex-wrap`, страховка от перекрытия на
+  320px — **на момент первого прогона это НЕ было проверено** (ни вручную, ни автоматизированно) —
+  ложно утверждалось обратное в этой же записи до skeptic round 1 (см. "Skeptic review (Phase B,
+  round 1)"/"Correction iteration 1" ниже); исправлено автоматизированной проверкой при 320px в
+  отдельном describe-блоке `mobile-touch-flow.spec.ts`).
+- Новые unit-тесты: `carousel-nav-controls.test.tsx`, `mobile-department-carousel.test.tsx` (рендер
+  ровно одной карточки, стабильный id независимо от показанного отдела, локальный browse без
+  диспетча, wrap-around на обеих границах, тап открывает именно показанный отдел, aria-labels с
+  именем целевого отдела). Обновлены `office-experience.test.tsx` (карусель рядом с картой в overview;
+  `CarouselNavControls` в department-active называет верных wrap-around соседей) и
+  `department-experience.test.tsx` (все существующие рендеры дополнены обязательными новыми пропами;
+  новый тест на `CarouselNavControls` prev/next).
+- **Не предусмотренная планом, но необходимая правка**: `src/tests/unit/home-page.test.tsx` — тест
+  "flips data-revealed to true… with all 5 hotspots present" запрашивал кнопки по `department.
+  overviewLabel` без скоупинга и стал падать (`Found multiple elements`), так как
+  `MobileDepartmentCarousel` теперь тоже рендерит кнопку с тем же accessible name (jsdom не применяет
+  реальный CSS, поэтому оба — карта и карусель — одновременно видимы для `screen.getByRole`, в отличие
+  от настоящего браузера, где `display:none` реально убирает скрытую ветку из a11y-дерева). Это ровно
+  риск, заранее описанный в `WORKPLAN.md` Step 7 Risks ("двойной рендер overview-дерева… требует явной
+  проверки"), просто материализовавшийся в существующем, не входившем в Expected files тесте, а не в
+  новом. Исправлено скоупингом запроса на `within(officeMapNav)` — тот же паттерн, что уже используется
+  в `office-semantic-map.test.tsx`; собственно проверяемое поведение (5 хотспотов в карте) не ослаблено.
+- Новый `src/tests/e2e/mobile-touch-flow.spec.ts` — 12 сценариев на `375×812`, `hasTouch`, `isMobile`:
+  карусель вместо карты в a11y-дереве; browse Next/Next не меняет URL/машину; тап открывает именно
+  показанный (3-й) отдел; Prev/Next в active — реальный `SWITCH_DEPARTMENT` с wrap-around на обеих
+  границах и без full reload; «Закрыть» возвращает в overview с каруселью на первом отделе (AC 17);
+  закрытие НЕ первого отдела восстанавливает фокус на `mobile-department-carousel-card` (регрессионная
+  проверка именно того бага, что нашёл skeptic в Phase A round 1/2); прямой `?department=<id>` для всех
+  5 id; тап-таргеты ≥44×44; отсутствие горизонтального/полного скролла; `prefers-reduced-motion`;
+  клавиатурный Tab-порядок card→Prev→Next; отсутствие console/page errors на полном потоке
+  (production-сборка).
+
+### Verification commands (все прогнаны реально, вывод ниже)
+
+```bash
+npm run format:check   # первый прогон: 3 новых файла не отформатированы (mobile-touch-flow.spec.ts,
+                        # carousel-nav-controls.test.tsx, mobile-department-carousel.test.tsx) →
+                        # npx prettier --write на этих 3 файлах → повторный format:check: "All matched
+                        # files use Prettier code style!"
+npm run lint            # eslint . — без вывода (0 problems)
+npm run typecheck        # tsc --noEmit — без вывода (0 errors)
+npm run test              # первый прогон: 1 упавший тест (home-page.test.tsx, см. "Не предусмотренная
+                          # планом правка" выше) → исправлено → повторный прогон: Test Files 15 passed
+                          # (15); Tests 101 passed (101)
+npm run build              # next build (Turbopack) — Compiled successfully; TypeScript — Finished;
+                            # Route "/" = ƒ (dynamic, без изменений)
+npm run test:e2e             # 46 passed (46) — 12 новых mobile-touch-flow + 34 существующих desktop
+                              # (department-selection/desktop-10x90-shell/office-overview/
+                              # office-overview-keyboard) без единого регрессионного провала
+```
+
+Отдельная, обязательная dev-mode проверка (процессное требование, закреплено со Step 4/5/6):
+
+```bash
+npm run dev   # localhost:3100
+# headless Playwright-скрипт (одноразовый, viewport 375×812, hasTouch/isMobile): hero → ACTIVATE_CTA
+# тапом → карусель Next×2 → тап по текущей (3-й) карточке → открылся ожидаемый отдел → Next в active
+# (SWITCH_DEPARTMENT) → «Закрыть» → прямой ?department=sales. Скрипт запущен из временного файла в
+# корне репозитория (module resolution для @playwright/test), удалён сразу после прогона — в
+# финальном `git status` отсутствует. Dev-сервер остановлен после проверки (Stop-Process).
+```
+
+Буквальный вывод скрипта:
+
+```
+ALL_MESSAGES: [
+  "[console:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+  "[console:log] [HMR] connected",
+  "[console:info] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+  "[console:log] [HMR] connected"
+]
+SUSPICIOUS: []
+```
+
+0 сообщений, содержащих `error`/`hydrat` (те же благие HMR/DevTools-сообщения, что и в Step 5/6).
+
+### Manual checks
+
+- `git status --short` перед этой записью: 14 изменённых + 7 новых файлов — весь список входит в
+  Expected files Step 7 (единственное отличие от буквального списка — `src/tests/unit/home-page.
+  test.tsx`, см. "Не предусмотренная планом правка" выше; `DepartmentHotspot.tsx`/`.module.css` — не
+  изменены, как и требовал план).
+- Не проверено вживую в реальном мобильном браузере/DevTools device toolbar (iPhone SE 375×667,
+  Android 393×851, 320px) — единственная проверка ширины/тапов была через Playwright headless
+  (chromium touch-эмуляция, dev-mode script + e2e suite), а не визуально в браузере. Это ограничение
+  переносится в Known limitations ниже и является явным пунктом для skeptic/qa-reviewer.
+
+### Known limitations / перенесено в риски
+
+- Реальное устройство и живой Chrome DevTools device-toolbar сеанс — не выполнялись (не блокируют,
+  как и в предыдущих шагах); AC 7/AC 9 при 375×667/393×851/320px теперь имеют автоматизированное
+  Playwright-покрытие (см. "Correction iteration 1" ниже) — эквивалентное по измеряемым величинам
+  (позиция/размер CTA, `scrollWidth`), но не заменяющее визуальный человеческий осмотр.
+- Двойной рендер overview-дерева (карта + карусель одновременно в DOM) подтверждён работающим по CSS
+  в реальном браузере (e2e `getByRole` на `375×812` не находит скрытую карту — Playwright применяет
+  реальный accessibility tree), но материализовался как ложный положительный результат в jsdom-тесте
+  до исправления (см. Scope executed) — тот же класс риска может повторно всплыть в любом будущем
+  unit-тесте, который сравнивает элементы по `overviewLabel` без явного скоупинга на конкретный `nav`.
+- `Amendment`/перенумеровка — не требуется, Step 7.5 остаётся следующим шагом после закрытия этого.
+
+### Skeptic review (Phase B, round 1)
+
+- Agent: `skeptic`
+- Verdict: `FAIL`
+- Findings: **Critical (1)** — эта запись (Entry 8) до исправления содержала прямо противоречивое,
+  ложное утверждение: раздел "Scope executed" утверждал про 320px "проверено вручную, см. Manual
+  checks", а сам раздел "Manual checks" той же записи прямо утверждал обратное — "не проверено
+  вживую… 320px". Независимая проверка (`grep -rn "320" src/tests`) на тот момент подтвердила ноль
+  совпадений — утверждение "проверено" было полностью ложным. **Major (2)** — AC 7 ("DepartmentCTA
+  реально достижима… измерено минимум на двух характерных высотах") не имел вообще никакого покрытия:
+  весь `mobile-touch-flow.spec.ts` использовал единственный фиксированный viewport (375×812) через
+  файловый `test.use()`. **Major (3)** — Manual checks плана (DevTools device toolbar: iPhone SE/
+  Android/320px) были пропущены целиком, хотя опциональным пунктом плана помечено только "реальное
+  устройство" — DevTools-проход не был отмечен как необязательный. **Major (4)** — AC 13 частично не
+  проверен: e2e-сьют проверял только Tab-порядок в overview (`card → Prev → Next`), но не
+  Tab-порядок в `department-active` на мобильном (`CTA → Закрыть → Prev/Next`), который AC 13 также
+  явно требует. **Minor (5)** — `.card` в `MobileDepartmentCarousel.module.css` не имел явного
+  `min-width: 44px` (только `min-height`) — расхождение с буквальной формулировкой плана "≥44×44 CSS
+  px" для карточки конкретно (в реальности ширина ≥44px гарантирована `width: 100%` полноширинного
+  мобильного контейнера, что e2e независимо подтвердил, но не задокументировано явно в CSS).
+- Что подтвердилось без замечаний: весь diff в рамках Expected files (плюс единственное
+  задокументированное отклонение `home-page.test.tsx`); `reducer.ts`/`url-sync.ts`/
+  `DepartmentHotspot.tsx`/`.module.css` не тронуты; focus-restoration fallback и отсутствие
+  race-condition независимо переизведены из реального кода; локальность `useState` карусели;
+  стабильность `mobile-department-carousel-card`; CSS-only breakpoint без `matchMedia`; тап-таргеты
+  44px там, где заявлены; `.railArea{display:none}` реально в коде; `.hint` скрыт на `≤767px`; все 6
+  verification commands независимо перепрогнаны и совпали (101/101 unit, 46/46 e2e на тот момент,
+  build/lint/typecheck/format чисто).
+- Required corrections: (1) исправить/убрать ложное утверждение про 320px в этой записи; (2) добавить
+  проверку AC 7 минимум на двух характерных высотах; (3) выполнить DevTools-проход или задокументировать
+  честную автоматизированную замену; (4) добавить тест на мобильный Tab-порядок в `department-active`
+  (AC 13); (5) добавить `min-width: 44px` в `.card`.
+- Evidence reviewed: полный текст `WORKPLAN.md` Step 7 (Objective…Rollback, Skeptic Phase A history),
+  эта запись (Entry 8) целиком, `git status --short`/`git diff HEAD --stat` относительно `5756d8d`,
+  весь изменённый/новый код (компоненты + `.module.css` + `OfficeMachine.tsx`), весь новый/изменённый
+  тестовый код (unit + e2e), независимый повторный прогон всех 6 verification commands.
+
+### Correction iteration 1
+
+- Trigger: 5 находок round 1 (1 Critical + 3 Major + 1 Minor, см. выше). Skeptic явно указал: "No
+  plan amendment required" — все правки укладываются в уже одобренный scope Step 7.
+- Fix: (1) ложное утверждение про 320px в "Scope executed" выше переписано честно (не проверено на
+  момент первого прогона, ссылка на это исправление); (2)+(3) добавлен новый
+  `test.describe("mobile CTA reachability and no-horizontal-scroll at multiple characteristic sizes
+  (AC 7, AC 9)")` в `mobile-touch-flow.spec.ts` — 3 сценария (iPhone SE 375×667, типичный Android
+  393×851, 320px extreme 320×690), каждый: `scrollIntoViewIfNeeded()` + `boundingBox()` CTA (не
+  выходит за границы viewport по x/y) + `document.documentElement.scrollWidth ≤ innerWidth`.
+  Зафиксировано честно как автоматизированная Chromium-проверка на тех же точных размерах, а не
+  интерактивный DevTools-проход (см. Known limitations выше — исправлено, не молчаливо принято за
+  DevTools); (4) добавлен тест "keyboard: in the active department, Tab order is [CTA, Close, Prev,
+  Next]" — открывает отдел тапом, проверяет программный focus на заголовке (docs/05), затем
+  Tab ×4 → CTA → Закрыть → Prev → Next; (5) `MobileDepartmentCarousel.module.css` `.card` получил
+  `min-width: 44px` рядом с уже существующим `min-height: 44px`.
+- Verification: `npm run format:check` (чисто) → `npm run lint` (0 problems) → `npm run typecheck`
+  (0 errors) → `npm run test` (101/101, без регрессии) → `npm run build` (успешно) → `npm run test:e2e`
+  — **50 passed (50)** (было 46; +4 новых сценария: 1 Tab-order тест + 3 CTA-reachability по размерам),
+  без единого провала/регрессии на существующих 46.
+- Итог: правки ограничены `mobile-touch-flow.spec.ts` (новые тесты),
+  `MobileDepartmentCarousel.module.css` (1 строка), `WORKLOG.md`/`WORKPLAN.md` (bookkeeping) — код
+  компонентов/редьюсер/OfficeMachine.tsx не менялись повторно. Готово к round 2 skeptic Phase B
+  review.
+
+### Skeptic review (Phase B, round 2)
+
+- Agent: `skeptic`
+- Verdict: `PASS`
+- Findings: нет (ни Blocker/Critical/Major/Minor).
+- Независимо проверено: все 5 исправлений round 1 (ложное утверждение про 320px устранено без новых
+  противоречий; 3 новых CTA-reachability сценария реально в коде и не тавтологичны — проверена
+  архитектура `overflow` по всей цепочке предков CTA, `overflow-y: auto`, не `overflow: hidden`, кроме
+  `.shell` на уровне `100dvh`, что делает `scrollIntoViewIfNeeded()`+`boundingBox()` содержательной, не
+  ложноположительной проверкой; новый Tab-order тест независимо сверен с реальным DOM-порядком
+  `DepartmentExperience.tsx`; `.card` содержит `min-width: 44px`); отсутствие расширения scope
+  (`reducer.ts`/`url-sync.ts`/`DepartmentHotspot.tsx`/`.module.css` не тронуты, `package.json`/
+  `package-lock.json` без диффа, `WORKPLAN.md` диф ограничен bookkeeping-полями Step 7); повторный
+  прогон всех 6 verification commands (`test:e2e` — 50/50, было 46, +4 как заявлено).
+- Evidence reviewed: `WORKLOG.md` Entry 8 целиком (включая round 1/Correction iteration 1),
+  `WORKPLAN.md` Step 7 целиком + `git diff HEAD -- WORKPLAN.md`, `git status`/`git diff HEAD --stat`,
+  полный текст `mobile-touch-flow.spec.ts` (378 строк) и `MobileDepartmentCarousel.module.css`,
+  `DepartmentExperience.tsx`/`CarouselNavControls.tsx`/`MobileDepartmentCarousel.tsx`, CSS-архитектура
+  overflow по всему дереву предков (`DepartmentExperience.module.css`/`OfficeExperience.module.css`/
+  `HomepageShell.module.css`), `playwright.config.ts`, независимый повторный прогон всех 6
+  verification commands.
+
+### Closure (Phase B)
+
+- Timestamp: 2026-07-16
+- `Status`: `AWAITING_SKEPTIC` → `PASSED` (skeptic Phase B round 2 `PASS`, без находок). По правилу
+  README.md "Правила статусов" ("Переход в 'Выполнено' происходит только после… явно утверждён
+  пользователем") переход в `COMPLETED` требует отдельного явного подтверждения пользователя — не
+  выполняется этой правкой автоматически.
+- Полная история Phase B: план `APPROVED` → реализация (Scope executed) → round 1 `FAIL` (1 Critical +
+  3 Major + 1 Minor, все — тестовое покрытие/документация, ни одного дефекта в самой реализации
+  компонентов) → Correction iteration 1 → round 2 `PASS`. Ни один раунд не потребовал изменения
+  архитектуры/scope/новых пользовательских решений.
+- Готово: представить пользователю итог Step 7 и запросить явное подтверждение закрытия.
+
+## Entry 9
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: не привязана к одному шагу — пользователь сверяет живой прототип (скриншоты `npm run dev`)
+  с продуктовыми документами перед подтверждением закрытия Step 7 и стартом Step 7.5. Явная
+  инструкция пользователя: "Пока ничего не меняй в коде. Скорректируй только план."
+- Status before: Step 7 — `PASSED` (ждёт подтверждения пользователя).
+- Status after: Step 7 — без изменений (`PASSED`, подтверждение всё ещё не получено — пользователь
+  прервал вопрос о закрытии, чтобы сначала сверить визуал); добавлен новый черновой шаг Step 7.2 в
+  `WORKPLAN.md` (`PROPOSED`).
+
+### Scope of this entry
+
+Только документы — `src/**` не менялся (подтверждено `git status --short` после правок, см. ниже).
+
+- Вопрос 1 пользователя: должен ли фон overview быть фотографией офиса на весь экран? Ответ дан по
+  документам, без правок кода/документов: `docs/02-art-direction.md` ("Стилизованный реалистичный
+  2.5D… HTML/SVG-слой поверх сцены") + референс `references/office-overview/01-company-overview.png`
+  подтверждают, что финальный визуал — да, полноэкранная сцена офиса; но `docs/13-implementation-
+  plan.md` относит реальную графику к "Этап 2 — art direction", а текущая работа — "Этап 1 —
+  low-fidelity" (CLAUDE.md "No final 3D art" для этого milestone). Пользователю объяснено это
+  различие, никаких файлов не менялось.
+- Вопрос 2 пользователя: после `ACTIVATE_CTA` ("Исследовать офис") заголовок/подзаголовок/обещания/
+  CTA должны полностью пропадать, офис — занимать весь экран. Проверено по `docs/05-homepage-state-
+  machine.md` ("overview" — текущая формулировка: "Видны весь офис, hero, CTA, пять отделов и
+  подсказка") и `docs/03-office-map.md` ("Центр объединяет офис и резервирует место для hero") — оба
+  прямо противоречат желаемому поведению пользователя. Пользователю предложен выбор (оставить как в
+  документах / поправить документы под новое видение, код не трогать до отдельного разрешения).
+  Пользователь выбрал: поправить документы, код пока не трогать.
+- **Важный технический факт, найденный при подготовке правки (не сам вопрос пользователя, а
+  последствие)**: в `src/features/office-machine/OfficeMachine.tsx` `<HeroCopy>` рендерится
+  безусловно, без привязки к `state.view` — в отличие от `OfficeExperience`, чья видимость уже
+  переключается через `isRevealed`. Значит текущее поведение "hero виден в overview" одинаково и на
+  Desktop, и на Mobile (Step 7, уже реализован), и будет унаследовано Tablet (Step 7.5, не начат) —
+  это не только про скриншот Desktop, это общее поведение state machine. Пользователь проинформирован
+  об этом в диалоге.
+
+### Правки (документы/план, без кода)
+
+- `docs/05-homepage-state-machine.md` — раздел "## overview" дополнен честной правкой-пометкой
+  2026-07-16: hero и подсказка должны полностью скрываться, офис — занимать весь экран; старая
+  формулировка сохранена, не удалена (тот же принцип "honesty-правка", что уже дважды применялся к
+  этому файлу в Step 3/Step 5).
+- `docs/03-office-map.md` — строка "Центр объединяет офис и резервирует место для hero" дополнена
+  аналогичной пометкой: актуальна только для состояния `hero`, не для `overview`.
+- `DECISIONS.md` — новая запись "2026-07-16 — Overview: офис на весь экран, hero скрывается" —
+  контекст, технический факт про `HeroCopy`, принятое решение, последствия (новый шаг, риск
+  пересмотра тестов Steps 3–7), явно отмечено "Skeptic review: не проводился" и "Согласование
+  пользователя: решение пользователя, полученное напрямую в диалоге".
+- `WORKPLAN.md` — новый шаг **"Step 7.2 — Overview full-screen (hide hero)"** вставлен между Step 7 и
+  Step 7.5 (та же нелинейная схема нумерации, что Amendment 4 для Step 7.5, во избежание сдвига
+  Step 8/9). `Status: PROPOSED` — явно помечен как черновик, ждущий полноценного planner/skeptic
+  Phase A review перед `APPROVED` (пользователь пока не закончил сверку остальных экранов, scope
+  этого шага может измениться). In scope/Out of scope/Expected files/Acceptance criteria/Verification
+  commands/Manual checks/Rollback — помечены `_(детализируется на Phase A)_`, кроме уже известного:
+  Objective (скрыть hero-блок и подсказку в `overview` на всех breakpoint'ах), важный технический
+  факт про `HeroCopy`, Dependencies (Step 7 `PASSED`), Risks (пересмотр Steps 3–7). Заодно обновлены
+  Dependencies Step 7.5 (дополнена зависимостью от нового Step 7.2) и Step 8 (упоминание вставки).
+
+### Verification
+
+- `git status --short` после всех правок: изменены только `DECISIONS.md`, `WORKLOG.md`,
+  `WORKPLAN.md`, `docs/03-office-map.md`, `docs/05-homepage-state-machine.md` (плюс уже
+  существовавшие с Entry 8 незакоммиченные правки `src/**`, которые эта запись не трогала повторно)
+  — ни один файл в `src/**` не изменился в рамках этой записи, как и требовал пользователь.
+- Verification commands не запускались — эта запись не меняла код, запускать `format:check`/`lint`/
+  `typecheck`/`test`/`build`/`test:e2e` не требовалось (нет изменений, которые они могли бы
+  проверить).
+
+### Skeptic review
+
+Не проводился — по прямой инструкции пользователя ("Скорректируй только план") это правка
+документов/плана в рамках открытого диалога, не завершённый шаг, готовый к Phase B review. Формальный
+planner/skeptic Phase A review для нового Step 7.2 предстоит перед переводом в `APPROVED`, как и для
+любого другого шага.
+
+### Продолжение (department-active: панель с фото + боль/выгода 20/80)
+
+- Пользователь сверил и state `department-active` (скриншот 10/90-панели с открытым отделом
+  "Дирекция"). Решение: слева — панель отделов с собственным фото у каждого (не только текст),
+  позади — бледнеющее общее фото офиса; основная область делится 20/80 на "боль" (5 кликабельных
+  пунктов) и "выгоду" (показывает выгоду именно выбранной боли, связка один-к-одному).
+  Ассистент предложил творческий совет по просьбе пользователя (см. `DECISIONS.md`); пользователь
+  принял только пункт про связку боль→выгода 1:1, остальные пункты совета не подтверждены.
+- Правки (документы/план, без кода): `docs/03-office-map.md` ("Режим 10/90") и
+  `docs/12-content-data-model.md` ("Правила") честно дополнены пометками 2026-07-16; `DECISIONS.md`
+  — новая запись; `WORKPLAN.md` — новый черновой шаг **"Step 7.3 — Department view redesign
+  (pain/gain panel)"** (`PROPOSED`) добавлен после Step 7.2, с черновым примером 5 пар боль/выгода
+  для отдела "Дирекция" (явно помечен как черновик текста, не финал); Dependencies Step 7.5 и Step 8
+  дополнены упоминанием нового Step 7.3.
+- Verification: `git status --short` — изменены только `DECISIONS.md`/`WORKLOG.md`/`WORKPLAN.md`/
+  `docs/03-office-map.md`/`docs/12-content-data-model.md` (плюс уже существовавшие незакоммиченные
+  правки `src/**` из Step 7, не тронутые повторно) — `src/**` не менялся в рамках этого продолжения.
+- Skeptic review: не проводился (та же причина, что и для предыдущего продолжения этой записи).
+
+### Открыто
+
+- Пользователь продолжает сверять остальные экраны прототипа (возможно, другие состояния) с
+  документами — Step 7.2 и Step 7.3 могут измениться до `APPROVED`.
+- Подтверждение закрытия Step 7 (`PASSED` → `COMPLETED`) всё ещё не получено — отложено пользователем
+  до завершения текущей сверки.
+
+## Entry 10
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: закрытие Step 7; переход к Phase A для Step 7.2.
+- Status before: Step 7 — `PASSED` (ждёт подтверждения). Step 7.2/7.3 — `PROPOSED` (черновики, Phase A
+  не проводился).
+- Status after: Step 7 — `COMPLETED` (пользователь в новой сессии явно подтвердил: «Step 7
+  подтверждаю. Переходи к следующему шагу.»). `WORKPLAN.md` строка статуса Step 7 обновлена
+  соответствующе. Код не менялся — только `WORKPLAN.md`/`WORKLOG.md`.
+- Verification: `git status --short` — изменены только `WORKPLAN.md`, `WORKLOG.md` (плюс уже
+  существовавшие незакоммиченные правки `src/**` из Step 7, не тронутые повторно).
+- Skeptic review: не требовался — простое обновление статуса на основании явного подтверждения
+  пользователя, не переход по результату review.
+- Next: по Dependencies Step 7.2 идёт следующим (вставлен между Step 7 и Step 7.5); нужен полноценный
+  Phase A (`planner` → `skeptic` review плана → подтверждение пользователя) перед `APPROVED`, по
+  CLAUDE.md "Mandatory strict execution protocol" п.5 (planner используется для реального изменения
+  scope — это тот случай).
+
+## Entry 11
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.2 — Overview full-screen (hide hero), Phase A (planner).
+- Status before: Step 7.2 — `PROPOSED` (черновик, все поля кроме Objective/Dependencies помечены
+  "детализируется на Phase A").
+- Status after: Step 7.2 — по-прежнему `PROPOSED`, но полностью детализирован (Objective расширен
+  тремя обоснованными техническими решениями; In scope/Out of scope/Dependencies/Expected
+  files/Acceptance criteria (22 пункта)/Verification commands/Manual checks/Risks/Rollback
+  заполнены). Готов к skeptic Phase A review. Код не менялся — только `WORKPLAN.md`.
+- planner нашёл: (1) один явный технический факт-следствие decision'а пользователя — `.office`
+  ранее не имел верхнего отступа (обеспечивался `padding` исчезающего `HeroCopy`), нужен новый
+  безусловный отступ; (2) новую focus-management ветку в `OfficeMachine.tsx` `useEffect`
+  (программный фокус на первый хотспот/карточку карусели сразу после `ACTIVATE_CTA`, без чего
+  фокус терялся бы на `<body>` — нарушение `docs/11`); (3) `interactionHint` скрывается другим
+  механизмом (безусловный CSS), чем `HeroCopy` (`:global(.js)`-gated) — намеренно, чтобы сохранить
+  уже принятое no-JS поведение hero; (4) процессный факт — код Step 7 всё ещё не закоммичен, что
+  затруднит чистый `git diff --stat`/rollback этого шага; рекомендация закоммитить Step 7 отдельно
+  до начала реализации 7.2 (требует отдельного согласия пользователя на коммит).
+- Assumptions/blockers: без блокеров — planner не нашёл открытых вопросов, требующих
+  `AskUserQuestion` (решение пользователя уже однозначно); один необязательный уточняющий пункт
+  (анимация исчезновения hero, по умолчанию — мгновенная) вынесен как необязательный к обсуждению.
+- Verification: `git status --short` — изменены только `WORKPLAN.md`, `WORKLOG.md` (плюс
+  незакоммитированные `src/**` из Step 7, не тронутые). Verification commands не запускались — эта
+  запись не меняла код.
+- Skeptic review: не проводился в рамках planner-вызова (planner не выносит вердикт о своём же
+  плане) — следующий шаг сессии: передать план `skeptic` для Phase A review.
+
+## Entry 12
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.2 — Overview full-screen (hide hero), skeptic Phase A review (round 1).
+- Status before: Step 7.2 — `PROPOSED` (детализирован planner'ом, готов к review).
+- Status after: Step 7.2 — `BLOCKED`. skeptic подтвердил, что все технические утверждения плана о
+  текущем коде точны (не выдуманы), и что предложенный focus-fallback свободен от race condition
+  — но нашёл Blocking-находку: Objective/AC4 Step 7.2 требуют скрытия `interactionHint` на всех
+  ширинах, включая Tablet, что прямо противоречит уже `APPROVED` Step 7.5 (`OQ-T1 = (b)` —
+  подсказка на Tablet должна остаться видимой без изменений, собственный AC12 Step 7.5). Ни
+  planner, ни исходная запись `DECISIONS.md` "Overview: офис на весь экран, hero скрывается" не
+  упоминали Tablet явно — противоречие возникло молча. По `CLAUDE.md` это требует явного решения
+  пользователя перед продолжением (Amendment к Step 7.5, если пользователь подтвердит отмену
+  OQ-T1 для Tablet, либо сужение Step 7.2 до Desktop+Mobile).
+- WORKPLAN.md: Step 7.2 Status → `BLOCKED`, добавлен Status history; записан полный Skeptic
+  verdict/findings (round 1) с разделением blocking/non-blocking (3 non-blocking находки — Risks
+  не упоминает потерю подсказки в no-JS fallback; инвертированная семантика `isRevealed` у
+  `HeroCopy`; неточный заголовок теста после rewrite — все отложены до следующей правки, не
+  блокируют сами по себе).
+- Verification: `git status --short` — изменены только `WORKPLAN.md`, `WORKLOG.md` (плюс
+  незакоммитированные `src/**` из Step 7). Код не менялся.
+- Next: вопрос вынесен пользователю напрямую (не домысливается) — что имелось в виду про
+  `interactionHint` на Tablet при решении "подсказка... полностью скрывается".
+
+## Entry 13
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: разрешение блокера Step 7.2 (`AskUserQuestion` + `Amendment 5`).
+- Status before: Step 7.2 — `BLOCKED`; Step 7.5 — `APPROVED` с устаревшим OQ-T1=(b).
+- Пользователь ответил через `AskUserQuestion`: «Прятать и на Tablet (Recommended)» — переопределяет
+  прежний ответ OQ-T1=(b) для Step 7.5.
+- Правки:
+  - `DECISIONS.md` — новая запись "OQ-T1 переопределён: `interactionHint` скрывается и на Tablet".
+  - `WORKPLAN.md` — новый **`Amendment 5`** в "## Plan amendments" (reason/previous scope/new
+    scope/impact/skeptic review/user approval, по формату Amendment 3/4); Step 7.5 Objective/In
+    scope (пункт про `interactionHint`), Expected files, Acceptance criterion 12 и "Open questions
+    (Step 7.5)" OQ-T1 переписаны под новое решение (старый текст (b) сохранён для истории, помечен
+    переопределённым, не удалён); Step 7.2 Status возвращён `BLOCKED` → `PROPOSED`, Status history
+    дополнена, Skeptic verdict/findings round 1 помечены `RESOLVED via Amendment 5`.
+  - Заодно исправлены 2 non-blocking находки skeptic round 1 (протокол разрешает это делать
+    inline, не дожидаясь отдельного раунда): (1) проп `HeroCopy` переименован в плане с `isRevealed`
+    на `isHiddenAfterReveal` (то же значение, имя без противоречия с одноимённым `isRevealed` у
+    `OfficeExperience`) — правка везде по секции Step 7.2 (Objective решение 1, In scope, Expected
+    files, AC12); (2) Risks дополнен пунктом про потерю `interactionHint` в no-JS fallback. Третья
+    non-blocking находка (неточный заголовок e2e-теста после rewrite) — косметика, оставлена как
+    есть до фактической реализации. Также исправлена опечатка planner'а (английское "means" внутри
+    русского текста Objective).
+- Verification: `git status --short` — изменены только `WORKPLAN.md`, `WORKLOG.md`, `DECISIONS.md`
+  (плюс незакоммитированные `src/**` из Step 7). Код не менялся.
+- Skeptic review: не проводился в рамках этой записи (это применение уже полученного согласия
+  пользователя + фикс non-blocking находок, не новое архитектурное решение) — следующий шаг:
+  передать обновлённый Step 7.2 (и связанные правки Step 7.5/Amendment 5) `skeptic` на Phase A round
+  2.
+
+## Entry 14
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.2/Amendment 5, skeptic Phase A round 2 → correction.
+- Status before: Step 7.2 — `PROPOSED` (blocker разрешён, готов к round 2).
+- Skeptic round 2 verdict: `FAIL`. Blocking: новый `Amendment 5` AC12 Step 7.5 ("`interactionHint`
+  НЕ виден на 768–1279px") не был привязан ни к одному конкретному verification-пункту — ни
+  e2e-перечисление `tablet-touch-flow.spec.ts`, ни `Manual checks` Step 7.5 не содержали проверку
+  подсказки на Tablet (Step 7.2 явно передал эту ответственность Step 7.5 в своём Out of scope, но
+  Step 7.5 её не подхватил). Non-blocking: 2 места со старым необновлённым текстом "OQ-T1 = (b)
+  показывать как есть" (Step 7.5 `Status`, `Completion evidence`); top-level "## Approval" не
+  упоминает `Amendment 5`.
+- Status after: исправлено inline (протокол разрешает non-blocking + локализуемый blocking без
+  нового `AskUserQuestion`, так как правка не меняет ничьего решения, только дополняет
+  verification-план уже принятого AC12): `WORKPLAN.md` Step 7.5 In scope (e2e-перечисление) и
+  Manual checks дополнены явной проверкой отсутствия `interactionHint` на 768×1024/1024×768; Status/
+  Completion evidence Step 7.5 аннотированы ссылкой на `Amendment 5`; top-level "## Approval"
+  дополнен строкой про `Amendment 5`; `Amendment 5` → New scope дополнен абзацем про эту правку.
+- Verification: `git status --short` — изменены только `WORKPLAN.md`, `WORKLOG.md` (плюс
+  незакоммитированные `src/**` из Step 7). Код не менялся.
+- Next: передать обновлённый план `skeptic` на Phase A round 3.
+
+## Entry 15
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.2 — Overview full-screen (hide hero), skeptic Phase A round 3 → `APPROVED`.
+- Skeptic round 3 verdict: `PASS`. AC12 Step 7.5 теперь прослеживается до конкретных e2e/Manual-
+  check пунктов; полный grep по `WORKPLAN.md` на "OQ-T1"/"показывать как есть" не нашёл блокирующих
+  несоответствий (один опциональный non-blocking пункт — Step 7 Completion evidence содержит
+  неаннотированный исторический текст OQ-T1=(b), не текущее утверждение — оставлен как есть,
+  канонический источник уже корректен); `Amendment 5` подтверждён согласованным с фактическими
+  правками.
+- Status before: Step 7.2 — `PROPOSED` (round 2 fix применён).
+- Status after: Step 7.2 — `APPROVED`. `WORKPLAN.md`: Status/Status history/Skeptic verdict/Skeptic
+  findings (round 2 + round 3) записаны полностью; малый non-blocking пункт (Step 7 Completion
+  evidence, строка про OQ-T1) аннотирован inline.
+- Verification: `git status --short` — изменены только `WORKPLAN.md`, `WORKLOG.md` (плюс
+  незакоммитированные `src/**` из Step 7). Код не менялся за весь цикл Phase A (Entries 11–15) — три
+  раунда skeptic, один Amendment, все правки — только `WORKPLAN.md`/`WORKLOG.md`/`DECISIONS.md`.
+- Next: Step 7.2 готов к реализации (Phase B). Открытый процессный вопрос из плана (Dependencies):
+  код Step 7 всё ещё не закоммичен — planner рекомендовал закоммитить его отдельно до старта Step
+  7.2, но коммит требует отдельного согласия пользователя (`CLAUDE.md` "Safety").
