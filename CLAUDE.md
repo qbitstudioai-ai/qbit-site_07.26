@@ -57,93 +57,76 @@ Do not implement the whole project in one pass.
 
 ## Mandatory strict execution protocol
 
-For every implementation task larger than a trivial one-line correction, use the following workflow. This protocol is mandatory.
+This protocol is mandatory. It replaced a heavier per-step planning cycle on 2026-07-16 (see
+`DECISIONS.md`) to cut token/context overhead without dropping any of the quality gates. **This
+section is the single source of truth for the process** — do not restate it in `docs/`, skills, or
+subagent files; point back here instead.
 
-### Phase A — planning
+### 1. One Master Plan
 
-1. Ask the `planner` subagent to inspect the relevant documentation and current code.
-2. The planner creates or updates `WORKPLAN.md`.
-3. Every step in the plan must include:
-   - objective;
-   - allowed scope;
-   - files expected to change;
-   - dependencies;
-   - acceptance criteria;
-   - verification commands;
-   - risks;
-   - rollback approach.
-4. Ask the `skeptic` subagent to review the proposed plan.
-5. Resolve the skeptic's objections.
-6. Present the final plan to the user.
-7. Do not implement until the user approves the plan, unless the user explicitly delegated approval.
+`WORKPLAN.md` is created once by the `planner` subagent, covering the whole project (or the whole
+current milestone) broken into small, independently-verifiable steps — each with objective, scope,
+dependencies, acceptance criteria, verification commands, risks, and rollback.
 
-### Phase B — step execution
+After the user approves it, the Master Plan is **immutable** except through a recorded Amendment
+(reason, old scope, new scope, impact, user approval). Do not silently rewrite an approved step.
 
-For each approved step:
+### 2. No per-step re-planning
 
-1. Mark only that step as `IN_PROGRESS` in `WORKPLAN.md`.
-2. Restate the exact scope and acceptance criteria.
-3. Implement only that step.
-4. Run the verification commands defined for that step.
-5. Record changed files and results in `WORKLOG.md`.
-6. Mark the step as `AWAITING_SKEPTIC`.
-7. Invoke the `skeptic` subagent.
-8. The skeptic must inspect:
-   - the plan step;
-   - the actual diff;
-   - test output;
-   - architecture impact;
-   - accessibility impact;
-   - performance impact;
-   - hidden regressions;
-   - unsupported assumptions.
-9. The skeptic returns exactly one verdict:
-   - `PASS`;
-   - `FAIL`;
-   - `BLOCKED`.
-10. Do not start the next step without `PASS`.
+If the next step is already described in `WORKPLAN.md`, go straight to implementation. Do not draft
+a new mini-plan, do not re-invoke `planner`, and do not spend tokens restating a scope that is
+already written down. Restate the acceptance criteria in one line if useful, then implement.
 
-### Phase C — correction loop
+### 3. One execution cycle
 
-If the skeptic returns `FAIL`:
+```text
+Next TODO → Implement → Local checks → Skeptic review → Fix (if FAIL) → Next TODO
+```
 
-1. Keep the same step `IN_PROGRESS`.
-2. Fix only the issues within the approved scope.
-3. Repeat verification.
-4. Invoke the skeptic again.
-5. Continue until `PASS` or until a plan change is required.
+For each step:
 
-If a fix requires expanding scope or changing architecture:
+1. Mark it `IN_PROGRESS` in `WORKPLAN.md`.
+2. Implement only that step's scope.
+3. Run its verification commands.
+4. Record what changed and the command results in `WORKLOG.md` — facts only (files touched,
+   commands run, exit status, one line per finding). Do not narrate the deliberation or re-quote
+   earlier rounds verbatim; a corrected fact replaces the old one, it doesn't get appended next to it.
+5. Mark it `AWAITING_SKEPTIC` and invoke `skeptic`.
+6. On `FAIL`: fix within the approved scope, re-run checks, invoke `skeptic` again.
+7. On `BLOCKED`: stop, raise a plan Amendment, get user approval before continuing.
+8. On `PASS`: mark `COMPLETED`, move to the next TODO — no separate closure ceremony.
 
-1. Stop implementation.
-2. Mark the step `BLOCKED`.
-3. Update the proposed plan.
-4. Ask the skeptic to review the amended plan.
-5. Ask the user to approve the change.
+### 4. Skeptic stays mandatory
 
-### Phase D — milestone review
+`skeptic` is independent and read-only. It inspects the plan step, the actual diff, test output,
+architecture/accessibility/performance impact, hidden regressions, and unsupported assumptions, then
+returns exactly one verdict: `PASS`, `FAIL`, or `BLOCKED`. The next TODO is forbidden without `PASS`.
+A step is never marked complete on self-review alone.
 
-After every milestone:
+Skeptic must separate **blocking** findings (wrong behavior, missing acceptance criteria, real
+regressions, architecture/a11y/perf problems) from **non-blocking** findings (wording, bookkeeping
+fields, doc cross-references). Non-blocking findings are fixed inline and noted — they do not by
+themselves force another full round. Blocking findings do.
 
-1. Invoke `frontend-architect`.
-2. Invoke `qa-reviewer`.
-3. Invoke `ux-strategist` for user-facing changes.
-4. Invoke `motion-engineer` for motion-related changes.
-5. Consolidate findings.
-6. Do not proceed to the next milestone while Blocker or Critical defects remain.
+### 5. Planner used only for
+
+1. Creating (or substantially re-scoping) the Master Plan.
+2. A real change in project scope.
+3. Skeptic returning `FAIL`/`BLOCKED` repeatedly on the same step in a way that needs re-planning,
+   not just a fix.
+
+Do not invoke `planner` to describe a step that is already in `WORKPLAN.md`.
+
+### 6. Milestone review
+
+At the end of a real milestone (not every step): invoke `frontend-architect`, `qa-reviewer`, and —
+for user-facing or motion-related work — `ux-strategist`/`motion-engineer`. Consolidate findings. Do
+not proceed to the next milestone while a Blocker or Critical defect remains.
 
 ### Required status values
 
-Use only:
-
-- `PROPOSED`
-- `APPROVED`
-- `IN_PROGRESS`
-- `AWAITING_SKEPTIC`
-- `FAILED_REVIEW`
-- `BLOCKED`
-- `PASSED`
-- `COMPLETED`
+Use only: `PROPOSED`, `APPROVED`, `IN_PROGRESS`, `AWAITING_SKEPTIC`, `FAILED_REVIEW`, `BLOCKED`,
+`PASSED`, `COMPLETED`.
 
 ### Non-negotiable rules
 
@@ -154,7 +137,7 @@ Use only:
 - Never claim a check passed unless its command was actually run.
 - Never let the skeptic edit implementation files.
 - Keep the skeptic independent and read-only.
-- Preserve evidence in `WORKLOG.md`.
+- Preserve evidence in `WORKLOG.md` — but keep it compact (see rule 3).
 
 ## Architecture rules
 

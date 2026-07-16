@@ -1,56 +1,11 @@
 ---
 name: strict-plan-execution
-description: Обязательный оркестратор значительных задач Allqbit: planner → skeptic review → user approval → один шаг → проверки → skeptic verdict → correction loop → следующий шаг.
+description: Обязательный оркестратор значительных задач Allqbit: Master Plan → один шаг → проверки → skeptic verdict → следующий шаг.
 ---
 
 # Strict Plan Execution
 
-Используй этот skill для любой значительной реализации, рефакторинга, новой страницы, анимации, интеграции или изменения архитектуры.
-
-## До кода
-
-1. Прочитай `CLAUDE.md`.
-2. Вызови `planner`.
-3. Получи проект `WORKPLAN.md`.
-4. Вызови `skeptic` в режиме review плана.
-5. Исправь план по замечаниям.
-6. Повторяй до `PASS`.
-7. Покажи план пользователю.
-8. Дождись утверждения.
-
-## Выполнение
-
-Для каждого шага:
-
-1. Выбери только один `APPROVED` шаг.
-2. Установи `IN_PROGRESS`.
-3. Реализуй только его.
-4. Запусти проверки.
-5. Запиши доказательства в `WORKLOG.md`.
-6. Установи `AWAITING_SKEPTIC`.
-7. Вызови `skeptic`.
-8. При `FAIL` исправь текущий шаг и повтори review.
-9. При `BLOCKED` остановись и запроси решение.
-10. При `PASS` установи `PASSED`, затем `COMPLETED`.
-11. Только после этого начни следующий шаг.
-
-## Запрещено
-
-- выполнять два шага вместе;
-- пропускать skeptic;
-- самостоятельно ставить PASS;
-- менять scope молча;
-- начинать без утверждённого плана;
-- утверждать, что тест запущен, если он не запускался;
-- скрывать failed или skipped проверки.
-
-## Milestone
-
-После milestone вызвать:
-
-- `frontend-architect`;
-- `qa-reviewer`;
-- `ux-strategist` при пользовательских изменениях;
-- `motion-engineer` при анимации.
-
-Blocker и Critical должны быть устранены до следующего milestone.
+См. `CLAUDE.md` → "Mandatory strict execution protocol" — единственный источник правды для этого
+процесса (Master Plan once, no per-step re-planning, one execution cycle, skeptic mandatory, planner
+только в 3 случаях, milestone review). Этот skill — просто именованный триггер для явного вызова
+пользователем; не дублируй сам протокол здесь.
