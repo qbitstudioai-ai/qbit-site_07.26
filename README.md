@@ -35,6 +35,7 @@ README.md синхронно с каждым изменением статуса
 | 5   | Department selection state machine | Выполнено     |
 | 6   | Desktop 10/90 shell                | Выполнено     |
 | 7   | Mobile touch flow                  | Не приступили |
+| 7.5 | Tablet touch flow                  | Не приступили |
 | 8   | Reduced motion and fallback        | Не приступили |
 | 9   | Browser acceptance tests           | Не приступили |
 
