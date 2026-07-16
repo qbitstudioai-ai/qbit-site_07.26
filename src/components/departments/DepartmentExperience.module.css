@@ -66,3 +66,13 @@
     padding: var(--space-2);
   }
 }
+
+@media (max-width: 767px) {
+  .experience {
+    padding: var(--space-3);
+  }
+
+  .close {
+    min-height: 44px;
+  }
+}

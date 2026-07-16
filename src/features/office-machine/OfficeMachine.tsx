@@ -86,11 +86,20 @@ export function OfficeMachine({
     previousActiveIdRef.current = state.activeDepartmentId;
 
     // Focus возвращается на кнопку-хотспот, которая открыла отдел, после завершения закрытия
-    // (docs/11 "после закрытия focus возвращается").
+    // (docs/11 "после закрытия focus возвращается"). На ≤767px OfficeSemanticMap скрыта
+    // (display:none) — .focus() на скрытом элементе no-op, поэтому пробуем по очереди: (1)
+    // hotspot-<id> (сработает на Desktop/Tablet, где карта видима); (2) стабильный
+    // mobile-department-carousel-card (сработает на mobile — карусель после сброса на первый отдел
+    // всегда рендерит этот id). offsetParent !== null — дешёвая проверка видимости, без CSS-brekpoint
+    // проверки/matchMedia (WORKPLAN.md Step 7, AC 6).
     if (state.view === "overview" && previousView === "department-closing") {
       const returnId = lastNonNullActiveIdRef.current;
       if (returnId) {
-        document.getElementById(`hotspot-${returnId}`)?.focus({ preventScroll: true });
+        const candidateIds = [`hotspot-${returnId}`, "mobile-department-carousel-card"];
+        const target = candidateIds
+          .map((id) => document.getElementById(id))
+          .find((el): el is HTMLElement => el !== null && el.offsetParent !== null);
+        target?.focus({ preventScroll: true });
       }
     }
   }, [state.view, state.activeDepartmentId]);

@@ -20,6 +20,14 @@
   margin-bottom: var(--space-3);
 }
 
+/* interactionHint не рендерится на ≤767px (OQ-M4 = (a), WORKPLAN.md Step 7) — на touch подсказка
+   "наведите курсор" не имеет смысла, а карусель уже показывает problem-текст без наведения. */
+@media (max-width: 767px) {
+  .hint {
+    display: none;
+  }
+}
+
 /* Step 6: 10/90-раскладка активного отдела. grid-template-areas разделяет визуальный порядок
    (rail слева, main справа) от DOM/Tab-порядка (main идёт первым в разметке — см.
    OfficeExperience.tsx и WORKPLAN.md Step 6 acceptance criterion 5). Ширина rail — "10–14%"
@@ -50,6 +58,22 @@
 @media (max-height: 700px) {
   .shell10x90 {
     gap: var(--space-2);
+  }
+}
+
+/* На ≤767px буквальный 10/90 не используется (docs/08 "Не использовать буквальный 10/90") —
+   DepartmentNavigationRail заменяется CarouselNavControls внутри DepartmentExperience (WORKPLAN.md
+   Step 7). Явный display:none обязателен: CSS Grid без него не убирает элемент из
+   grid-template-areas-несовпадающей области, он возвращается к auto-placement (найдено при skeptic
+   Phase A review Step 7). */
+@media (max-width: 767px) {
+  .shell10x90 {
+    grid-template-columns: 1fr;
+    grid-template-areas: "main";
+  }
+
+  .railArea {
+    display: none;
   }
 }
 

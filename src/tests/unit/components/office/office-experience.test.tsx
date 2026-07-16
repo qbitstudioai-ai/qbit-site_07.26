@@ -86,4 +86,56 @@ describe("OfficeExperience", () => {
     const rail = screen.getByRole("navigation", { name: "Панель отделов" });
     expect(rail.querySelectorAll("button")).toHaveLength(4);
   });
+
+  it("renders MobileDepartmentCarousel alongside OfficeSemanticMap in overview (Step 7 — both present in the DOM at once, CSS switches visibility per breakpoint, verified in e2e)", () => {
+    render(
+      <OfficeExperience
+        interactionHint="Наведите курсор на отдел"
+        departments={departments}
+        officeZones={officeZones}
+        isRevealed={true}
+        machineView="overview"
+        activeDepartmentId={null}
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
+      />,
+    );
+    expect(screen.getByRole("navigation", { name: "Отделы компании" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Карусель отделов" })).toBeInTheDocument();
+  });
+
+  it("passes departments/onSelectDepartment down to DepartmentExperience so CarouselNavControls names the correct wrap-around neighbours (Step 7)", () => {
+    // "executive" — средний по сортировке officeZones (не первый/последний), чтобы проверить
+    // обычный (не граничный) случай prev/next.
+    const sortedIds = officeZones
+      .slice()
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .map((zone) => zone.departmentId);
+    const activeIndex = sortedIds.indexOf("executive");
+    const previousDepartment = departments.find(
+      (d) => d.id === sortedIds[(activeIndex - 1 + sortedIds.length) % sortedIds.length],
+    )!;
+    const nextDepartment = departments.find(
+      (d) => d.id === sortedIds[(activeIndex + 1) % sortedIds.length],
+    )!;
+
+    render(
+      <OfficeExperience
+        interactionHint="Наведите курсор на отдел"
+        departments={departments}
+        officeZones={officeZones}
+        isRevealed={true}
+        machineView="department-active"
+        activeDepartmentId="executive"
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: `Предыдущий отдел: ${previousDepartment.overviewLabel}` }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: `Следующий отдел: ${nextDepartment.overviewLabel}` }),
+    ).toBeInTheDocument();
+  });
 });

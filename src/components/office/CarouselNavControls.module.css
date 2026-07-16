@@ -1,0 +1,24 @@
+.controls {
+  display: none;
+  gap: var(--space-3);
+}
+
+/* Единственный механизм видимости — CSS breakpoint, без JS/matchMedia (WORKPLAN.md Step 7). Работает
+   одинаково в обоих местах использования: внутри MobileDepartmentCarousel (родитель и так скрыт на
+   ≥768px) и внутри DepartmentExperience (здесь это единственный механизм скрытия на Desktop/Tablet). */
+@media (max-width: 767px) {
+  .controls {
+    display: flex;
+  }
+}
+
+.navButton {
+  min-width: 44px;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: 6px;
+  border: 1px solid var(--color-graphite-300);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-weight: 600;
+}

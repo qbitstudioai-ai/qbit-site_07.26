@@ -29,3 +29,12 @@
 .zoneItem {
   list-style: none;
 }
+
+/* Заменяется MobileDepartmentCarousel на ≤767px (WORKPLAN.md Step 7, OQ-M5 = (a); docs/03-office-map.md
+   "Mobile" переписан под карусель). Единственная строка, изменяющая этот файл в этом шаге —
+   DepartmentHotspot.tsx/.module.css не трогаются. */
+@media (max-width: 767px) {
+  .map {
+    display: none;
+  }
+}

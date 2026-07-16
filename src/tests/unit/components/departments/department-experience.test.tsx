@@ -4,13 +4,16 @@ import { DepartmentExperience } from "@/components/departments/DepartmentExperie
 import { getDepartments } from "@/content/departments";
 
 describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveDepartmentPanel)", () => {
-  const department = getDepartments().find((d) => d.id === "sales")!;
+  const departments = getDepartments();
+  const department = departments.find((d) => d.id === "sales")!;
 
   it("renders headline as a programmatically focusable h2 with a stable, predictable id", () => {
     render(
       <DepartmentExperience
         department={department}
         machineView="department-active"
+        departments={departments}
+        onSelectDepartment={() => {}}
         onClose={() => {}}
       />,
     );
@@ -24,6 +27,8 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
       <DepartmentExperience
         department={department}
         machineView="department-active"
+        departments={departments}
+        onSelectDepartment={() => {}}
         onClose={() => {}}
       />,
     );
@@ -42,6 +47,8 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
       <DepartmentExperience
         department={department}
         machineView="department-active"
+        departments={departments}
+        onSelectDepartment={() => {}}
         onClose={onClose}
       />,
     );
@@ -55,9 +62,41 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
       <DepartmentExperience
         department={department}
         machineView="department-active"
+        departments={departments}
+        onSelectDepartment={() => {}}
         onClose={() => {}}
       />,
     );
     expect(screen.getByRole("region", { name: department.overviewLabel })).toBeInTheDocument();
+  });
+
+  it("renders CarouselNavControls (Step 7) after the actions block, with wrap-around prev/next relative to the departments array", () => {
+    const onSelectDepartment = vi.fn();
+    // sales — первый в data/departments.json (см. src/content/departments.ts) — не единственный
+    // осмысленный случай, но граничный (prev должен обернуться на последний элемент массива).
+    const previousDepartment = departments[departments.length - 1];
+    const nextDepartment = departments[1];
+
+    render(
+      <DepartmentExperience
+        department={department}
+        machineView="department-active"
+        departments={departments}
+        onSelectDepartment={onSelectDepartment}
+        onClose={() => {}}
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Предыдущий отдел: ${previousDepartment.overviewLabel}`,
+      }),
+    );
+    expect(onSelectDepartment).toHaveBeenCalledWith(previousDepartment.id);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: `Следующий отдел: ${nextDepartment.overviewLabel}` }),
+    );
+    expect(onSelectDepartment).toHaveBeenCalledWith(nextDepartment.id);
   });
 });

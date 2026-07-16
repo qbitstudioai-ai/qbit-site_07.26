@@ -2,6 +2,7 @@ import { DepartmentExperience } from "@/components/departments/DepartmentExperie
 import type { Department, DepartmentId, OfficeZone } from "@/content/types";
 import type { OfficeMachineView } from "@/features/office-machine/reducer";
 import { DepartmentNavigationRail } from "./DepartmentNavigationRail";
+import { MobileDepartmentCarousel } from "./MobileDepartmentCarousel";
 import { OfficeSemanticMap } from "./OfficeSemanticMap";
 import styles from "./OfficeExperience.module.css";
 
@@ -65,6 +66,8 @@ export function OfficeExperience({
             <DepartmentExperience
               department={activeDepartment}
               machineView={machineView}
+              departments={sortedDepartments}
+              onSelectDepartment={onSelectDepartment}
               onClose={onCloseDepartment}
             />
           </div>
@@ -82,6 +85,10 @@ export function OfficeExperience({
           <OfficeSemanticMap
             departments={departments}
             officeZones={officeZones}
+            onSelectDepartment={onSelectDepartment}
+          />
+          <MobileDepartmentCarousel
+            departments={sortedDepartments}
             onSelectDepartment={onSelectDepartment}
           />
         </>

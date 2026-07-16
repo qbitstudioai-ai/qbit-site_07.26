@@ -10,3 +10,9 @@
     margin-bottom: var(--space-2);
   }
 }
+
+@media (max-width: 767px) {
+  .outcomes {
+    margin-bottom: var(--space-2);
+  }
+}

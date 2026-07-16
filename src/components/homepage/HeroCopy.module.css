@@ -76,3 +76,28 @@
     margin-bottom: var(--space-3);
   }
 }
+
+/* Mobile ≤767px (docs/08 "ctaRow в колонку"; WORKPLAN.md Step 7) — hero CTA остаётся легко
+   достижимым (Responsive rules CLAUDE.md "CTA remains easy to reach"), тап-таргет ≥44×44 CSS px
+   (AC 8). */
+@media (max-width: 767px) {
+  .headline {
+    font-size: 1.5rem;
+  }
+
+  .ctaRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .primaryCta {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .secondaryCta {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}

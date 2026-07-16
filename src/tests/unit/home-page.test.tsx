@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import HomePage from "@/app/page";
 import { getHomepageCopy } from "@/content/homepage-copy";
@@ -27,9 +27,14 @@ describe("HomePage", () => {
     fireEvent.click(screen.getByRole("button", { name: copy.primaryCta }));
 
     expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "true");
+    // Scoped to the office map nav (Step 7 co-renders MobileDepartmentCarousel with the same
+    // overviewLabel text — CSS toggles visibility, both exist in jsdom, see WORKPLAN.md Step 7).
+    const officeMapNav = screen.getByRole("navigation", { name: "Отделы компании" });
     const departments = getDepartments();
     for (const department of departments) {
-      expect(screen.getByRole("button", { name: department.overviewLabel })).toBeInTheDocument();
+      expect(
+        within(officeMapNav).getByRole("button", { name: department.overviewLabel }),
+      ).toBeInTheDocument();
     }
   });
 

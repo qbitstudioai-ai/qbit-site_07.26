@@ -35,3 +35,14 @@
     margin-bottom: var(--space-2);
   }
 }
+
+@media (max-width: 767px) {
+  .heading {
+    font-size: 1.125rem;
+    margin-bottom: var(--space-2);
+  }
+
+  .problem {
+    margin-bottom: var(--space-2);
+  }
+}

@@ -7,3 +7,11 @@
   cursor: pointer;
   font-weight: 600;
 }
+
+/* Тап-таргет ≥44×44 CSS px (WORKPLAN.md Step 7, AC 8) — на Desktop/Tablet padding уже достаточен,
+   явный min-height нужен только на ≤767px, чтобы не увеличивать визуальный размер кнопки шире. */
+@media (max-width: 767px) {
+  .cta {
+    min-height: 44px;
+  }
+}
