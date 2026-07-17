@@ -13,7 +13,13 @@
   --color-graphite-300: #a6aab0;
   --color-graphite-100: #e8e9eb;
   --color-surface: #ffffff;
-  --color-accent-warm: #b5793a;
+  /* Затемнён с #b5793a до #a0642b в Step 9 (см. WORKLOG/DECISIONS): исходное значение давало
+     белый-на-акценте контраст 3.64:1 на CTA (HeroCopy/DepartmentCTA) — ниже порога WCAG AA 4.5:1,
+     что автоматизированный axe-скан помечал как serious. #a0642b даёт 4.82:1. Значение всё ещё
+     предварительное; финальную тёплую палитру уточнит art direction, но теперь при нижней границе
+     контраста. Все прочие применения токена — рамка/outline/текст-на-светлом — от затемнения только
+     выигрывают. */
+  --color-accent-warm: #a0642b;
 
   /* Типографика */
   --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;

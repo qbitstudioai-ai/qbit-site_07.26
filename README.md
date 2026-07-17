@@ -26,22 +26,22 @@ README.md синхронно с каждым изменением статуса
 
 ## Статус шагов
 
-| #   | Шаг                                        | Статус        |
-| --- | ------------------------------------------ | ------------- |
-| 1   | Repository and quality foundation          | Выполнено     |
-| 2   | Typed content model                        | Выполнено     |
-| 3   | Semantic office overview                   | Выполнено     |
-| 4   | Homepage state machine                     | Выполнено     |
-| 5   | Department selection state machine         | Выполнено     |
-| 6   | Desktop 10/90 shell                        | Выполнено     |
-| 7   | Mobile touch flow                          | Выполнено     |
-| 7.2 | Overview full-screen (hide hero)           | Выполнено     |
-| 7.3 | Department view redesign (pain/gain panel) | Выполнено     |
-| 7.4 | Return-to-hero navigation + tagline        | Выполнено     |
-| 7.5 | Tablet touch flow                          | Выполнено     |
-| 7.6 | Header: clickable logo + tagline           | Выполнено     |
-| 8   | Reduced motion and fallback                | Выполнено     |
-| 9   | Browser acceptance tests                   | Не приступили |
+| #   | Шаг                                        | Статус    |
+| --- | ------------------------------------------ | --------- |
+| 1   | Repository and quality foundation          | Выполнено |
+| 2   | Typed content model                        | Выполнено |
+| 3   | Semantic office overview                   | Выполнено |
+| 4   | Homepage state machine                     | Выполнено |
+| 5   | Department selection state machine         | Выполнено |
+| 6   | Desktop 10/90 shell                        | Выполнено |
+| 7   | Mobile touch flow                          | Выполнено |
+| 7.2 | Overview full-screen (hide hero)           | Выполнено |
+| 7.3 | Department view redesign (pain/gain panel) | Выполнено |
+| 7.4 | Return-to-hero navigation + tagline        | Выполнено |
+| 7.5 | Tablet touch flow                          | Выполнено |
+| 7.6 | Header: clickable logo + tagline           | Выполнено |
+| 8   | Reduced motion and fallback                | Выполнено |
+| 9   | Browser acceptance tests                   | Выполнено |
 
 Полные критерии и детали каждого шага — `WORKPLAN.md`. История исполнения и доказательства —
 `WORKLOG.md`. Архитектурные и технологические решения — `DECISIONS.md`.

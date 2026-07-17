@@ -3304,3 +3304,54 @@ round 2 → focused re-check) перед переводом `Status` в `COMPLET
   отказал. Правки затрагивают только комментарий и markdown, поведение кода не менялось; повторный
   прогон quality gate — задача следующей сессии перед коммитом.
 - Next: новая сессия пользователя — Step 9 (`Browser acceptance tests`, `PROPOSED`).
+
+## Entry 44
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 9 — Browser acceptance tests. Status `PROPOSED` → `IN_PROGRESS` → `AWAITING_SKEPTIC`.
+- Старт без Phase A по прямой инструкции пользователя («сразу с кода без мини-планирования») — тот же
+  прецедент, что Step 8. Плейсхолдерные поля Step 9 раскрыты в `WORKPLAN.md` (disclosure, не
+  Amendment).
+- Ключевая находка при инспекции: пять именованных потоков AC1 + `no console errors` (AC2) уже
+  покрыты 93 e2e-тестами из Steps 3–8. Реальный остаточный scope — два отложенных owner-пункта
+  Step 9: (A) автоматизированный axe-скан, (B) фиксация поведения истории браузера. Scope выбран
+  пользователем через `AskUserQuestion` («Axe-скан + фиксация back/forward»).
+- Files touched:
+  - `src/tests/e2e/accessibility-scan.spec.ts` (новый) — axe, 6 тестов (hero/overview/
+    department-active × desktop 1280 / mobile 375), порог serious+.
+  - `src/tests/e2e/browser-history.spec.ts` (новый) — 2 теста: инвариант `history.length` при
+    open/switch/close (replaceState), штатный back/forward между прямыми ссылками.
+  - `src/styles/tokens.css` — `--color-accent-warm` `#b5793a`→`#a0642b` (A-fix контраста).
+  - `package.json` + `package-lock.json` — devDependency `@axe-core/playwright@^4.12.1`.
+  - `WORKPLAN.md`, `DECISIONS.md`, `README.md`, этот `WORKLOG.md`.
+- Реальное нарушение, найденное axe (не гипотетическое): `color-contrast` serious на CTA
+  (`HeroCopy.primaryCta`, `DepartmentCTA.cta`) — белый `#ffffff` на `#b5793a` = 3.64:1 < WCAG AA
+  4.5:1. 4/6 axe-тестов падали до правки; overview проходил (CTA скрыты по Step 7.2). Правка одного
+  общего токена (`#a0642b` = 4.82:1) закрыла оба нарушителя. Аудит всех 8 применений токена: регресса
+  контраста нигде (прочие — рамка/outline/текст-на-светлом, от затемнения выигрывают). Ни один тест
+  не завязан на значение цвета (grep по `src/tests` — 0).
+- Команды (реальные прогоны, exit-статусы честные):
+  - `npm run format:check` — exit 0 (после `prettier --write` нового axe-спека: одна правка стиля).
+  - `npm run lint` — exit 0.
+  - `npm run typecheck` — exit 0.
+  - `npm run test` — exit 0, **133 passed** (18 файлов, без изменений — token/e2e юнит не трогают).
+  - `npm run build` — exit 0.
+  - `npm run test:e2e` — exit 0, **101 passed** (93 прежних + 8 новых; прежние не изменены).
+  - Ранний изолированный прогон `accessibility-scan` до A-fix: 4 failed (color-contrast serious) /
+    2 passed — мутационное доказательство, что порог реально ловит нарушение.
+- Расхождение из Entry 43 закрыто: пост-вердиктные правки Step 8 (N1/N2) на этот раз попали в полный
+  зелёный прогон quality gate вместе со Step 9.
+- Skeptic Phase B round 1: **`PASS`**, blocking findings нет (3 non-blocking N1–N3, зафиксированы в
+  `WORKPLAN.md` Step 9 → Skeptic findings). Skeptic независимо перезапустил все 6 команд и сверил
+  числа (133 / 101), перевычислил контраст, аудировал все 8 применений токена, подтвердил отсутствие
+  регрессий. Step 9 → `PASSED`.
+- Закрытие: пользователь явно подтвердил 2026-07-17 («Закрой Step 9. Больше ничего не делай. Я открою
+  новую сессию на Step 10»). Step 9 → `COMPLETED`; `README.md` строка 9 → «Выполнено». Skeptic
+  повторно не требуется — закрытие по явному подтверждению, не по результату нового review.
+- Не сделано по прямой инструкции пользователя («больше ничего не делай»): коммит (не запрашивался),
+  milestone review в конце 9-шагового milestone (предложен, отложен на решение пользователя). Открытые
+  Step 8 N5/N6 (ручной осмотр reduced-motion/блока webp, ратификация записи о visual layer) остаются
+  открытыми. В текущем 9-шаговом skeleton шага «Step 10» нет — его добавление будет отдельным решением
+  новой сессии.
+- Next: новая сессия пользователя (упомянут «Step 10»). Дерево незакоммичено.
