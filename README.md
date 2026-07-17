@@ -39,6 +39,7 @@ README.md синхронно с каждым изменением статуса
 | 7.3 | Department view redesign (pain/gain panel) | Выполнено     |
 | 7.4 | Return-to-hero navigation + tagline        | Выполнено     |
 | 7.5 | Tablet touch flow                          | Выполнено     |
+| 7.6 | Header: clickable logo + tagline           | Выполнено     |
 | 8   | Reduced motion and fallback                | Не приступили |
 | 9   | Browser acceptance tests                   | Не приступили |
 

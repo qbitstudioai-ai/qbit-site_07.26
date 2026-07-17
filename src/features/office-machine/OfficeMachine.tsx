@@ -119,10 +119,11 @@ export function OfficeMachine({
       target?.focus({ preventScroll: true });
     }
 
-    // Возврат в hero (кнопка "Выйти из офиса" в OfficeExperience, над картой отделов) — focus
-    // переносится на заголовок hero, тем же принципом, что и открытие отдела (focus на
-    // department-heading-<id>): пользователь должен ощутить, что оказался на новом экране, а не
-    // потерять focus на <body>.
+    // Возврат в hero — focus переносится на заголовок hero, тем же принципом, что и открытие отдела
+    // (focus на department-heading-<id>): пользователь должен ощутить, что оказался на новом экране,
+    // а не потерять focus на <body>. Точек входа две, и обе идут через RETURN_TO_HERO: кнопка
+    // "Выйти из офиса" в OfficeExperience (над картой отделов, Step 7.4) и логотип в Header
+    // (Step 7.6) — этот эффект покрывает обе, отдельной логики на каждую не нужно.
     if (state.view === "hero" && previousView !== "hero") {
       document.getElementById("hero-heading")?.focus({ preventScroll: true });
     }
@@ -143,7 +144,7 @@ export function OfficeMachine({
 
   return (
     <>
-      <Header tagline={copy.tagline} />
+      <Header tagline={copy.tagline} onReturnHome={handleReturnToHero} />
       <main className={styles.main}>
         <HeroCopy
           copy={copy}

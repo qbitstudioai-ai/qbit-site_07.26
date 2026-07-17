@@ -279,6 +279,132 @@ test.describe("office overview", () => {
     await expect(page.getByText(copy.tagline)).toBeVisible();
   });
 
+  // Step 7.6 — шапка: кликабельный логотип + размер/центрирование tagline.
+  test("Step 7.6: the logo returns to hero from overview and from an open department, clearing ?department, without a full reload (AC1, AC6)", async ({
+    page,
+  }) => {
+    const copy = getHomepageCopy();
+    await page.goto("/");
+    await activateCta(page);
+    await page.evaluate(() => {
+      (window as unknown as { __noReloadMarker?: boolean }).__noReloadMarker = true;
+    });
+
+    const logo = page.getByRole("button", { name: "QBit-Studio-Ai" });
+    await logo.click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
+    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
+    expect(await page.evaluate(() => document.activeElement?.id ?? null)).toBe("hero-heading");
+
+    // Маркер обязан пережить возврат: перезагрузка страницы обнулила бы window (та же идиома, что
+    // в department-selection/mobile/tablet-сьютах).
+    const markerSurvived = await page.evaluate(
+      () => (window as unknown as { __noReloadMarker?: boolean }).__noReloadMarker === true,
+    );
+    expect(markerSurvived).toBe(true);
+
+    // Из открытого отдела — тоже прямо в hero, и ?department исчезает из URL.
+    await page.goto("/?department=sales");
+    await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
+    await page.evaluate(() => {
+      (window as unknown as { __noReloadMarker?: boolean }).__noReloadMarker = true;
+    });
+    await logo.click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+    expect(new URL(page.url()).searchParams.get("department")).toBeNull();
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __noReloadMarker?: boolean }).__noReloadMarker === true,
+      ),
+    ).toBe(true);
+  });
+
+  test("Step 7.6: clicking the logo while already in hero is a safe no-op (AC2)", async ({
+    page,
+  }) => {
+    const copy = getHomepageCopy();
+    await page.goto("/");
+    const logo = page.getByRole("button", { name: "QBit-Studio-Ai" });
+
+    await logo.click();
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
+    await expect(page.getByRole("button", { name: copy.primaryCta })).toBeVisible();
+  });
+
+  test("Step 7.6: the tagline text is centred on the viewport, not on the space left of the logo (AC8)", async ({
+    page,
+  }) => {
+    const copy = getHomepageCopy();
+    // 768/1024/1279 — одноколоночная раскладка, 1280/1920 — трёхколоночная: обе стороны порога.
+    for (const width of [768, 1024, 1279, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto("/");
+
+      // Range.getBoundingClientRect(), а не boundingBox() самого <p>: на ≤1279px параграф занимает
+      // всю ширину контента, поэтому его собственный центр совпадает с центром экрана тождественно
+      // — при любом text-align. Такой guard был бы вакуумным и пропустил бы ровно тот дефект, на
+      // который жаловался пользователь. Range меряет реальный inline-box текста.
+      const textCentre = await page.getByText(copy.tagline).evaluate((el) => {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const rect = range.getBoundingClientRect();
+        return rect.x + rect.width / 2;
+      });
+
+      // Допуск 1px — субпиксельное округление. Прежняя раскладка (flex: 1 после brandRow) смещала
+      // центр вправо на ~половину ширины логотипа, что этот допуск не пропустил бы.
+      expect(
+        Math.abs(textCentre - width / 2),
+        `tagline text centre offset at ${width}px`,
+      ).toBeLessThanOrEqual(1);
+    }
+  });
+
+  test("Step 7.6: the logo tap target is at least 44x44 CSS px on mobile and tablet (AC5)", async ({
+    page,
+  }) => {
+    for (const size of [
+      { width: 320, height: 690 },
+      { width: 768, height: 1024 },
+    ]) {
+      await page.setViewportSize(size);
+      await page.goto("/");
+      const box = await page.getByRole("button", { name: "QBit-Studio-Ai" }).boundingBox();
+      expect(box, `logo box at ${size.width}px`).not.toBeNull();
+      expect(box!.width, `logo width at ${size.width}px`).toBeGreaterThanOrEqual(44);
+      expect(box!.height, `logo height at ${size.width}px`).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test("Step 7.6: the enlarged tagline neither overlaps the logo nor causes horizontal scroll (AC9)", async ({
+    page,
+  }) => {
+    const copy = getHomepageCopy();
+    for (const width of [320, 768, 1279, 1280, 1920]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto("/");
+
+      const logoBox = await page.getByRole("button", { name: "QBit-Studio-Ai" }).boundingBox();
+      const taglineBox = await page.getByText(copy.tagline).boundingBox();
+      expect(logoBox).not.toBeNull();
+      expect(taglineBox).not.toBeNull();
+
+      // На ≤767px они лежат в двух строках одной колонки (вертикально разнесены); шире — в одной
+      // строке, значит не должны пересекаться по горизонтали.
+      const stacked = taglineBox!.y >= logoBox!.y + logoBox!.height;
+      const sideBySide = taglineBox!.x >= logoBox!.x + logoBox!.width;
+      expect(stacked || sideBySide, `logo/tagline overlap at ${width}px`).toBe(true);
+
+      const { scrollWidth, innerWidth } = await page.evaluate(() => ({
+        scrollWidth: document.documentElement.scrollWidth,
+        innerWidth: window.innerWidth,
+      }));
+      expect(scrollWidth, `horizontal scroll at ${width}px`).toBeLessThanOrEqual(innerWidth);
+    }
+  });
+
   test("the 'return to office' button is absent in hero, appears after ACTIVATE_CTA, and sends the user back to hero with focus on the hero heading", async ({
     page,
   }) => {
