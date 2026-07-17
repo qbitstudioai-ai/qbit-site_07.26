@@ -59,7 +59,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
   });
 
-  test("Tab order while a department is active: 90%-area content (CTA, then Close) before the rail's 4 items (WORKPLAN.md Step 6 acceptance criterion 5)", async ({
+  test("Tab order while a department is active: 90%-area content (5 pain points, CTA, then Close) before the rail's 4 items (WORKPLAN.md Step 6 AC5, Step 7.3 pain/gain panel)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -68,6 +68,12 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
     // Заголовок получает программный focus сразу после открытия (docs/05 department-opening).
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeFocused();
+
+    const panel = page.getByTestId("pain-gain-panel");
+    for (const point of sales.painPoints) {
+      await page.keyboard.press("Tab");
+      await expect(panel.getByRole("button", { name: point.pain })).toBeFocused();
+    }
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: sales.ctaLabel })).toBeFocused();
@@ -79,6 +85,42 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
       await page.keyboard.press("Tab");
       await expect(page.getByRole("button", { name: department.overviewLabel })).toBeFocused();
     }
+  });
+
+  test("clicking a pain point in PainGainPanel shows its gain, defaulting to the first pain point on open (Step 7.3, OQ-P2)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+
+    const panel = page.getByTestId("pain-gain-panel");
+    await expect(panel.getByText(sales.painPoints[0].gain)).toBeVisible();
+
+    const thirdPain = sales.painPoints[2];
+    await panel.getByRole("button", { name: thirdPain.pain }).click();
+    await expect(panel.getByText(thirdPain.gain)).toBeVisible();
+    await expect(panel.getByText(sales.painPoints[0].gain)).toHaveCount(0);
+  });
+
+  test("switching departments via the rail resets the pain/gain selection back to the first pain point (Step 7.3, OQ-P2/OQ-P3)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await activateCta(page);
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+
+    const panel = page.getByTestId("pain-gain-panel");
+    await panel.getByRole("button", { name: sales.painPoints[2].pain }).click();
+    await expect(panel.getByText(sales.painPoints[2].gain)).toBeVisible();
+
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await rail.getByRole("button", { name: hr.overviewLabel }).click();
+
+    await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
+    await expect(panel.getByText(hr.painPoints[0].gain)).toBeVisible();
   });
 
   test("the active department is marked in the rail not only by color: aria-current is present in the live DOM", async ({
@@ -140,6 +182,20 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     const railBox = await page.getByRole("navigation", { name: "Панель отделов" }).boundingBox();
     const mainBox = await page.getByRole("region", { name: hr.overviewLabel }).boundingBox();
     expect(railBox!.width).toBeLessThan(mainBox!.width);
+  });
+
+  test("breakpoint boundary 767/768px: accordion active at 767px, side-by-side panel active at 768px (Step 7.3, OQ-P6)", async ({
+    page,
+  }) => {
+    await page.goto("/?department=sales");
+
+    await page.setViewportSize({ width: 767, height: 800 });
+    await expect(page.getByTestId("mobile-pain-gain-accordion")).toBeVisible();
+    await expect(page.getByTestId("pain-gain-panel")).toBeHidden();
+
+    await page.setViewportSize({ width: 768, height: 800 });
+    await expect(page.getByTestId("pain-gain-panel")).toBeVisible();
+    await expect(page.getByTestId("mobile-pain-gain-accordion")).toBeHidden();
   });
 
   test("no console/hydration-mismatch errors across open/switch/close/direct-URL with the 10/90 shell (production build)", async ({

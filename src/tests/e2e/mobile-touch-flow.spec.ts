@@ -20,6 +20,11 @@ async function activateCta(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: copy.primaryCta }).tap();
 }
 
+async function activateCtaViaSecondary(page: import("@playwright/test").Page) {
+  const copy = getHomepageCopy();
+  await page.getByRole("link", { name: copy.secondaryCta }).tap();
+}
+
 test.describe("mobile touch flow (≤767px, Step 7)", () => {
   test("overview renders the carousel (one card), not the spatial office map (not in the a11y tree)", async ({
     page,
@@ -36,6 +41,42 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await expect(
       carousel.getByRole("button", { name: departments[0].overviewLabel }),
     ).toBeVisible();
+  });
+
+  test("Step 7.2: ACTIVATE_CTA hides hero and the interaction hint, and moves focus straight to the carousel card, without any Tab press", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const copy = getHomepageCopy();
+
+    await activateCta(page);
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
+    // interactionHint остаётся в DOM (markup не удаляется, см. WORKPLAN.md Step 7.2, решение 3) —
+    // toBeHidden(), а не toHaveCount(0), проверяет именно визуальное сокрытие через CSS.
+    await expect(page.getByText(copy.interactionHint)).toBeHidden();
+
+    const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
+    expect(focusedId).toBe("mobile-department-carousel-card");
+  });
+
+  test("Step 7.2: the secondary CTA also hides hero on mobile and moves focus to the carousel card (AC2/AC5 — same guarantee as the primary CTA)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const copy = getHomepageCopy();
+
+    await activateCtaViaSecondary(page);
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
+    await expect(page.getByText(copy.interactionHint)).toBeHidden();
+
+    const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
+    expect(focusedId).toBe("mobile-department-carousel-card");
   });
 
   test("Next/Previous browse the carousel locally: URL and machine state stay in overview (no SELECT_DEPARTMENT)", async ({
@@ -174,13 +215,21 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     }
   });
 
-  test("all interactive tap targets (card, Prev/Next, CTA, Close) are at least 44x44 CSS px", async ({
+  test("all interactive tap targets (card, Prev/Next, CTA, Close, return-to-office) are at least 44x44 CSS px", async ({
     page,
   }) => {
+    const copy = getHomepageCopy();
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
     const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
+
+    const returnBox = await page
+      .getByRole("button", { name: copy.returnToOfficeLabel })
+      .boundingBox();
+    expect(returnBox).not.toBeNull();
+    expect(returnBox!.width).toBeGreaterThanOrEqual(44);
+    expect(returnBox!.height).toBeGreaterThanOrEqual(44);
 
     for (const button of await carousel.getByRole("button").all()) {
       const box = await button.boundingBox();
@@ -199,6 +248,14 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     const ctaBox = await page.getByRole("button", { name: departments[0].ctaLabel }).boundingBox();
     expect(ctaBox).not.toBeNull();
     expect(ctaBox!.height).toBeGreaterThanOrEqual(44);
+
+    // Step 7.3: кнопки пунктов боли в мобильном аккордеоне — тоже тап-таргеты.
+    const accordion = page.getByTestId("mobile-pain-gain-accordion");
+    for (const button of await accordion.getByRole("button").all()) {
+      const box = await button.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
 
     for (const navButton of await page
       .getByRole("button", { name: /^(Предыдущий|Следующий) отдел/ })
@@ -280,7 +337,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     ).toBeVisible();
   });
 
-  test("keyboard: in the active department, Tab order is [CTA, Close, Prev, Next] (AC 13 — mobile equivalent of the desktop rail Tab order)", async ({
+  test("keyboard: in the active department, Tab order is [5 pain points, CTA, Close, Prev, Next] (AC 13 — mobile equivalent of the desktop rail Tab order; Step 7.3 accordion)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -295,6 +352,12 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
       page.getByRole("heading", { level: 2, name: departments[0].headline }),
     ).toBeFocused();
 
+    const accordion = page.getByTestId("mobile-pain-gain-accordion");
+    for (const point of departments[0].painPoints) {
+      await page.keyboard.press("Tab");
+      await expect(accordion.getByRole("button", { name: point.pain })).toBeFocused();
+    }
+
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: departments[0].ctaLabel })).toBeFocused();
 
@@ -306,6 +369,24 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: /^Следующий отдел/ })).toBeFocused();
+  });
+
+  test("tapping a pain point in the mobile accordion expands its gain, defaulting to the first pain point on open (Step 7.3, OQ-P2/OQ-P6)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await activateCta(page);
+    const departments = sortedDepartments();
+    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
+    await carousel.getByRole("button", { name: departments[0].overviewLabel }).tap();
+
+    const accordion = page.getByTestId("mobile-pain-gain-accordion");
+    await expect(accordion.getByText(departments[0].painPoints[0].gain)).toBeVisible();
+
+    const thirdPain = departments[0].painPoints[2];
+    await accordion.getByRole("button", { name: thirdPain.pain }).tap();
+    await expect(accordion.getByText(thirdPain.gain)).toBeVisible();
+    await expect(accordion.getByText(departments[0].painPoints[0].gain)).toHaveCount(0);
   });
 
   test("no console/page errors across the full mobile flow (production build)", async ({
@@ -328,6 +409,25 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
 
     const suspicious = messages.filter((text) => /error|hydrat/i.test(text));
     expect(suspicious).toEqual([]);
+  });
+
+  test("the 'return to office' button works on mobile: absent in hero, returns from the carousel to hero", async ({
+    page,
+  }) => {
+    const copy = getHomepageCopy();
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
+    await expect(page.getByText(copy.tagline)).toBeVisible();
+
+    await activateCta(page);
+    const returnButton = page.getByRole("button", { name: copy.returnToOfficeLabel });
+    await expect(returnButton).toBeVisible();
+    await returnButton.tap();
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
+    await expect(page.getByRole("navigation", { name: "Карусель отделов" })).toHaveCount(0);
+    const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
+    expect(focusedId).toBe("hero-heading");
   });
 });
 

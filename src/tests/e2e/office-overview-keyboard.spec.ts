@@ -16,7 +16,7 @@ async function activateCta(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: copy.primaryCta }).click();
 }
 
-test("hidden hotspots are not reachable by Tab before ACTIVATE_CTA; Tab visits all 5 in the expected order with visible focus after reveal", async ({
+test("hidden hotspots are not reachable by Tab before ACTIVATE_CTA; focus lands on the first hotspot immediately after reveal (Step 7.2), then Tab visits the remaining 4 in the expected order with visible focus", async ({
   page,
 }) => {
   await page.goto("/");
@@ -25,7 +25,14 @@ test("hidden hotspots are not reachable by Tab before ACTIVATE_CTA; Tab visits a
   const navBeforeReveal = page.getByRole("navigation", { name: "Отделы компании" });
   await expect(navBeforeReveal).toHaveCount(0);
 
-  await activateCta(page);
+  // Активируем CTA клавиатурой (Tab + Enter), а не кликом мышью — этот файл проверяет именно
+  // клавиатурный путь, а :focus-visible (globals.css) в Chromium показывает ring для
+  // программного .focus() только если последнее взаимодействие пользователя было клавиатурным
+  // (см. WORKPLAN.md Step 7.2, решение 2 — сам факт переноса focus не зависит от модальности
+  // ввода, но видимость ring — зависит, это поведение браузера, не этого кода).
+  const copy = getHomepageCopy();
+  await page.getByRole("button", { name: copy.primaryCta }).focus();
+  await page.keyboard.press("Enter");
 
   const nav = page.getByRole("navigation", { name: "Отделы компании" });
   const buttons = await nav.getByRole("button").all();
@@ -33,16 +40,13 @@ test("hidden hotspots are not reachable by Tab before ACTIVATE_CTA; Tab visits a
 
   const expectedOrder = expectedTabOrderLabels();
 
-  // primaryCta/secondaryCta по-прежнему предшествуют карте офиса в DOM-порядке, поэтому
-  // таб(аем) ограниченное число раз, пока фокус не достигнет первого хотспота.
-  let focusedLabel: string | null = null;
-  for (let i = 0; i < 20 && focusedLabel !== expectedOrder[0]; i++) {
-    await page.keyboard.press("Tab");
-    focusedLabel = await page.evaluate(
-      () => document.activeElement?.getAttribute("aria-label") ?? null,
-    );
-  }
-  expect(focusedLabel).toBe(expectedOrder[0]);
+  // Step 7.2: hero скрывается вместе с ACTIVATE_CTA и focus программно переводится на первый
+  // хотспот сразу (OfficeMachine.tsx focus-management useEffect) — без единого Tab, в отличие от
+  // прежнего поведения, где primaryCta/secondaryCta предшествовали карте в Tab-порядке.
+  const focusedLabelAfterReveal = await page.evaluate(
+    () => document.activeElement?.getAttribute("aria-label") ?? null,
+  );
+  expect(focusedLabelAfterReveal).toBe(expectedOrder[0]);
 
   for (const expectedLabel of expectedOrder) {
     const focused = page.locator(":focus");

@@ -35,6 +35,18 @@ describe("DepartmentNavigationRail", () => {
     expect(current).not.toBeNull();
   });
 
+  it("renders a photo thumbnail for every department, including the active one (Step 7.3, OQ-P1)", () => {
+    const { container } = render(
+      <DepartmentNavigationRail
+        departments={departments}
+        activeDepartmentId="sales"
+        onSelectDepartment={() => {}}
+      />,
+    );
+    // 5 отделов — 5 миниатюр (next/image рендерит реальный <img>, decorative alt="").
+    expect(container.querySelectorAll('img[alt=""]')).toHaveLength(5);
+  });
+
   it("calls onSelectDepartment with the clicked department's id", () => {
     const onSelectDepartment = vi.fn();
     render(

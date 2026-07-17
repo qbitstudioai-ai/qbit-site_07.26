@@ -13,8 +13,13 @@ const validDepartment = {
   overviewProblem: "problem",
   headline: "headline",
   problem: "problem",
-  symptoms: ["a"],
-  outcomes: ["b"],
+  painPoints: [
+    { pain: "a1", gain: "b1" },
+    { pain: "a2", gain: "b2" },
+    { pain: "a3", gain: "b3" },
+    { pain: "a4", gain: "b4" },
+    { pain: "a5", gain: "b5" },
+  ],
   ctaLabel: "cta",
   solutionPath: "/solutions/sales",
   reference: "references/sales/02-sales-department.png",
@@ -47,9 +52,37 @@ describe("departmentSchema — invalid fixtures", () => {
     expect(departmentSchema.safeParse(makeDepartment("marketing")).success).toBe(false);
   });
 
-  it("rejects a non-array value for symptoms", () => {
+  it("rejects a non-array value for painPoints", () => {
     expect(
-      departmentSchema.safeParse(makeDepartment("sales", { symptoms: "not-an-array" })).success,
+      departmentSchema.safeParse(makeDepartment("sales", { painPoints: "not-an-array" })).success,
+    ).toBe(false);
+  });
+
+  it("rejects painPoints with fewer than 5 pairs", () => {
+    expect(
+      departmentSchema.safeParse(
+        makeDepartment("sales", { painPoints: validDepartment.painPoints.slice(0, 4) }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects painPoints with more than 5 pairs", () => {
+    expect(
+      departmentSchema.safeParse(
+        makeDepartment("sales", {
+          painPoints: [...validDepartment.painPoints, { pain: "a6", gain: "b6" }],
+        }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects a pain point missing the gain field", () => {
+    const brokenPainPoints = [
+      { pain: "a1" },
+      ...validDepartment.painPoints.slice(1),
+    ] as unknown as typeof validDepartment.painPoints;
+    expect(
+      departmentSchema.safeParse(makeDepartment("sales", { painPoints: brokenPainPoints })).success,
     ).toBe(false);
   });
 
@@ -94,6 +127,8 @@ describe("homepageCopySchema — invalid fixtures", () => {
     secondaryCta: "s2",
     interactionHint: "hint",
     valuePoints: ["a"],
+    tagline: "tagline",
+    returnToOfficeLabel: "return",
   };
 
   it("rejects an empty valuePoints array", () => {

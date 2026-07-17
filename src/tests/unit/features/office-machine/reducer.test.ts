@@ -165,6 +165,40 @@ describe("office-machine reducer", () => {
     });
   });
 
+  describe("RETURN_TO_HERO", () => {
+    it("transitions from 'overview' to 'hero', clearing the active id", () => {
+      const next = officeMachineReducer(
+        { view: "overview", activeDepartmentId: null },
+        { type: "RETURN_TO_HERO" },
+      );
+      expect(next).toEqual({ view: "hero", activeDepartmentId: null });
+    });
+
+    it("transitions from 'department-active' to 'hero', clearing the active id", () => {
+      const next = officeMachineReducer(
+        { view: "department-active", activeDepartmentId: "sales" },
+        { type: "RETURN_TO_HERO" },
+      );
+      expect(next).toEqual({ view: "hero", activeDepartmentId: null });
+    });
+
+    it.each(["department-opening", "department-switching", "department-closing"] as const)(
+      "also transitions from the transitional state '%s' to 'hero' (interrupts an in-progress open/switch/close)",
+      (view) => {
+        const next = officeMachineReducer(
+          { view, activeDepartmentId: "sales" },
+          { type: "RETURN_TO_HERO" },
+        );
+        expect(next).toEqual({ view: "hero", activeDepartmentId: null });
+      },
+    );
+
+    it("is a no-op when already in 'hero'", () => {
+      const state = { view: "hero" as const, activeDepartmentId: null };
+      expect(officeMachineReducer(state, { type: "RETURN_TO_HERO" })).toBe(state);
+    });
+  });
+
   describe("invariant: at most one department is active at a time", () => {
     it("activeDepartmentId is always a single id or null, never a collection", () => {
       const afterSelect = officeMachineReducer(

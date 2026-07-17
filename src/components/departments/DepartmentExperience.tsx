@@ -3,7 +3,8 @@ import type { Department, DepartmentId } from "@/content/types";
 import type { OfficeMachineView } from "@/features/office-machine/reducer";
 import { DepartmentCopy } from "./DepartmentCopy";
 import { DepartmentCTA } from "./DepartmentCTA";
-import { OutcomePanel } from "./OutcomePanel";
+import { MobilePainGainAccordion } from "./MobilePainGainAccordion";
+import { PainGainPanel } from "./PainGainPanel";
 import styles from "./DepartmentExperience.module.css";
 
 interface DepartmentExperienceProps {
@@ -47,7 +48,15 @@ export function DepartmentExperience({
       aria-label={department.overviewLabel}
     >
       <DepartmentCopy department={department} />
-      <OutcomePanel outcomes={department.outcomes} />
+      {/* key={department.id} принудительно размонтирует/монтирует заново оба компонента при
+          SWITCH_DEPARTMENT (OQ-P3) — DepartmentExperience сам НЕ размонтируется при переключении
+          между отделами (в отличие от MobileDepartmentCarousel), поэтому без key их локальный
+          useState (выбранный/раскрытый пункт боли) молча перенёс бы устаревший индекс с предыдущего
+          отдела на новый (найдено при skeptic Phase A review, WORKPLAN.md Step 7.3). Оба компонента
+          всегда в DOM одновременно — видимость переключает только CSS по ширине (тот же паттерн, что
+          карта/карусель, Step 7). */}
+      <PainGainPanel key={`desktop-${department.id}`} painPoints={department.painPoints} />
+      <MobilePainGainAccordion key={`mobile-${department.id}`} painPoints={department.painPoints} />
       <div className={styles.actions}>
         <DepartmentCTA label={department.ctaLabel} />
         <button type="button" className={styles.close} onClick={onClose}>

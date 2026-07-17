@@ -1,0 +1,9 @@
+/* Перенесено из HomepageShell.module.css — Header рендерится здесь же, рядом с main (Step 7.4).
+   Кнопка "Выйти из офиса" впоследствии перенесена в OfficeExperience (не в Header) — этот перенос
+   сохранён ради минимального diff, не по функциональной необходимости Header'а. */
+.main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}

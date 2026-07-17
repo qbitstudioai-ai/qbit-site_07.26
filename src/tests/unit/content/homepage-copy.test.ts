@@ -15,5 +15,7 @@ describe("homepage-copy adapter", () => {
     for (const point of copy.valuePoints) {
       expect(point.length).toBeGreaterThan(0);
     }
+    expect(copy.tagline.length).toBeGreaterThan(0);
+    expect(copy.returnToOfficeLabel.length).toBeGreaterThan(0);
   });
 });

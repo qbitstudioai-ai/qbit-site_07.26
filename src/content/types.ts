@@ -1,5 +1,10 @@
 export type DepartmentId = "sales" | "support" | "executive" | "hr" | "logistics";
 
+export interface PainPoint {
+  pain: string;
+  gain: string;
+}
+
 export interface Department {
   id: DepartmentId;
   name: string;
@@ -7,8 +12,7 @@ export interface Department {
   overviewProblem: string;
   headline: string;
   problem: string;
-  symptoms: string[];
-  outcomes: string[];
+  painPoints: PainPoint[];
   ctaLabel: string;
   solutionPath: string;
   reference: string;
@@ -21,6 +25,8 @@ export interface HomepageCopy {
   secondaryCta: string;
   interactionHint: string;
   valuePoints: string[];
+  tagline: string;
+  returnToOfficeLabel: string;
 }
 
 export interface OfficeZone {

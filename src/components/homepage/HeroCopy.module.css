@@ -4,6 +4,14 @@
   max-width: 48rem;
 }
 
+/* Step 7.2: hero скрывается сразу после ACTIVATE_CTA (docs/05 "overview" — офис занимает весь
+   экран) — тот же :global(.js)-gated паттерн, что у .hiddenUntilRevealed в
+   OfficeExperience.module.css, обязателен, чтобы без JavaScript hero и office продолжали
+   рендериться одновременно (docs/05 "## hero", no-JS fallback). */
+:global(.js) .hiddenAfterReveal {
+  display: none;
+}
+
 .headline {
   font-size: 1.75rem;
   line-height: var(--line-height-base);

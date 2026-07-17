@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useReducer, useRef } from "react";
+import { Header } from "@/components/homepage/Header";
 import { HeroCopy } from "@/components/homepage/HeroCopy";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
 import type { Department, DepartmentId, HomepageCopy, OfficeZone } from "@/content/types";
+import styles from "./OfficeMachine.module.css";
 import { initOfficeMachineState, officeMachineReducer } from "./reducer";
 import { useDepartmentUrlSync } from "./url-sync";
 
@@ -102,9 +104,32 @@ export function OfficeMachine({
         target?.focus({ preventScroll: true });
       }
     }
+
+    // Step 7.2: hero скрывается сразу после ACTIVATE_CTA — без переноса focus он терялся бы на
+    // <body> (docs/11 "Focus"). Тот же принцип "перебрать кандидатов, взять первый видимый", что и
+    // close-fallback выше: первая кнопка карты (Desktop/Tablet) либо карточка карусели (Mobile).
+    if (state.view === "overview" && previousView === "hero") {
+      const candidates = [
+        document.querySelector<HTMLElement>('[aria-label="Отделы компании"] button'),
+        document.getElementById("mobile-department-carousel-card"),
+      ];
+      const target = candidates.find(
+        (el): el is HTMLElement => el !== null && el.offsetParent !== null,
+      );
+      target?.focus({ preventScroll: true });
+    }
+
+    // Возврат в hero (кнопка "Выйти из офиса" в OfficeExperience, над картой отделов) — focus
+    // переносится на заголовок hero, тем же принципом, что и открытие отдела (focus на
+    // department-heading-<id>): пользователь должен ощутить, что оказался на новом экране, а не
+    // потерять focus на <body>.
+    if (state.view === "hero" && previousView !== "hero") {
+      document.getElementById("hero-heading")?.focus({ preventScroll: true });
+    }
   }, [state.view, state.activeDepartmentId]);
 
   const handleActivateCta = () => dispatch({ type: "ACTIVATE_CTA" });
+  const handleReturnToHero = () => dispatch({ type: "RETURN_TO_HERO" });
 
   const handleSelectDepartment = (departmentId: DepartmentId) => {
     if (state.activeDepartmentId === null) {
@@ -118,17 +143,26 @@ export function OfficeMachine({
 
   return (
     <>
-      <HeroCopy copy={copy} onActivate={handleActivateCta} />
-      <OfficeExperience
-        interactionHint={copy.interactionHint}
-        departments={departments}
-        officeZones={officeZones}
-        isRevealed={state.view !== "hero"}
-        machineView={state.view}
-        activeDepartmentId={state.activeDepartmentId}
-        onSelectDepartment={handleSelectDepartment}
-        onCloseDepartment={handleCloseDepartment}
-      />
+      <Header tagline={copy.tagline} />
+      <main className={styles.main}>
+        <HeroCopy
+          copy={copy}
+          onActivate={handleActivateCta}
+          isHiddenAfterReveal={state.view !== "hero"}
+        />
+        <OfficeExperience
+          interactionHint={copy.interactionHint}
+          returnToOfficeLabel={copy.returnToOfficeLabel}
+          departments={departments}
+          officeZones={officeZones}
+          isRevealed={state.view !== "hero"}
+          machineView={state.view}
+          activeDepartmentId={state.activeDepartmentId}
+          onSelectDepartment={handleSelectDepartment}
+          onCloseDepartment={handleCloseDepartment}
+          onReturnHome={handleReturnToHero}
+        />
+      </main>
     </>
   );
 }

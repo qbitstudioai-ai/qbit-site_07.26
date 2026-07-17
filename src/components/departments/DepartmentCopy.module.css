@@ -19,12 +19,6 @@
   margin-bottom: var(--space-3);
 }
 
-.symptoms {
-  padding-left: var(--space-4);
-  list-style: disc;
-  color: var(--color-graphite-700);
-}
-
 @media (max-height: 700px) {
   .heading {
     font-size: 1.125rem;

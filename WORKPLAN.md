@@ -2234,9 +2234,17 @@ pointer and touch").
 
 ## Step 7.2 — Overview full-screen (hide hero)
 
-- Status: `APPROVED` (2026-07-16) — план прошёл planner Phase A и skeptic Phase A round 3 `PASS`,
-  без открытых вопросов/блокеров. `APPROVED` разрешает старт реализации, не является отчётом о
-  выполнении.
+- Status: `COMPLETED` (пользователь явно подтвердил закрытие, 2026-07-17: «Закрывай Step 7.2 и
+  Step 7.4. Как закроешь, остановись и сообщи.»).
+- Status history (closure): `PASSED` (2026-07-16, skeptic Phase B round 2 `PASS`, без находок) →
+  `COMPLETED` (2026-07-17).
+- Status history: `APPROVED` → `IN_PROGRESS` (Phase B начата) → `AWAITING_SKEPTIC` → skeptic Phase B
+  round 1 `FAIL` (3 blocking: AC2/AC5 не проверялись для `secondaryCta`; AC9 no-JS не проверяла `h1`
+  для `?department=<id>`; AC7 Manual checks не покрывали 1280×500/Tablet) → исправлено (2 новых
+  e2e-теста secondaryCta, 1 доп. проверка no-JS, Manual checks выполнены и записаны) →
+  `AWAITING_SKEPTIC` → skeptic Phase B round 2 `PASS` (без находок, все 5 конкретных пунктов
+  проверены независимо, включая реальный повторный прогон всех 6 verification commands) →
+  `PASSED`.
 - Status history: `PROPOSED` → planner Phase A (2026-07-16, полностью детализирован) → `BLOCKED`
   (skeptic Phase A round 1 — противоречие с `APPROVED` Step 7.5 OQ-T1=(b)) → пользователь разрешил
   противоречие через `AskUserQuestion` (`DECISIONS.md` "OQ-T1 переопределён"), `Amendment 5`
@@ -2634,80 +2642,878 @@ pointer and touch").
   канонический источник (Step 7.5 → Status/Completion evidence/"Open questions") уже корректно
   аннотирован. Отложено до следующей правки этой строки, не блокирует.
 - Completion evidence: план прошёл skeptic Phase A round 3 `PASS` (после round 1 `BLOCKED` → round
-  2 `FAIL` → round 3 `PASS`); все блокеры устранены, открытых вопросов нет. Ждёт фактического старта
-  реализации (Dependencies: Step 7 `COMPLETED`).
+  2 `FAIL` → round 3 `PASS`); все блокеры устранены, открытых вопросов нет.
+  **Phase B (реализация, 2026-07-16):** выполнена по плану, без изменения scope.
+  - `HeroCopy.tsx`/`HeroCopy.module.css`: новый проп `isHiddenAfterReveal`, класс
+    `hiddenAfterReveal`, `:global(.js)`-gated правило скрытия (решение 1).
+  - `OfficeMachine.tsx`: `isHiddenAfterReveal={state.view !== "hero"}` передан в `HeroCopy`; новая
+    ветка `state.view === "overview" && previousView === "hero"` в существующем focus-management
+    `useEffect` — кандидаты `[aria-label="Отделы компании"] button` / `#mobile-department-carousel-
+    card`, берётся первый с `offsetParent !== null` (решение 2).
+  - `OfficeExperience.module.css`: `.hint { display: none; }` безусловно (решение 3); `.office`
+    padding → `var(--space-6)` со всех сторон (решение 4).
+  - `README.md`: строка "7" → `Выполнено`; добавлена строка "7.2" → `В работе` (переведена в
+    `Выполнено` при закрытии шага).
+  - Тесты обновлены/добавлены точно по Expected files: `hero-copy.test.tsx` (5 существующих +
+    `isHiddenAfterReveal={false}`, +1 новый тест на класс), `home-page.test.tsx` (+1 новый тест —
+    focus после `ACTIVATE_CTA`; jsdom не реализует layout, поэтому `offsetParent` в тесте временно
+    застаблен, чтобы реально пройти по коду candidate-fallback, а не обойти его — восстановлен в
+    `finally`), `office-overview.spec.ts` (low-height "hero" rewrite — проверки `h1`/`primaryCta`
+    перенесены в состояние `hero`, до `activateCta`; +2 новых теста — скрытие hero/hint, focus без
+    Tab; no-JS тест дополнен проверкой видимого `h1`), `office-overview-keyboard.spec.ts` (Tab-order
+    тест переписан — focus уже на первом хотспоте сразу после `ACTIVATE_CTA`, без предварительных
+    Tab; CTA активируется клавиатурой `focus()+Enter`, а не кликом мышью, — иначе Chromium
+    `:focus-visible` не показывает ring для программного `.focus()` после мышиного клика, что не
+    баг кода, а браузерная эвристика модальности ввода), `mobile-touch-flow.spec.ts` (+1 новый тест
+    — то же на Mobile, focus на `mobile-department-carousel-card`).
+  - **Находка при исполнении (не в исходном плане, устранена тем же коммитом):** `interactionHint`
+    остаётся в DOM (markup не удаляется, решение 3), поэтому проверка `toHaveCount(0)` (которая в
+    остальных случаях работает благодаря исключению `display:none`-элементов из query по role) не
+    подходит для проверки через `getByText` — `getByText` матчит по тексту независимо от
+    видимости. Использован `toBeHidden()` вместо `toHaveCount(0)` в 2 местах (`office-overview.
+    spec.ts`, `mobile-touch-flow.spec.ts`) — тест проверяет ровно то же самое (реальное визуальное
+    сокрытие), просто корректным для этого случая матчером.
+  - Verification commands — все реально прогнаны: `format:check` ✓, `lint` ✓, `typecheck` ✓,
+    `test` ✓ (103/103, включая 2 новых теста), `build` ✓, `test:e2e` ✓ (53/53, включая 4 новых/
+    переписанных теста). Отдельная dev-mode ручная проверка (Playwright против `npm run dev`,
+    Desktop 1280×800 и Mobile 375×812 с `hasTouch`/`isMobile`) — полный поток hero → ACTIVATE_CTA →
+    overview → открытие отдела → закрытие, `console`/`pageerror` — `[]` на обоих viewport.
+  - Manual checks: визуальный скриншот overview на Desktop и Mobile подтверждает — hero отсутствует
+    полностью, office занимает экран под `Header` с видимым равномерным отступом, подсказка нигде
+    не видна (см. скриншоты сессии). Полный DevTools-проход по всем размерам Manual checks (Tablet-
+    спот-чек, `prefers-reduced-motion`, no-JS, `git diff --stat`) — не проводился отдельно от
+    e2e/unit-покрытия, которое уже проверяет эти же инварианты программно (no-JS — `office-overview.
+    spec.ts`/`office-overview-keyboard.spec.ts`; `prefers-reduced-motion` — `office-overview-
+    keyboard.spec.ts`; `git diff --stat` — см. ниже).
+  - `git diff --stat` ограничен Expected files: `README.md`, `WORKPLAN.md`,
+    `src/components/homepage/HeroCopy.tsx`/`.module.css`,
+    `src/components/office/OfficeExperience.module.css`,
+    `src/features/office-machine/OfficeMachine.tsx`, и 5 тестовых файлов — соответствует плану.
+  **Skeptic Phase B round 1 — `FAIL`** (2026-07-16): 3 blocking находки, устранены:
+  - AC2/AC5 не проверялись для `secondaryCta` отдельно (только `primaryCta` во всех новых/
+    переписанных тестах) — добавлены 2 новых e2e-теста (`office-overview.spec.ts` Desktop,
+    `mobile-touch-flow.spec.ts` Mobile), каждый проверяет и скрытие hero, и focus-fallback именно
+    через `secondaryCta`.
+  - AC9 (no-JS) не проверяла видимость `h1` для ветки `?department=sales`, только для `/` —
+    добавлена проверка `getByRole("heading", {level:1})).toBeVisible()` после
+    `goto("/?department=sales")` в `office-overview.spec.ts`.
+  - AC7 Manual checks не покрывали заявленный в Risks самый тесный viewport (1280×500) и Tablet
+    spot-check — выполнено вручную (Playwright-скрипт против `npm run dev`, не e2e-сьют):
+    1280×500, 768×1024, 1024×768 — на всех трёх `scrollHeight <= innerHeight`,
+    `scrollWidth <= innerWidth`, зазор `Header`↔office 24px без наложения; визуально подтверждено
+    скриншотами (без клиппинга, без наложения панелей).
+  Round 2 verification: `format:check`/`lint`/`typecheck`/`test` (103/103)/`build`/`test:e2e`
+  (55/55, +2 новых теста) — все прогнаны заново после фиксов.
+  **Skeptic Phase B round 2 — `PASS`** (2026-07-16): независимо перепроверил все 3 фикса (реально
+  прочитал новые тесты целиком, не по описанию; подтвердил `secondaryCta`-тесты бьют по тому же
+  `<a>`-элементу и той же силы проверка, что `primaryCta`; подтвердил проверка `h1` в no-JS тесте
+  стоит именно после второго `goto`; подтвердил 24px зазор совпадает с `--space-6` в реальном CSS,
+  не произвольное число) плюс самостоятельно перезапустил все 6 verification commands
+  (`format:check`/`lint`/`typecheck`/`test` 103/103/`build`/`test:e2e` 55/55) — совпало с
+  самоотчётом. Находок нет.
 
 ## Step 7.3 — Department view redesign (pain/gain panel)
 
-- Status: `PROPOSED` — черновик, как и Step 7.2: пользователь дал прямое решение по структуре, но
-  **planner/skeptic Phase A review ещё не проводился** — пользователь явно попросил "пока акцент на
-  это не делаем, просто фиксируем" (`DECISIONS.md` 2026-07-16 "Department-active: панель с фото +
-  колонки..."). Полноценный Phase A обязателен перед `APPROVED` (`CLAUDE.md`).
+- Status: `COMPLETED` — `APPROVED` пользователем 2026-07-17 ("Переводи шаг APPROVED и приступай к
+  реализации"), реализация выполнена в этой же сессии. Skeptic Phase B review (round 1) вернул `FAIL`
+  (3 Blocking: реально нестабильный `test:e2e`, недостаточный drift-check тест, падающий
+  `format:check`) — настоящая причина нестабильности найдена и устранена (см. "Correction" ниже);
+  сфокусированный skeptic Phase B re-check вернул `PASS` (2026-07-17) — независимо перепроверил все
+  3 находки как реально устранённые (в т.ч. воспроизвёл падение drift-check теста подменой местами и
+  зелёный `test:e2e` включая `--workers=1`), полный набор проверок прогнал сам. Закрыт по явному
+  подтверждению пользователя (2026-07-17: "Закрывай Step 7.3"). Phase A round 1 (`planner`, 2026-07-17) прошёл skeptic Phase A review
+  (`PASS`, 1 non-blocking correction, применён inline). Пользователь ответил на все 6 открытых
+  вопросов (`DECISIONS.md` 2026-07-17 "Step 7.3: ответы на OQ-P1–OQ-P6") — полный текст исходных
+  вариантов сохранён ниже в "Open questions (Step 7.3) — RESOLVED" для истории/трассируемости. План
+  переписан с учётом ответов; skeptic Phase A round 2 вернул `FAIL` (3 Blocking: ложная ссылка на
+  прецедент `Header.tsx`; нерешённая судьба `Department.reference`; пропущенный
+  `department-hotspot.test.tsx` в Expected files) — все три исправлены inline. Сфокусированный
+  re-check вернул ещё один `FAIL` (Expected files фактически не отражал заявленный drift-check тест;
+  формулировка severity в Objective противоречила Status) — оба пункта тоже исправлены inline (см.
+  "Skeptic verdict"/"Correction"/"Skeptic re-check" ниже).
 - Objective: Перестроить состояние `department-active` (`docs/03-office-map.md` "Режим 10/90",
   правка 2026-07-16) под структуру, описанную пользователем:
-  1. Левая панель (10–14%) — у каждого из 5 отделов название **и собственное фото** (не только
-     текст, как сейчас в `DepartmentNavigationRail`); позади панели — общее фото офиса, которое
-     темнеет/бледнеет, когда отдел открыт (не исчезает полностью).
+  1. Левая панель (`DepartmentNavigationRail`, сейчас 10–14% — см. Risks про ширину) — у каждого из
+     5 отделов название **и собственное фото** (не только текст, как сейчас); позади панели — общее
+     фото офиса, которое темнеет/бледнеет, когда отдел открыт (не исчезает полностью).
   2. Основная область — **не одна колонка, а две**, примерно 20/80: левая (20%) — ровно **5**
      кликабельных/фокусируемых пунктов "боли" отдела; правая (80%) — при выборе конкретного пункта
      показывает именно его "выгоду" (что получит бизнес, решив ИМЕННО эту проблему — не общий список
      результатов отдела).
-- **Технический факт, найденный при подготовке черновика (не открытый вопрос):** текущая модель
-  данных не подходит для связки "боль → выгода" один-к-одному. Сейчас `Department.symptoms:
-  string[]` (максимум 3 в UI, `docs/12-content-data-model.md` "Правила") и `Department.outcomes:
-  string[]` (5 штук, независимый список) — раздельные, несвязанные массивы. Новая структура требует
-  типа вида `painPoints: { pain: string; gain: string }[]` длиной ровно 5, заменяющего оба текущих
-  поля — правка `content/types.ts`, `src/content/schema.ts` (zod), `docs/12-content-data-model.md` и
-  реального содержимого `data/departments.json` для всех 5 отделов (сейчас заполнено только по 3
-  симптома/5 результатов на отдел — ещё не в форме пар).
-- **Черновой пример текста для "Дирекция" (по просьбе пользователя "текст можешь написать, но потом
-  будем править" — НЕ финальная копия, только чтобы зафиксировать структуру и тон):**
-  1. Боль: "Отчёты собираются вручную из разных таблиц и чатов." → Выгода: "Данные сами собираются в
-     одну сводку — меньше ручной работы для команды."
-  2. Боль: "Данные разных отделов не совпадают между собой." → Выгода: "Единая картина по всем
-     отделам — не нужно сверять цифры вручную."
-  3. Боль: "Статусы и отклонения приходится запрашивать самому." → Выгода: "Уведомление об отклонении
-     приходит само — раньше, чем об этом спросит руководитель."
-  4. Боль: "Проблема становится заметна только после жалобы." → Выгода: "Проблема видна раньше — до
-     того, как она стала жалобой."
-  5. Боль: "Решения принимаются на устаревших или неполных данных." → Выгода: "Решения принимаются
-     быстрее — на основе актуальной картины, а не устаревших таблиц."
-  Аналогичные 5 пар нужны для остальных 4 отделов (Продажи/Поддержка/HR/Логистика) — не написаны,
-  черновик только для одного отдела, чтобы не тратить усилия на копию до подтверждения структуры.
-- In scope: _(детализируется на Phase A — на момент черновика известно: фото в
-  `DepartmentNavigationRail`; бледнеющий фон офиса за панелью; замена одноколоночной
-  `DepartmentExperience` на 20/80-раскладку "боль/выгода"; новая модель данных `painPoints`; контент
-  для всех 5 отделов)_.
-- Out of scope: _(детализируется на Phase A)_ — предварительно: советы ассистента (2)–(4) из
-  `DECISIONS.md` этой же записи (реагирующий на боль CTA; подсветка соседних отделов) — пользователь
-  их не подтвердил и не отклонил, не входят в этот черновик без отдельного решения.
-- Dependencies: Step 7.2 (`PROPOSED`) — оба шага меняют один и тот же `OfficeExperience`/
-  `DepartmentExperience` слой, должны пройти Phase A вместе или последовательно, во избежание
-  конфликтующих правок.
-- Expected files: _(детализируется на Phase A)_
-- Acceptance criteria: _(детализируется на Phase A)_
-- Verification commands: _(детализируется на Phase A)_
-- Manual checks: _(детализируется на Phase A)_
+
+  **Технический факт (не открытый вопрос):** текущая модель данных не подходит для связки "боль →
+  выгода" один-к-одному. Сейчас `Department.symptoms: string[]` (максимум 3 в UI,
+  `docs/12-content-data-model.md` "Правила") и `Department.outcomes: string[]` (5 штук, независимый
+  список) — раздельные, несвязанные массивы. Новая структура требует типа вида `painPoints: { pain:
+  string; gain: string }[]` длиной ровно 5 (тот же `.length(5)`-паттерн, что уже используется для
+  `departmentsSchema`/`officeZonesDataSchema` в `src/content/schema.ts` — независимо подтверждено
+  skeptic Phase A review), заменяющего оба текущих поля — правка `content/types.ts`,
+  `src/content/schema.ts` (zod), `docs/12-content-data-model.md` и реального содержимого
+  `data/departments.json` для всех 5 отделов.
+
+  **Найдено при подготовке черновика:** `docs/05-homepage-state-machine.md` "## department-active"
+  всё ещё описывает временный блок Step 5 как "до 3 `symptoms`/`outcomes`" — устарело относительно
+  уже honesty-исправленных 2026-07-16 `docs/03`/`docs/12` (независимо подтверждено skeptic Phase A
+  review чтением документа: Step 6 `COMPLETED` сознательно сохранил именно эту "временную"
+  структуру, не заменил её `DepartmentScene`, поэтому расхождение реально, не мнимое). Честная правка
+  этого раздела `docs/05` — часть In scope этого шага.
+
+  **Решения по итогам ответов пользователя на OQ-P1–OQ-P6 (`DECISIONS.md` 2026-07-17):**
+  - **OQ-P1 = (a), с уточнением пользователя.** Реальные `references/**/*.png` используются и как
+    общее фото офиса (полноразмерно, позади `department-active`), и как источник миниатюр в
+    `DepartmentNavigationRail` (уменьшенные версии тех же изображений, не отдельные файлы). Техническая
+    реализация — статический импорт (`import photo from "../../../references/.../xxx.png"`) через
+    `next/image`. **Уточнение (найдено при skeptic Phase A round 2 review, Blocking, исправлено
+    inline): это НЕ повторение существующего прецедента.** `Header.tsx` использует
+    `next/image` со строковым `public/`-путём к SVG-логотипу (`<Image src="/logo.svg" ... width={90}
+    height={64} />`) — не статический ES-импорт растрового файла из-за пределов `src/`. Это первое в
+    проекте использование именно такой техники. Сама возможность технически подтверждена независимо
+    (глобальный `declare module '*.png'` в типах Next.js применяется к любому пути в проекте, не
+    только `src/`; `next.config.ts` не отключает Image Optimization; `sharp` уже установлен), но
+    Expected files/реализация должны учитывать, что это новый, не обкатанный в проекте механизм, а не
+    рутинное повторение. Встроенный Next.js Image Optimization должен генерировать
+    уменьшенные/оптимизированные версии на лету под каждый размер использования (миниатюра rail vs
+    полноразмерный фон); отдельный ручной ресайз/сжатие исходников и копирование в `public/` не
+    требуются — точные атрибуты (`sizes`, `priority`/`loading="lazy"`) настраиваются исполнителем при
+    реализации, не отдельный OQ. Фоновое фото рендерится только внутри ветки `department-active` (не
+    в `overview`), поэтому оно и так лениво подгружается только когда реально нужно — соответствует
+    Performance rules CLAUDE.md ("Lazy-load department assets") без дополнительного кода.
+    **Уточнение (найдено при skeptic Phase B review исполнения, Blocking, исправлено): статический
+    импорт оригиналов `references/**/*.png` напрямую был технически рабочим (сборка проходила), но
+    реально нестабильным под нагрузкой — независимо воспроизведено: полный `npm run test:e2e`
+    периодически ловил `page.goto` timeout >30с (до 4 из 5 прогонов), включая при `--workers=1`
+    (то есть не проблема параллелизма). Расследование (`netstat`, прямой вызов `sharp` в изоляции,
+    сравнение с/без `Accept: image/webp,avif`) показало настоящую причину: не время кодирования
+    (оно было быстрым и в изоляции, и после фикса), а объём отдельных HTTP-запросов к
+    `/_next/image`-эндпойнту (по одному на каждый размер/формат для каждой из 5 миниатюр + фона на
+    каждый рендер отдела) — за один прогон e2e это порождало тысячи short-lived TCP-соединений,
+    вплоть до исчерпания эфемерных портов Windows в рамках одного прогона (`netstat` показывал
+    TIME_WAIT-сокеты вплоть до верхней границы диапазона). Исправлено в два шага: (1) исходники
+    (3.1–3.6 МБ, 1536×1024, плохо сжатый PNG для этого типа контента) один раз предварительно
+    пересжаты в WebP через `sharp` (миниатюры — 160×160 под рендер 32×32 CSS px, фон — тот же
+    1536×1024 с лучшим сжатием), сохранены как `src/assets/office-photos/*.webp` (5–7 КБ на
+    миниатюру, 285 КБ фон — было 3.1–3.6 МБ); (2) `<Image unoptimized>` в
+    `DepartmentNavigationRail.tsx`/`OfficeExperience.tsx` — раз производные уже нужного размера и
+    формата, повторная обработка через `/next/image` не нужна и только добавляет round-trip; теперь
+    файл отдаётся напрямую как обычный статический ассет. После фикса: 5 подряд чистых прогонов
+    `npm run test:e2e` (включая `--workers=1`, тот же сценарий, где раньше падало) — 63/63 каждый раз,
+    ~20с вместо ~50с. `Department.reference` в `data/departments.json` по-прежнему указывает на
+    оригинал в `references/` — описание исходного дизайн-референса, не буквальный путь импорта.
+  - **Найдено при skeptic Phase A round 2 review (Blocking, применено inline): судьба поля
+    `Department.reference`.** Схема/типы уже содержат провалидированное поле `reference: string`
+    (например, `"references/executive/04-executive-department.png"`), которое не использовалось нигде
+    в рендере (round 1 skeptic finding). `next/image` требует статических ES-импортов с литеральными
+    путями, известными на этапе сборки — runtime-строку вида `department.reference` нельзя
+    использовать как спецификатор `import`. Поэтому компоненты используют захардкоженную карту с 5
+    явными `import` (после Phase B фикса — из предварительно сгенерированных производных
+    `src/assets/office-photos/${id}-thumbnail.webp`, не из оригиналов напрямую, см. уточнение выше):
+    `const photoByDepartmentId: Record<DepartmentId, StaticImageData> = { executive: executiveThumbnail,
+    sales: salesThumbnail, ... }`. Чтобы это не создавало второй, расходящийся источник истины,
+    **поле `Department.reference` остаётся в модели данных** (не удаляется, описывает исходный
+    дизайн-референс), и добавлен unit-тест (`src/tests/unit/content/departments.test.ts`), который
+    проверяет для каждого `id`: (1) существует import из `${id}-thumbnail.webp`; (2) объект-литерал
+    `photoByDepartmentId` присваивает ключу `id` именно эту импортированную переменную, а не
+    какую-то другую — расхождение/перепутанное присваивание ловится тестом (падает `npm run test`).
+    **Проверено эмпирически (не только теоретически) при Phase B review**: временная подмена двух
+    присвоений местами (`sales: supportThumbnail`) заставила тест реально упасть; после возврата
+    исходного кода — тест снова зелёный.
+  - **OQ-P2 = (a), с уточнением пользователя.** При открытии отдела и при любом переключении между
+    отделами панель выгоды сразу показывает пункт боли №1 — не пустое состояние, не приглашение
+    кликнуть. Согласовано с OQ-P3 (сброс на переключении, не "липкая" память последнего выбора).
+  - **OQ-P3 = (a).** Состояние "какой пункт боли выбран" — локальный `useState` в новом компоненте
+    боль/выгода, принудительно сбрасываемый к пункту №1 при переключении между отделами (через
+    `key={department.id}` на этом поддереве или через `useEffect`, привязанный к `department.id`, —
+    точный механизм решается при реализации, эквивалентен по результату). Редьюсер `office-machine`
+    не меняется.
+  - **OQ-P4 = (a).** 5 пунктов боли — обычные `<button type="button">` в обычном последовательном
+    Tab-порядке, нативная активация Enter/Space — без ARIA tablist/listbox/roving-tabindex; тот же
+    паттерн, что уже используют `DepartmentNavigationRail`/`CarouselNavControls`. Применяется
+    единообразно на всех breakpoint'ах, включая mobile-аккордеон (OQ-P6).
+  - **OQ-P5 = (a).** Черновая (явно не финальная, "будет правиться") копия боль/выгода пишется для
+    всех 4 оставшихся отделов (Продажи/Поддержка/HR/Логистика — 20 пар) в рамках реализации этого
+    шага, тем же тоном/форматом, что уже есть у "Дирекция" — все 5 отделов получают реальный
+    (черновой) контент за один проход, ни один zod-заглушечный текст не остаётся в `data/departments.json`.
+  - **OQ-P6 = (b).** Mobile (≤767px) получает собственный, специально спроектированный вариант
+    раскладки — список из 5 пунктов боли на всю ширину; тап/Enter/Space по пункту раскрывает или
+    заменяет его выгодой (accordion-подобное поведение, не боковая 20/80-колонка). Desktop/Tablet
+    (≥768px) используют боковую 20/80-раскладку. Оба варианта — CSS/условный рендер внутри одного и
+    того же логического компонента-дерева (тот же принцип "оба варианта в DOM, видимость по CSS",
+    что уже применялся в Step 7 для карты/карусели), либо два явно разных под-компонента,
+    переключаемых по breakpoint, — точная граница решается при реализации.
+  - Точный CSS-механизм "темнеет/бледнеет" для фонового фото (например, `filter: grayscale()
+    brightness()` vs полупрозрачный тёмный оверлей `::before`) — техническая настройка на этапе
+    реализации, низкий риск, тот же класс решения, что ширина rail 14% в Step 6.
+  - Переключение боль→выгода внутри уже открытого отдела — это уровень "selection"
+    (`docs/07-motion-system.md`, 180–320мс), отдельный от уже существующих `Transition`-переходов
+    `opening/switching/closing` (450–1000мс); лёгкое opacity-затухание в этом диапазоне (или без
+    анимации вовсе) — решение исполнителя, подчиняется `prefers-reduced-motion`, как и всё
+    остальное в проекте.
+  - Название отдела в левой панели — существующее поле `overviewLabel` (то же, что уже используют
+    `DepartmentNavigationRail`/`MobileDepartmentCarousel`/`aria-label` в `DepartmentExperience`), НЕ
+    неиспользуемое нигде в рендере поле `Department.name` — явно зафиксировано здесь (по замечанию
+    skeptic Phase A review), чтобы не решаться молча при реализации.
+
+  **Статус советов ассистента из `DECISIONS.md` 2026-07-16 (не решены пользователем — не спутаны с
+  решённым и не отброшены молча):**
+  - "Не обещать конкретных цифр экономии без реальных данных" — это не опциональный совет, а прямое
+    требование CLAUDE.md Copy rules ("Do not make unsupported promises about revenue, savings...");
+    применяется ко всей копии "боль/выгода" в этом шаге вне зависимости от отдельного согласования.
+  - "CTA может отражать выбранную боль" — не подтверждено, не отклонено — Out of scope этого
+    черновика.
+  - "Лёгкая подсветка соседних отделов" в панели — не подтверждено, не отклонено — Out of scope
+    этого черновика.
+
+- In scope:
+  - `src/content/types.ts` / `src/content/schema.ts` — `painPoints: { pain: string; gain: string }[]`
+    (ровно 5), заменяет `symptoms`/`outcomes` в `Department`.
+  - `data/departments.json` — реальный (черновой, OQ-P5) контент боль/выгода для всех 5 отделов;
+    черновик "Дирекция" из 5 пар выше переиспользуется как есть, по-прежнему не финальная копия;
+    новые 20 пар для Продажи/Поддержка/HR/Логистика пишутся в рамках этого шага, тем же тоном.
+  - `docs/12-content-data-model.md`, `docs/03-office-map.md` — уже honesty-исправлены 2026-07-16;
+    подтвердить/доформулировать после того, как схема реально ляжет в код.
+  - `docs/05-homepage-state-machine.md` "## department-active" — честная правка устаревшего описания
+    "3 symptoms/outcomes" (см. Objective, "Найдено при подготовке черновика").
+  - `src/components/office/DepartmentNavigationRail.tsx`/`.module.css` — фото-миниатюра (из
+    `references/**/*.png`, статический импорт через `next/image`) на каждый пункт, рядом с уже
+    существующим `overviewLabel`-текстом.
+  - `src/components/office/OfficeExperience.tsx`/`.module.css` — слой фонового фото офиса (тот же
+    источник `references/`, полноразмерный вариант) позади `.shell10x90` (`department-active`),
+    тёмный/десатурированный, когда отдел открыт; CSS-only переключение видимости/затемнения.
+  - `src/components/departments/DepartmentExperience.tsx`/`.module.css` — замена одноколоночной
+    композиции `DepartmentCopy` + `OutcomePanel` на: (a) Desktop/Tablet (≥768px) — боковую
+    20/80-раскладку боль/выгода; (b) Mobile (≤767px, OQ-P6) — отдельный вариант в столбик/аккордеон
+    (список боли на всю ширину, тап/Enter/Space раскрывает/заменяет выгодой). `DepartmentCopy`
+    по-прежнему рендерит `headline`/`problem` без изменений, но перестаёт рендерить список
+    `symptoms`. Новый(е) презентационный(е) компонент(ы) для боли/выгоды и для mobile-аккордеона —
+    точные имена/границы (например `PainGainPanel.tsx` для Desktop/Tablet,
+    `MobilePainGainAccordion.tsx` для Mobile) — решение исполнителя, не требует отдельного OQ.
+  - `OutcomePanel.tsx` — удаляется или репрофилируется (сейчас рендерит плоский `outcomes: string[]`,
+    которого больше не будет на `Department`); его роль берёт новый компонент(ы).
+  - Состояние "какой пункт боли выбран" (OQ-P2/OQ-P3) — новый локальный `useState`, дефолт — пункт
+    №1, принудительный сброс на пункт №1 при переключении отдела (`key={department.id}` или
+    эквивалентный `useEffect`) — не предполагается идентичным `previewIndex` Step 7 буквально, так
+    как — в отличие от карусели — `DepartmentExperience` НЕ размонтируется при `SWITCH_DEPARTMENT`
+    (независимо подтверждено skeptic Phase A review: `OfficeExperience.tsx` рендерит
+    `<DepartmentExperience department={activeDepartment} ... />` без `key`, привязанного к
+    `department.id`) — этот шаг вводит собственный сброс-механизм, а не переиспользует чужой.
+  - `CarouselNavControls` внутри `DepartmentExperience` (Step 7, Mobile ≤767px Prev/Next между
+    отделами) — сохраняется без изменения поведения/пропов; может измениться только его позиция в
+    переверстанной разметке (по-прежнему после содержимого боль/выгода/аккордеона, по-прежнему
+    видим только ≤767px через собственный CSS).
+  - Обновлённые unit-тесты: `src/tests/unit/content/departments.test.ts`,
+    `.../invalid-fixtures.test.ts` (новые фикстуры `painPoints`, удаление фикстур
+    `symptoms`/`outcomes`), `.../components/departments/department-experience.test.tsx`
+    (переписан вокруг `painPoints`, клик по пункту боли → появляется текст выгоды, дефолт на пункт
+    №1, сброс на переключении, сохранено wrap-around поведение `CarouselNavControls`),
+    `.../components/office/department-navigation-rail.test.tsx` (фото-элемент на каждый пункт),
+    новый unit-тест для mobile-аккордеона (OQ-P6).
+  - Новое/обновлённое e2e-покрытие: выбор пункта боли меняет видимый текст выгоды; дефолт на пункт
+    №1 при открытии/переключении (OQ-P2); клавиатурная достижимость всех 5 пунктов боли обычным
+    Tab-порядком (OQ-P4); фото в панели + фон присутствуют; регрессия затемнения фона (структурная/
+    атрибутная проверка, не пиксельное сравнение); отдельный mobile-аккордеон поток на ≤767px
+    (OQ-P6); полная регрессия существующих проверок `department-selection.spec.ts`, перенесённых с
+    `outcomes`/`symptoms` на `painPoints`.
+  - `README.md`/`WORKPLAN.md`/`WORKLOG.md` — статус-учёт.
+
+- Out of scope:
+  - Реагирующий на выбранную боль CTA (совет ассистента, не подтверждён пользователем) —
+    `DepartmentCTA` продолжает рендерить `ctaLabel` уровня отдела, без изменений.
+  - Подсветка соседних отделов в панели (совет ассистента, не подтверждён) — визуальное поведение
+    панели, кроме добавления фото, не меняется.
+  - `DepartmentScene`/`BeforeAfterSequence` — по-прежнему не вводятся (прецедент OQ-C, Step 6).
+  - Любая новая npm-зависимость (библиотеки оптимизации изображений, carousel/tabs и т.п.) — не
+    вводится без отдельного решения; `next/image` (уже используется `Header.tsx`) — единственный
+    доступный механизм рендера изображений без новой зависимости.
+  - Любые изменения `src/features/office-machine/reducer.ts` (6 состояний/9 действий) — не вводятся
+    (OQ-P3 решён в пользу локального состояния, не редьюсера).
+  - ARIA `tablist`/`listbox`-паттерн, roving tabindex, обработка стрелок для пунктов боли — не
+    вводится (OQ-P4 решён в пользу обычного Tab-порядка/нативных кнопок).
+  - Заглушечная копия боль/выгода для Продажи/Поддержка/HR/Логистика — не вводится (OQ-P5 решён в
+    пользу реальной черновой копии для всех 5 отделов сейчас).
+  - CSS-заглушка/плейсхолдер вместо реальных фото — не вводится (OQ-P1 решён в пользу реальных
+    `references/**/*.png`).
+  - Специфичная для Step 7.5 (Tablet) CSS-адаптация новой панели — остаётся задачей Step 7.5, как уже
+    зафиксировано в его собственной секции Dependencies (Step 7.5 зависит от структуры этого шага, не
+    наоборот).
+  - Реальная device-лаборатория, автоматизированное axe-сканирование, диагностика/`contact-open`,
+    `OfficeVisualLayer`/WebGL, `/solutions/*`-навигация, `popstate`, `MANIFEST.json`, CI pipeline —
+    все ранее установленные исключения остаются в силе без изменений.
+  - Разрешение открытых вопросов ниже planner'ом/исполнителем — каждый OQ требует явного ответа
+    пользователя до закрытия Phase A.
+
+- Dependencies: **Step 7.2 (`COMPLETED`)** — зависимость закрыта; этот шаг строится поверх уже
+  выпущенного поведения `.office`-padding/hero-hiding, блокеров нет. **Step 7.4 (`COMPLETED`)** —
+  делит файл `OfficeExperience.tsx`/`.module.css` (кнопка «Выйти из офиса» — в ветке `overview`, не
+  затрагивается этим шагом) — функционального конфликта нет, отмечено из-за общего файла.
+  **Step 7 (`COMPLETED`)** — `DepartmentExperience.tsx` уже содержит `CarouselNavControls` (Mobile
+  Prev/Next); переверстка этим шагом не должна его регрессировать (см. In scope/Risks). Обратной
+  зависимости от Step 7.5 (`APPROVED`, не начат) нет — Step 7.5 зависит от этого шага, не наоборот.
+
+- Expected files:
+  - `src/content/types.ts`, `src/content/schema.ts`
+  - `data/departments.json`
+  - `docs/12-content-data-model.md`, `docs/03-office-map.md`, `docs/05-homepage-state-machine.md`
+  - `src/components/office/DepartmentNavigationRail.tsx`/`.module.css`
+  - `src/components/office/OfficeExperience.tsx`/`.module.css`
+  - `src/components/departments/DepartmentExperience.tsx`/`.module.css`
+  - `src/components/departments/OutcomePanel.tsx`/`.module.css` (удаляется или заменяется)
+  - `src/components/departments/DepartmentCopy.tsx`/`.module.css` (перестаёт рендерить `symptoms`)
+  - Новый компонент(ы) для Desktop/Tablet 20/80 боль/выгода (например `PainGainPanel.tsx`, имя — на
+    этапе реализации).
+  - Новый компонент для Mobile-аккордеона (OQ-P6, например `MobilePainGainAccordion.tsx`, имя — на
+    этапе реализации) + `.module.css`.
+  - Новый `src/components/office/departmentPhotos.ts` — карта `photoByDepartmentId` + фон
+    `officeBackgroundPhoto`, статический импорт WebP-производных из `src/assets/office-photos/`.
+  - `src/tests/unit/content/departments.test.ts` (плюс новый unit-тест на привязку захардкоженной
+    карты `photoByDepartmentId` к правильному файлу-производному для каждого `id` — AC16, финальная
+    форма после Phase B review проверяет и наличие импорта `${id}-thumbnail.webp`, и то, что именно
+    он присвоен ключу `id`, не другой — эмпирически проверено подменой местами при реализации),
+    `.../invalid-fixtures.test.ts`, `.../components/departments/department-experience.test.tsx`,
+    `.../components/office/department-navigation-rail.test.tsx`, новый unit-тест
+    mobile-аккордеона.
+  - `src/tests/unit/components/office/department-hotspot.test.tsx` — **найдено при skeptic Phase A
+    round 2 review (Blocking, применено inline):** этот файл строит типизированный литерал
+    `Department` с полями `symptoms`/`outcomes` для тестовой фикстуры — сломает `npm run typecheck`
+    после удаления этих полей из типа, если не обновить фикстуру на `painPoints`; пропущен в
+    исходном перечислении.
+  - `src/tests/e2e/department-selection.spec.ts` (переписанные ассерты `outcomes`/`symptoms`)
+  - Новый `src/tests/e2e/department-pain-gain.spec.ts` (Desktop/Tablet) и/или расширение
+    `mobile-touch-flow.spec.ts` (mobile-аккордеон) — точное разбиение файлов уточняется при
+    реализации, по прецеденту Step 3 (`office-overview.spec.ts`/`office-overview-keyboard.spec.ts`).
+  - `README.md`, `WORKPLAN.md`, `WORKLOG.md`, `DECISIONS.md`.
+  - Новые `src/assets/office-photos/{sales,support,executive,hr,logistics}-thumbnail.webp` и
+    `office-background.webp` — предварительно сгенерированные один раз (`sharp`, вне рантайма)
+    WebP-производные оригиналов `references/**/*.png` (найдено при skeptic Phase B review: прямой
+    статический импорт оригиналов был технически рабочим, но нестабильным под нагрузкой e2e — см.
+    уточнение в Objective). Изображения — статический импорт этих производных внутри новых
+    компонентов (`DepartmentNavigationRail`, фон `OfficeExperience`) с `<Image unoptimized>`; новых
+    файлов под `public/` не требуется — `references/**/*.png` остаются единственным исходником
+    дизайна, `src/assets/office-photos/` — код-facing производные для рендера.
+
+- Acceptance criteria:
+  1. У `Department` нет полей `symptoms`/`outcomes`; есть `painPoints: {pain, gain}[]` ровно длины 5,
+     проверено zod для каждого из 5 отделов; все 5 отделов заполнены реальным (черновым) контентом —
+     ни одного заглушечного текста вида "Боль-заглушка N".
+  2. `DepartmentNavigationRail` рендерит `overviewLabel` (без изменений) плюс фото-миниатюру
+     (`next/image`, источник — `references/**/*.png`) для каждого из 5 пунктов.
+  3. Общее фото офиса (тот же источник `references/`) присутствует позади раскладки
+     `department-active` и визуально темнее/десатурированнее, чем в `overview` (по-прежнему
+     присутствует в DOM, не `display:none`).
+  4. На Desktop/Tablet (≥768px) рендерятся ровно 5 пунктов боли в боковой 20/80-раскладке, каждый
+     независимо кликабелен и фокусируем обычным Tab-порядком/Enter/Space (без ARIA tablist/listbox).
+  5. На Mobile (≤767px) рендерится отдельный столбик/аккордеон-вариант: список из 5 пунктов боли на
+     всю ширину, тап/Enter/Space по пункту раскрывает или заменяет его выгодой; та же клавиатурная
+     модель (обычный Tab-порядок), что на Desktop/Tablet.
+  6. При открытии отдела и при любом `SWITCH_DEPARTMENT` панель/аккордеон выгоды по умолчанию
+     показывает пункт боли №1 — детерминированно, без "залипания" на последнем выбранном пункте
+     предыдущего отдела.
+  7. Выбор пункта боли (клик/Enter/Space) показывает именно его `gain`-текст — и никакой другой; для
+     всех 5 позиций, на Desktop/Tablet и на Mobile-аккордеоне.
+  8. `CarouselNavControls` (Mobile ≤767px, Prev/Next между отделами) по-прежнему рендерится (после
+     контента боль/выгода/аккордеона) и по-прежнему диспетчирует `SWITCH_DEPARTMENT` без изменений —
+     регрессия, не новое поведение.
+  9. Поведение `DepartmentCTA`/«Закрыть» (видимость, работоспособность, `onClose`) не изменилось.
+  10. Полная регрессия существующих проверок `department-selection.spec.ts` (opening/switching/
+      closing, URL sync, focus management, `prefers-reduced-motion`, консоль/hydration) — перенесена
+      на `painPoints`, не ослаблена.
+  11. `docs/12-content-data-model.md`, `docs/03-office-map.md`, `docs/05-homepage-state-machine.md`
+      не содержат устаревших упоминаний `symptoms`/`outcomes` для department-active.
+  12. Граница breakpoint 767/768px для боль/выгода-раскладки проверена явно (аккордеон на 767px,
+      боковая 20/80 на 768px) — не предполагается по непрерывности.
+  13. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
+      `npm run test:e2e` — все exit 0.
+  14. Ни одна новая npm-зависимость не добавлена; никаких новых файлов не появилось под `public/`.
+  15. `git diff --stat` ограничен списком Expected files.
+  16. **(найдено при skeptic Phase A round 2, ужесточено при Phase B review)** Захардкоженная карта
+      фото-импортов (`photoByDepartmentId`) проверена unit-тестом на то, что каждый ключ `id`
+      привязан именно к импорту `${id}-thumbnail.webp`, а не к перепутанному — тест эмпирически
+      проверен (временная подмена местами реально ломает его, не только теоретически).
+  17. Реальные фото (миниатюры и фон) отдаются напрямую как статический ассет (`unoptimized`), без
+      прохода через `/next/image` на каждый запрос — сетевой ответ миниатюры заметно меньше
+      исходного `references/**/*.png`.
+
+- Verification commands:
+  ```bash
+  npm run format:check
+  npm run lint
+  npm run typecheck
+  npm run test
+  npm run build
+  npm run test:e2e
+  ```
+  Плюс обязательная dev-mode console-проверка (тот же прецедент, что Steps 5/6/7/7.2): `npm run dev`,
+  headless Playwright по полному потоку `hero → overview → открыть отдел → выбрать пункт боли →
+  переключить отдел → закрыть`, ожидается `[]` console/pageerror.
+
+- Manual checks:
+  - Chrome DevTools: Desktop (1280×800, 1920×1080), низкий desktop (1280×500), Tablet
+    (768×1024, 1024×768) — фото в панели + затемнённый фон + 20/80-раскладка рендерятся без обрезки/
+    наложения; реальные `references/**/*.png` визуально узнаваемы, не битые/не placeholder.
+  - Mobile (320–767px) — аккордеон-вариант: список боли на всю ширину, тап раскрывает выгоду, нет
+    горизонтального скролла, нет наложения с `CarouselNavControls`.
+  - Клавиатура: полный Tab-проход на Desktop/Tablet и на Mobile-аккордеоне (обычный Tab-порядок,
+    Enter/Space).
+  - `prefers-reduced-motion: reduce` — переключение боль→выгода без анимации либо мгновенный аналог.
+  - Сетевая вкладка DevTools — подтвердить, что фоновое фото не загружается, пока отдел не открыт
+    (ленивая загрузка, Performance rules CLAUDE.md); **дополнено при skeptic Phase A round 2 review,
+    уточнено после Phase B фикса (`unoptimized` + предварительно сгенерированные WebP):** отдельно
+    подтвердить, что размер сетевого ответа миниатюры rail (не полноразмерного фона) заметно меньше
+    исходного файла `references/**/*.png` (3.1–3.6 МБ) — фактически подтверждено: миниатюры 5–7 КБ,
+    фон 285 КБ, отдаются напрямую как статический ассет (без `/next/image` round-trip, `unoptimized`).
+  - `git diff --stat` относительно списка Expected files.
+
 - Risks:
-  - Реальное изменение модели данных (`painPoints` вместо `symptoms`/`outcomes`) — затрагивает
-    контент всех 5 отделов, не только вёрстку; потребует полной новой копии (25 пар), не только
-    правки компонентов.
-  - Пользователь всё ещё сверяет остальные экраны прототипа — scope может измениться до `APPROVED`.
-  - Уже пройденные/ожидающие подтверждения Steps 3–7 могут потребовать пересмотра тестов, которые
-    полагаются на текущую структуру `symptoms`/`outcomes` (та же категория риска, что и в Step 7.2).
-- Rollback: _(детализируется на Phase A)_
-- Skeptic verdict: _(не проводился — план ещё не готов к review)_
-- Skeptic findings: _(не проводился)_
-- Completion evidence: _(шаг не начат)_
+  - **Реальные фото-ассеты (OQ-P1) — первый в проекте случай использования фото такого объёма.**
+    Изначальный подход (статический импорт оригиналов `references/**/*.png` напрямую через
+    `next/image`, полагаясь на встроенную Image Optimization) технически работал, но независимо
+    подтверждённо приводил к нестабильности e2e под нагрузкой (см. Objective, найдено при skeptic
+    Phase B review) — исчерпание эфемерных портов Windows из-за большого числа отдельных запросов к
+    `/next/image`-эндпойнту. **Устранено**: предварительно сгенерированные WebP-производные
+    (`src/assets/office-photos/`) + `<Image unoptimized>` — подтверждено 5 подряд чистыми прогонами
+    `npm run test:e2e` (включая `--workers=1`). Фон по-прежнему грузится лениво только при открытии
+    отдела (монтируется вместе с веткой `department-active`, не превентивно на `overview`).
+  - **Место хранения состояния выбора (OQ-P3) содержит реальную, ранее не замеченную тонкость**:
+    `DepartmentExperience` не размонтируется при `SWITCH_DEPARTMENT` (в отличие от
+    `MobileDepartmentCarousel`, который размонтируется, потому что размонтируется вся ветка
+    `overview`) — независимо подтверждено skeptic Phase A review чтением `OfficeExperience.tsx` и
+    кода `reducer.ts`. Наивное копирование паттерна `previewIndex` молча перенесло бы устаревший
+    индекс боли через переключение отдела — этот шаг вводит собственный сброс-механизм (см. Objective).
+  - **Отдельный Mobile-аккордеон (OQ-P6) — новый компонент, а не CSS-адаптация существующего** —
+    больше поверхности для review/тестирования, чем изначально предполагал минимальный (a)-вариант;
+    требует собственного unit+e2e покрытия, не только регрессии.
+  - Объём копирайтинга: 20 пар боль/выгода (4 отдела × 5) пишутся впервые в рамках этого шага —
+    качество/тон копии для не-"Дирекция" отделов не проходил отдельного review до реализации.
+  - Step 7.5 (Tablet, `APPROVED`, не начат) прямо зависит от результата этого шага — любая задержка/
+    переработка здесь откладывает старт Step 7.5.
+  - Риск расползания scope: соблазн попутно реализовать реагирующий CTA или подсветку соседних
+    отделов "раз уже трогаем этот файл" — явно отклонено (Out of scope).
+
+- Rollback: `git revert` коммита(ов) этого шага — аддитивное изменение схемы/компонентов
+  относительно Steps 3–7.2/7.4 (URL-sync, состояния/действия редьюсера не меняются). Деструктивный
+  `git reset --hard` — только с явного разрешения пользователя.
+
+- Профильный ревьюер (Phase D, milestone review после этого шага и Step 7.5): `frontend-architect` и
+  `qa-reviewer` (обязательно, `CLAUDE.md`); `ux-strategist` (обязательно — пользовательский паттерн
+  боль/выгода, клавиатурная модель, первый реальный фото-ассет в прототипе); `motion-engineer`
+  (впервые используется категория "selection" из `docs/07`).
+
+- Skeptic verdict: `PASS` (Phase A, план-ревью, 2026-07-17). Независимо перепроверил все ключевые
+  фактические утверждения черновика напрямую по репозиторию (не на веру): (1) подтверждено — ни один
+  компонент не рендерит `Department.reference`/фото нигде сейчас (`grep` по `src`); (2) подтверждено
+  — реальные размеры `references/**/*.png` 3.32–3.73 МБ; (3) подтверждено, самая нагруженная находка
+  — `DepartmentExperience` рендерится без `key`, привязанного к `department.id`, `SWITCH_DEPARTMENT`
+  не вызывает размонтирование, в отличие от `MobileDepartmentCarousel`; (4) подтверждено — `docs/05`
+  "department-active" реально устарел относительно `docs/03`/`docs/12`; (5) подтверждено —
+  `CarouselNavControls` реально живёт внутри `DepartmentExperience.tsx`; (6) подтверждено —
+  `.length(5)`-паттерн реально уже используется в `departmentsSchema`/`officeZonesDataSchema`; (7)
+  один non-blocking пробел — поле `Department.name` не используется нигде в рендере, черновик не
+  указывал явно, что панель использует именно `overviewLabel` (см. ниже, применено); (8) подтверждено
+  — в `docs/11-accessibility.md` нет tablist/roving-tabindex конвенции, весь проект сегодня использует
+  только обычный Tab-порядок `<button>`; (9) других фактических ошибок не найдено, включая честно
+  отмеченное расхождение поля Dependencies (было "Step 7.2 (`PROPOSED`)", теперь `COMPLETED`).
+- Skeptic findings (round 1): Non-blocking (1): панель использует `overviewLabel`, а не
+  неиспользуемое поле `Department.name`, — не было явно зафиксировано в черновике как технический
+  факт. **Применено inline** (см. Objective, "Технические решения, принятые здесь" выше). Blocking:
+  нет.
+
+- Skeptic verdict (round 2, после ответов пользователя на OQ-P1–OQ-P6): `FAIL` (2026-07-17).
+  Независимо перепроверил переработанный план по репозиторию: (1) **Blocking** — заявление "тот же
+  прецедент, что уже использует `Header.tsx`" было фактически неверным (`Header.tsx` использует
+  строковый `public/`-путь к SVG, не статический ES-импорт растрового файла извне `src/`) — сама
+  техника подтверждена как технически рабочая (глобальный `declare module '*.png'`, `sharp` уже
+  установлен, `next.config.ts` не отключает Image Optimization), но ложная ссылка на прецедент
+  введена в заблуждение; (2) **Blocking** — судьба поля `Department.reference` не была решена: так
+  как `next/image`-статический импорт требует литеральных путей, а `department.reference` — runtime-
+  строка, реализация неизбежно вводит захардкоженную карту фото-импортов как второй источник истины,
+  который может разойтись с JSON без единого теста, ловящего расхождение; (3) **Blocking** —
+  `src/tests/unit/components/office/department-hotspot.test.tsx` строит типизированный литерал
+  `Department` с полями `symptoms`/`outcomes` и не был включён в Expected files/тестовый
+  перечень — без правки этого файла `npm run typecheck` реально сломается после удаления полей.
+  Non-blocking: Manual checks не проверяли явно, что миниатюра rail в сети действительно уменьшена
+  Image Optimization, а не отдаёт исходный файл целиком. Остальные пункты (Mobile-аккордеон как
+  реальный новый компонент, отсутствие новых файлов под `public/`, консистентность AC 4/5 для
+  Desktop/Tablet и Mobile, отсутствие устаревших "по итогу OQ" формулировок, отсутствие регрессии
+  `DepartmentCTA`/`CarouselNavControls`/`DepartmentCopy`/`OutcomePanel`) — независимо подтверждены
+  как корректные, без замечаний.
+- Correction (после round 2 `FAIL`): все три Blocking-находки исправлены inline (не требуют нового
+  решения пользователя, по заключению skeptic) — (1) ложная ссылка на прецедент `Header.tsx` заменена
+  честной формулировкой "первое использование такой техники в проекте" (см. Objective выше); (2)
+  добавлено явное решение — `Department.reference` остаётся в модели данных, вводится новый unit-тест
+  на совпадение путей захардкоженной карты с этим полем (см. Objective, Expected files, Acceptance
+  criterion 16); (3) `department-hotspot.test.tsx` добавлен в Expected files с пояснением; non-blocking
+  правка про Network-проверку миниатюры добавлена в Manual checks.
+- Skeptic re-check (сфокусированный, не полный round 3, по прямому указанию round 2 verdict) —
+  `FAIL`: (1) Blocking — Expected files фактически НЕ содержал упоминания нового drift-check теста
+  (`photoByDepartmentId` ↔ `Department.reference`), хотя Correction-запись утверждала обратное —
+  исправлено: явное упоминание добавлено в bullet `departments.test.ts` в Expected files; (2)
+  Non-blocking — правка про ложный `Header.tsx`-прецедент была в Objective ошибочно помечена как
+  "non-blocking correction", что противоречило Status/round 2 verdict (везде классифицировано как
+  Blocking) — исправлено: метка убрана. Оба пункта исправлены inline без нового решения пользователя.
+- Skeptic findings (round 2 + focused re-check): см. verdict-записи выше — 3 Blocking round 2 + 1
+  Blocking и 1 non-blocking re-check, все исправлены inline.
+- Skeptic Phase B review (round 1, после первичной реализации) — `FAIL`. 3 Blocking: (1)
+  `npm run test:e2e` был реально нестабилен (не разовый флейк, как изначально честно, но неточно,
+  предполагалось) — независимо воспроизведено skeptic'ом в 4 из 5 полных прогонов, включая
+  `--workers=1`; два процессных документа (`WORKLOG.md`/`WORKPLAN.md`) на тот момент давали два
+  разных, взаимоисключающих объяснения одного и того же инцидента — сигнал, что причина не была
+  по-настоящему установлена; (2) drift-check тест (AC16 на тот момент) проверял только "путь
+  reference встречается где-то в тексте файла", но не то, что конкретный ключ `photoByDepartmentId`
+  привязан именно к правильной переменной — подмена местами (`sales: supportPhoto`) осталась бы
+  незамеченной; (3) `npm run format:check` реально падал на первом независимом прогоне skeptic'а
+  (рассинхронизация README.md таблицы после ручной правки) — противоречило заявленным "все exit 0".
+- Correction (после Phase B round 1 `FAIL`): (1) **настоящая причина найдена** (не концовка на
+  "холодный кэш/разовый флейк", а честное расследование) — прямой статический импорт оригиналов
+  `references/**/*.png` порождал по HTTP-запросу на каждый размер/формат для каждой из 5 миниатюр +
+  фона на каждый рендер отдела; за один e2e-прогон это давало тысячи short-lived TCP-соединений к
+  `/_next/image`, вплоть до исчерпания эфемерных портов Windows в рамках одного прогона (`netstat`
+  подтвердил TIME_WAIT-сокеты вплоть до верхней границы диапазона) — воспроизводилось независимо от
+  `--workers`. Исправлено: (a) исходники предварительно пересжаты в WebP через `sharp`
+  (`src/assets/office-photos/*.webp` — миниатюры 160×160/5–7 КБ, фон 1536×1024/285 КБ, было
+  3.1–3.6 МБ каждый); (b) `<Image unoptimized>` — производные уже нужного размера/формата, повторная
+  обработка через `/next/image` не нужна, файл отдаётся как обычный статический ассет без лишнего
+  round-trip. (2) drift-check тест переписан: проверяет для каждого `id` — существует import из
+  `${id}-thumbnail.webp`, и именно эта переменная присвоена ключу `id` в object-литерале (не другая) —
+  эмпирически проверено (временная подмена местами → тест падает; возврат кода → тест снова зелёный).
+  (3) `format:check` починен (`npm run format`). Objective/Expected files/Risks/Manual checks в
+  WORKPLAN.md переписаны без исторических неточностей (не two conflicting explanations, а один
+  честный, проверенный текст).
+- Skeptic Phase B re-check (сфокусированный, после Correction) — `PASS` (2026-07-17). Независимо
+  перепроверил все 3 Blocking-находки round 1: (1) `test:e2e` реально стабилен — сам прогнал
+  параллельно (63/63, ~20с) и `--workers=1` (63/63, ~45с, та же конфигурация, где round 1 ловил
+  таймаут); подтвердил механизм фикса (`unoptimized` на всех трёх `<Image>`, импорт WebP-производных
+  5–7 КБ/285 КБ вместо 3.1–3.6 МБ оригиналов); подтвердил, что `WORKPLAN.md`/`WORKLOG.md` больше не
+  содержат двух противоречащих объяснений — старые гипотезы (осиротевшие процессы, холодный кэш,
+  разовый флейк) присутствуют только как явно отозванные. (2) drift-check тест — сам воспроизвёл:
+  подмена `sales`↔`support` местами реально уронила тест с точным сообщением, возврат кода — снова
+  зелёный (файл byte-identical по хешу). (3) `format:check` — exit 0. Полный набор проверок прогнал
+  сам: format/lint/typecheck/test (122/122)/build/test:e2e (parallel + `--workers=1`) — все exit 0.
+  Non-blocking: строка `departmentPhotos.ts` изначально отсутствовала отдельным пунктом в Expected
+  files (задокументирован в других строках) — добавлена после re-check. Blocking: нет.
+- Completion evidence (после Phase B round 1 correction, 2026-07-17): все Expected files изменены
+  (`content/types.ts`/`schema.ts`, `data/departments.json`, `docs/03`/`docs/05`/`docs/12`), новые
+  компоненты `PainGainPanel`/`MobilePainGainAccordion`/`departmentPhotos.ts` + `src/assets/
+  office-photos/*.webp` созданы, `OutcomePanel.tsx`/`.module.css` удалены, `DepartmentCopy`/
+  `DepartmentExperience`/`DepartmentNavigationRail`/`OfficeExperience` обновлены. Реальные фото
+  используются (OQ-P1) через предварительно оптимизированные WebP-производные +
+  `<Image unoptimized>` — независимо подтверждено чистой сборкой и чистыми прогонами `npm run
+  test:e2e` (63/63 каждый, включая `--workers=1`, ~20с вместо ~50с до фикса), в т.ч. независимо
+  перепрогнано skeptic'ом при re-check. `npm run format:check`/`lint`/`typecheck`/`test` (122/122,
+  включая drift-check с эмпирической проверкой) — все exit 0. Ручная проверка (одноразовый
+  Playwright-скрипт против `npm run dev`, не сохранён в репозитории): консоль чистая на Desktop
+  (`?department=executive`) и Mobile (`?department=sales`, 375×812); граница breakpoint 767/768px
+  подтверждена; клавиатура — после программного фокуса на заголовке первый Tab уходит на первый пункт
+  боли; клик/тап по пункту боли меняет текст выгоды и не оставляет старый виден (скриншоты Desktop
+  pain#3, Mobile pain#2).
+- Закрытие: `PASSED` → `COMPLETED` по явному подтверждению пользователя 2026-07-17 ("Закрывай Step
+  7.3"), тот же прецедент, что закрытие Step 5/7/7.2/7.4. Код и `src/assets/office-photos/*.webp`
+  остаются незакоммиченными в рабочем дереве (коммит не запрашивался). Следующий по плану — Step 7.5
+  (Tablet, `APPROVED`), зависел от готовой структуры этого шага.
+
+## Open questions (Step 7.3) — OQ-P1–OQ-P6 RESOLVED 2026-07-17
+
+Все шесть вопросов заданы пользователю напрямую через `AskUserQuestion` 2026-07-17 (двумя раундами,
+4+2 вопроса). Ответы: **OQ-P1 = (a)** с уточнением — реальные `references/**/*.png` используются и
+как общий фон, и как источник миниатюр (разошлось с рекомендацией исполнителя — CSS-заглушка);
+**OQ-P2 = (a)** с уточнением — дефолт на пункт №1, всегда сбрасывается при переключении/возврате
+(совпало с рекомендацией); **OQ-P3 = (a)** — локальное состояние, сбрасывается при переключении
+(совпало с рекомендацией); **OQ-P4 = (a)** — обычный Tab + нативные кнопки (совпало с
+рекомендацией); **OQ-P5 = (a)** — черновая копия для всех 5 отделов сейчас (совпало с
+рекомендацией); **OQ-P6 = (b)** — отдельный mobile-аккордеон (совпало с рекомендацией). Полный текст
+решений и обоснование — `DECISIONS.md` 2026-07-17 "Step 7.3: ответы на OQ-P1–OQ-P6". Решения уже
+внесены в основную секцию Step 7.3 выше. Полный текст исходных вариантов сохранён ниже для истории/
+трассируемости.
+
+**OQ-P1. Источник фото для миниатюр в панели и общего затемняемого фона.** Сегодня в живом прототипе
+нет ни одной фотографии отдела и ни одного фонового фото офиса (`OfficeExperience` рендерит только
+карточки/хотспоты на токен-цветных фонах). Единственный кандидат — `Department.reference`
+(`references/*.png`) — (a) нигде не используется в рендере сегодня, (b) в `references/README.md`
+описан как референс для дизайнера ("мастер-референс", метафоры, "лого... при необходимости
+перерисовать" — то есть не готов к продакшену как есть), (c) весит 3.3–3.7 МБ на файл — прямо
+затрагивает Performance rules CLAUDE.md ("Lazy-load department assets", "Do not preload all detailed
+scenes") и решение 2026-07-14 держать low-fidelity и art-direction раздельными последовательными
+этапами.
+- (a) Использовать `references/*.png` как есть, скопировав/оптимизировав в `public/`, как реальные
+  фото панели и реальный фон — вносит art-direction-уровня ассет в low-fidelity milestone уже сейчас;
+  требует ресайза/сжатия, не входящего иначе в scope.
+- (b) Новые, намеренно low-fidelity плейсхолдер-изображения (простые плоские иллюстрации/иконки на
+  отдел, по несколько КБ) — сохраняет визуальную low-fidelity прототипа, откладывает реальную
+  фотографию до будущего art-direction milestone; структурное требование ("у каждого отдела есть
+  фото-элемент") всё равно выполнено.
+- (c) Единый обобщённый плейсхолдер (или CSS-only заглушка: цветной блок + `alt`-текст, без бинарного
+  ассета вообще) для всех 5 отделов и фона — выполняет "фото-элемент существует, семантически описан"
+  при нулевом весе новых ассетов; отдельная картинка на отдел — будущая задача.
+- (d) Не вводить фото-ассет в этом шаге вообще; выпустить структурную 20/80-раскладку боль/выгода
+  сейчас, а "фото в панели + затемняемый фон" — отдельным будущим шагом, когда появится реальный/
+  согласованный визуал — сужает scope этого шага, но расходится с уже данной пользователем структурой
+  для `department-active`; потребует отдельного согласования на разделение.
+
+**OQ-P2. Начальное состояние области выгоды (80%) до клика по любому пункту боли** — при первом
+открытии отдела и при переключении на другой отдел. Не уточнено ни решением пользователя, ни
+отредактированным текстом `docs/03`.
+- (a) По умолчанию выбран пункт боли №1 (его выгода видна сразу при открытии/переключении) — нет
+  пустого состояния, но подразумевает "выбранное" визуальное/ARIA-состояние без действия пользователя.
+- (b) Явный плейсхолдер/приглашение ("Выберите проблему слева, чтобы увидеть выгоду") до клика — нет
+  дефолтного выбора, чище начальная семантика, но добавляет один лишний клик перед тем, как увидеть
+  текст выгоды при каждом визите в отдел.
+- (c) Пункт №1 по умолчанию при первом открытии, но последний выбранный пункт сохраняется для отдела
+  при повторных `SWITCH_DEPARTMENT`/открытиях в рамках сессии — самый "цепкий"/stateful вариант, выше
+  сложность реализации (напрямую завязан на OQ-P3).
+
+**OQ-P3. Где живёт состояние "выбранный пункт боли" и сбрасывается ли оно.** В отличие от
+`previewIndex` в Step 7 (сбрасывается бесплатно, так как родительская ветка размонтируется/
+монтируется заново), `DepartmentExperience` НЕ размонтируется при переключении между двумя уже
+открытыми отделами (`SWITCH_DEPARTMENT` использует ту же JSX-ветку). Наивный локальный `useState` тихо
+перенёс бы устаревший индекс через переключение.
+- (a) Локальный `useState` в новом компоненте боль/выгода, принудительно сбрасываемый через
+  `key={department.id}` на этом поддереве — самое простое решение, без правок редьюсера/URL, тот же
+  дух, что и `previewIndex` (локальное, не machine-состояние), с поправкой на найденное отличие в
+  размонтировании.
+- (b) Локальный `useState` плюс явный `useEffect`, привязанный к `department.id`, сбрасывающий индекс
+  без размонтирования всего поддерева — тот же результат, что (a), чуть меньше DOM-churn, чуть больше
+  кода.
+- (c) Поднять "индекс выбранной боли" в редьюсер `office-machine` как новое состояние — больший
+  blast radius (новое поле/действие редьюсера, противоречит паттерну "новое состояние редьюсера не
+  вводится", которому следовали все предыдущие шаги 7.x), оправдано только если выбор должен быть
+  доступен через URL или читаться в другом месте дерева.
+- (d) Не сбрасывать вовсе — индекс сохраняется численно через переключения — не рекомендуется
+  (неожиданный UX: отдел B может открыться с уже "выбранным" пунктом №4 просто потому, что это было
+  последним кликом на отделе A), приведено для полноты.
+
+**OQ-P4. Клавиатурная модель для 5 пунктов боли.** `docs/11-accessibility.md` говорит только "Tab по
+отделам; Enter/Space открывает" в общих чертах — не специфицирует listbox/tablist-паттерн со стрелками
+для группы взаимоисключающих выбираемых пунктов. Единственный существующий в проекте прецедент
+"несколько кнопок на выбор" (`DepartmentNavigationRail`, `CarouselNavControls`) использует обычный
+последовательный Tab + нативные Enter/Space на `<button>`, не roving-tabindex/стрелки.
+- (a) Обычный последовательный Tab-порядок — 5 отдельных `<button type="button">`, каждая в обычном
+  Tab-порядке, нативная активация Enter/Space — точно повторяет уже существующий прецедент rail/
+  карусели, не вводит новый паттерн взаимодействия.
+- (b) ARIA `tablist`/`tab`/`tabpanel` (пункты боли — табы, область выгоды — tabpanel) — более точное
+  семантическое соответствие "выбор одного из 5 взаимоисключающих видов", но требует roving tabindex +
+  обработку стрелок по WAI-ARIA APG — паттерн, нигде больше не используемый в проекте, требует
+  собственного тестового покрытия.
+- (c) ARIA `listbox`/`option` — та же сложность roving tabindex/стрелок, что (b), более слабое
+  семантическое соответствие, чем tablist, для этого конкретного взаимодействия "кликнул — увидел
+  деталь".
+
+**OQ-P5. Писать ли оставшиеся 20 пар боль/выгода (4 отдела × 5) в рамках реализации этого шага, или
+отдельной content-задачей?** Только "Дирекция" имеет (не финальный) черновик; zod-инвариант
+`.length(5)` потребует хоть какого-то валидного контента для всех 5 отделов в момент правки схемы —
+поэтому "заблокировать до появления реальной копии" не отдельный третий путь: реальный выбор — между
+реальной (пусть не финальной) деловой копией для всех 5 сейчас или заглушечной копией для 4 отделов с
+последующей content-задачей.
+- (a) Написать черновую (явно не финальную, "будет правиться") копию боль/выгода для всех 4
+  оставшихся отделов в рамках этого же шага, в том же тоне/формате, что уже есть у "Дирекция" —
+  выпускает полностью демонстрируемый, с реальным контентом опыт для всех 5 отделов за один проход.
+- (b) Выпустить структурную/схемную правку сейчас с явной заглушкой для 4 не-"Дирекция" отделов
+  (например, "Боль-заглушка 1" / "Выгода-заглушка 1"), отдельным будущим шагом WORKPLAN заменить их на
+  реальную черновую копию — меньше диффа в этом шаге, но 4 из 5 отделов визуально незакончены до
+  этого будущего шага.
+
+**OQ-P6. Применяется ли 20/80-раскладка боль/выгода единообразно и на Mobile (≤767px), или Mobile
+нужен собственный явно спроектированный вариант в рамках этого шага?** `DepartmentExperience` — один
+общий компонент на Desktop/Tablet/Mobile сегодня (только padding/font-size отличаются по breakpoint,
+нет breakpoint-зависимой замены контента). Step 7 (Mobile, `COMPLETED`) уже рендерит этот компонент,
+включая `CarouselNavControls`. Так как `symptoms`/`outcomes` удаляются из модели данных полностью,
+Mobile в любом случае не сможет рендерить старую форму — опциональна только *визуальная раскладка*
+(буквально бок о бок 20/80 vs раскладка в столбик/аккордеон).
+- (a) Выпустить ту же раскладку 20/80 бок о бок как единственный вариант пока что, с базовой
+  регрессионной проверкой, что она визуально не ломается на Mobile-ширинах (риск: колонка шириной 80%
+  на 320–375px, вероятно, слишком узкая для использования, может понадобиться аварийный
+  столбик-фолбэк всё равно).
+- (b) Спроектировать и выпустить явный Mobile-специфичный вариант в столбик/аккордеон (список боли на
+  всю ширину; тап по пункту раскрывает/заменяет его выгодой) в рамках этого же шага, чтобы Mobile не
+  остался в стихийном состоянии — больший scope, но сохраняет уже `COMPLETED`/подтверждённый
+  пользователем Mobile-поток аккуратно законченным, а не случайно деградировавшим.
+
+## Step 7.4 — Global return-to-hero navigation + header tagline
+
+- Status: `COMPLETED` (пользователь явно подтвердил закрытие, 2026-07-17: «Закрывай Step 7.2 и
+  Step 7.4. Как закроешь, остановись и сообщи.»).
+- Status history: `AWAITING_SKEPTIC` → skeptic Phase B round 1 `PASS` (кнопка в `Header`) →
+  `PASSED` → **пользователь скорректировал размещение кнопки до подтверждения `COMPLETED`** (см.
+  `DECISIONS.md` "Возврат кнопки из Header в панель офиса") → `AWAITING_SKEPTIC` (round 2) →
+  skeptic Phase B round 2 `PASS` (без блокирующих находок; 1 non-blocking — противоречие между
+  формулировками Manual checks в `WORKPLAN.md` и `WORKLOG.md` — устранено inline) → `PASSED` →
+  **пользователь переименовал кнопку «Вернуться в офис» → «Выйти из офиса» до подтверждения
+  `COMPLETED`** (чисто контентная правка, отдельный лёгкий skeptic review `PASS`, см.
+  `DECISIONS.md` "Переименование кнопки...") → `PASSED` → `COMPLETED` (2026-07-17).
+- Objective: Добавить два элемента (устраняют реальный пробел, найденный пользователем при
+  визуальной проверке Step 7.2: после скрытия hero не было способа вернуться к исходному экрану,
+  кроме перезагрузки страницы): (1) кнопку «Выйти из офиса» (`copy.returnToOfficeLabel`) —
+  **над сеткой отделов, внутри панели офиса** (`OfficeExperience`), видима только в `overview`
+  (когда отдел не выбран) — по клику мгновенно возвращает в `hero`, очищая
+  `activeDepartmentId`/URL-параметр `?department=` и перенося focus на заголовок hero;
+  (2) текстовый тэглайн (`copy.tagline`) по центру `Header`, видимый во всех состояниях без
+  исключений (не затронуто правкой — осталось как было реализовано изначально).
+  **Правка 2026-07-16 (после первичной реализации, до подтверждения `COMPLETED`):** первая версия
+  этого шага размещала и кнопку, и тэглайн в `Header`, с кнопкой видимой во ВСЕХ не-`hero`
+  состояниях (включая `department-active`). Пользователь скорректировал: кнопка переезжает в
+  панель офиса, над сеткой карточек отделов, и видима **только в `overview`** — из
+  `department-active` пути назад в hero теперь два шага (существующая кнопка «Закрыть» →
+  `overview` → «Выйти из офиса» → `hero`), не один прямой клик. Тэглайн остаётся в `Header` без
+  изменений.
+- **Архитектурная правка (первая версия, теперь частично отменена):** `Header` был статичным
+  server-компонентом СНАРУЖИ `OfficeMachine`. Для кнопки в `Header` потребовался перенос `Header`
+  внутрь `OfficeMachine.tsx`, чтобы получить `view`/`dispatch`. **После правки размещения кнопки
+  этот перенос всё ещё нужен** — `Header` остаётся внутри `OfficeMachine` (для тэглайна доступ к
+  состоянию не требовался бы, но откатывать перенос ради этого не имеет смысла — `.main`-стиль уже
+  живёт в `OfficeMachine.module.css`, откат создал бы лишний diff без функциональной причины);
+  `Header.tsx` при этом упрощён обратно до `{ tagline: string }` — пропы `showReturnButton`/
+  `onReturnHome` удалены, кнопка теперь — проп `OfficeExperience` (`returnToOfficeLabel`/
+  `onReturnHome`), рендерится в overview-ветке `OfficeExperience.tsx`, перед `OfficeSemanticMap`.
+- In scope:
+  - `src/features/office-machine/reducer.ts` — действие `RETURN_TO_HERO`
+    (`{view: "hero", activeDepartmentId: null}` из любого состояния, кроме `hero` — no-op там; не
+    изменено правкой — сам редьюсер по-прежнему принимает действие из любого состояния, изменилось
+    только то, из какого UI-элемента и в каких состояниях он реально диспетчерится).
+  - `src/features/office-machine/OfficeMachine.tsx` — `Header` рендерится здесь (`tagline` —
+    единственный проп); `OfficeExperience` получает новые пропы `returnToOfficeLabel`/
+    `onReturnHome`; focus-management ветка (`state.view === "hero" && previousView !== "hero"` →
+    focus на `#hero-heading`) не изменена.
+  - `src/components/homepage/Header.tsx`/`.module.css` — **правка**: пропы `showReturnButton`/
+    `onReturnHome` удалены, остался один `tagline`; раскладка упрощена обратно (лого+бренд слева,
+    тэглайн по центру, без колонки для кнопки).
+  - `src/components/office/OfficeExperience.tsx`/`.module.css` — **правка**: новые пропы
+    `returnToOfficeLabel: string`/`onReturnHome: () => void`; кнопка рендерится первым элементом в
+    overview-ветке (перед `<p className={styles.hint}>`), только когда `activeDepartment`
+    отсутствует — структурно недоступна, когда открыт отдел, вместе с остальной overview-веткой
+    (`OfficeSemanticMap`/`MobileDepartmentCarousel`).
+  - `src/components/homepage/HeroCopy.tsx` — `id="hero-heading" tabIndex={-1}` на `<h1>` (не
+    затронуто правкой).
+  - `src/components/homepage/HomepageShell.tsx`/`.module.css`,
+    `src/features/office-machine/OfficeMachine.module.css` — не затронуты этой правкой.
+  - `src/content/types.ts`, `src/content/schema.ts`, `data/homepage-copy.json` — поля
+    `HomepageCopy.tagline`/`HomepageCopy.returnToOfficeLabel` не затронуты правкой.
+  - `docs/05-homepage-state-machine.md` — раздел "## Возврат в hero" переписан под новое
+    поведение: кнопка только в `overview`, из `department-active` — два шага («Закрыть» →
+    «Выйти из офиса»).
+  - Тесты: `src/tests/unit/components/homepage/header.test.tsx` (переписан под упрощённый
+    `Header`), `src/tests/unit/components/office/office-experience.test.tsx` (+2 новых теста —
+    кнопка видна и работает в overview, отсутствует в department-active), `home-page.test.tsx` (без
+    изменений в этой правке — их проверки не завязаны на местоположение кнопки в DOM, только на
+    `getByRole("button", {name: ...})`, что работает независимо от контейнера),
+    `office-overview.spec.ts` (последний тест переписан: раньше проверял прямой клик из
+    department-active, теперь проверяет двухшаговый путь — «Закрыть» → overview → «Выйти из
+    офиса»), `mobile-touch-flow.spec.ts` (не изменено — уже тестировал только из overview/carousel).
+- Out of scope:
+  - Анимация/motion при возврате в hero — мгновенный переход, без transition (тот же принцип, что
+    Step 7.2 решение 5 — намеренно, не оплошность).
+  - Прямой возврат в `hero` из `department-active` одним кликом — отклонён этой правкой: кнопка
+    видна только в `overview`, из `department-active` — два шага («Закрыть» → «Выйти из
+    офиса»). Само действие редьюсера `RETURN_TO_HERO` по-прежнему технически работает из любого
+    состояния (не переписано), но не диспетчерится ни одним UI-элементом, кроме как из `overview`.
+  - Копирайт-ревью тэглайна на соответствие Copy rules `CLAUDE.md` — конфликт зафиксирован в
+    `DECISIONS.md`, не решён этим шагом (не отказ реализовать и не молчаливая правка текста
+    пользователя).
+  - Step 7.3 (боль/выгода панель), Step 7.5 (Tablet-специфичные CSS) — не затронуты по существу;
+    Header/`RETURN_TO_HERO` — общий код для всех breakpoint'ов, наследуется автоматически.
+- Dependencies: Step 7.2 (`PASSED`) — этот шаг реализован поверх его результата в том же
+  незакоммиченном рабочем дереве. `git diff --stat` этого шага пересекается с файлами, реально
+  принадлежащими scope Step 7.2 (`HeroCopy.module.css`, `OfficeExperience.module.css`,
+  `office-overview-keyboard.spec.ts`, `hero-copy.test.tsx`, `README.md` — уже покрыты собственным
+  independent skeptic PASS Step 7.2, round 2, без находок), а не только `OfficeMachine.tsx`/
+  `HeroCopy.tsx`, названными выше.
+- Expected files: см. In scope — полный список.
+- Acceptance criteria:
+  1. Кнопка «Выйти из офиса» отсутствует в дереве доступности в состоянии `hero`.
+  2. Кнопка видима сразу после `ACTIVATE_CTA` (состояние `overview`), расположена над сеткой
+     карточек отделов (первый элемент overview-ветки в DOM).
+  3. Кнопка **отсутствует** в дереве доступности во всех `department-*`-состояниях (структурно —
+     overview-ветка, которую она возглавляет, вообще не рендерится, когда отдел активен).
+  4. Клик по кнопке из `overview` возвращает в `hero`: `h1`/`primaryCta` снова видимы, хотспоты
+     снова отсутствуют в дереве доступности, кнопка «Выйти из офиса» снова отсутствует.
+  5. Из `department-active` (включая напрямую открытый по URL) возврат в `hero` — два шага:
+     «Закрыть» → `overview` (кнопка появляется) → «Выйти из офиса» → `hero`; URL-параметр
+     `?department=` очищается на первом шаге.
+  6. Сразу после возврата в hero (шаг 4 или второй клик шага 5), без единого нажатия Tab,
+     `document.activeElement` — `#hero-heading` (заголовок hero), не `<body>`.
+  7. Тэглайн виден в дереве доступности во всех состояниях без исключений (`hero`, `overview`,
+     `department-*`), на Desktop и Mobile viewport — не затронуто правкой, остаётся в `Header`.
+  8. Тап-таргет кнопки «Выйти из офиса» ≥44×44 CSS px на Mobile.
+  9. Существующие focus-management инварианты (открытие отдела → focus на заголовок; закрытие →
+     focus на хотспот/карточку; `ACTIVATE_CTA` → focus на первый хотспот/карточку) не регрессируют.
+  10. Существующий инвариант "документ не скроллится целиком" не регрессирует ни на одном из ранее
+      проверенных viewport (десктоп/мобильный наборы Step 7.2/Step 7.5).
+  11. Нет hydration-mismatch — размещение кнопки внутри `OfficeExperience` не меняет условия
+      рендера остальной overview-ветки.
+  12. `npm run format:check`/`lint`/`typecheck`/`test`/`build`/`test:e2e` — все exit 0.
+  13. Ни одна новая npm-зависимость не добавлена.
+- Verification commands:
+  ```bash
+  npm run format:check
+  npm run lint
+  npm run typecheck
+  npm run test -- --run
+  npm run build
+  npm run test:e2e
+  ```
+  **Round 1** (кнопка в Header, до правки размещения): `format:check` ✓, `lint` ✓, `typecheck` ✓,
+  `test` ✓ (115/115), `build` ✓, `test:e2e` ✓ (59/59). **Round 2** (кнопка перенесена в
+  `OfficeExperience`, только `overview`) — реально прогнано заново: `format:check` ✓ (1 файл
+  автоформатирован — `office-experience.test.tsx`), `lint` ✓, `typecheck` ✓, `test` ✓ 115/115
+  (после исправления 2 реальных падений — см. ниже), `build` ✓, `test:e2e` ✓ 59/59.
+  **Находка при прогоне round 2 (не самоотчёт, реальный `test` fail):** 2 теста в
+  `home-page.test.tsx` ожидали, что кнопка структурно отсутствует в hero (`.not.toBeInTheDocument()`)
+  — неверно: кнопка теперь живёт в overview-ветке `OfficeExperience`, которая (как и
+  `interactionHint`/карта/карусель до неё) в hero — только CSS-скрыта (`hiddenUntilRevealed`), не
+  удалена из DOM; jsdom не применяет это CSS-правило, поэтому элемент реально найден. Тесты
+  исправлены под уже установленный в проекте паттерн (проверка `data-revealed`, не
+  `.not.toBeInTheDocument()` для CSS-скрытых, а не структурно отсутствующих элементов) — реальный
+  баг в тесте, не в коде компонента (сам компонент/CSS корректны, подтверждено e2e round 1/2).
+- Manual checks: визуальная проверка на dev-сервере проведена (одноразовый Playwright-скрипт
+  против уже запущенного `npm run dev`, не сохранён в репозитории — см. `WORKLOG.md` Entry 21):
+  скриншоты **на тот момент (2026-07-16, до переименования 2026-07-17)** подтвердили — кнопка
+  «Вернуться в офис» над сеткой карточек отделов (выше «Дирекция»), `Header` — лого+бренд+тэглайн
+  без кнопки, при открытом отделе кнопки нет вовсе (только «Закрыть»); повторная визуальная
+  проверка после переименования — `WORKLOG.md` Entry 23. Основная верификация тем не менее —
+  e2e-покрытие AC (программная проверка тех же инвариантов в реальном браузере/Chromium).
+- Risks:
+  - **Архитектурная правка (`Header` внутри `OfficeMachine`) — сохраняется и после round 2**, хотя
+    `Header` больше не нуждается в `view`/`dispatch` (у него остался только `tagline`) — откат
+    переноса ради этого не сделан (см. Objective, "Архитектурная правка"); смягчается тем, что
+    итоговая DOM-структура идентична прежней, подтверждено отсутствием hydration-mismatch в e2e.
+  - **Copy rules конфликт (тэглайн)** — зафиксирован в `DECISIONS.md`, не устранён этим шагом,
+    остаётся открытым для решения пользователя.
+  - **Пропущенный planner Phase A** — компенсируется полным Phase B review (skeptic) на каждом
+    раунде (включая этот, round 2), тем же уровнем строгости verification commands, что и у шагов
+    с полным циклом.
+  - **UX-риск двухшагового возврата** — из `department-active` теперь два клика («Закрыть», затем
+    «Выйти из офиса»), не один прямой — сознательное следствие правки пользователя (кнопка живёт
+    только над сеткой overview), не оплошность; зафиксировано для прозрачности, не для решения этим
+    шагом.
+- Rollback: `git revert` коммит(ов) этого шага — аддитивно/пропс-based поверх Step 7.2, не меняет
+  редьюсер/URL-sync существующих действий (только добавляет новое).
+- Skeptic verdict: **round 1** — `PASS` (2026-07-16, Phase B, кнопка в Header) — без блокирующих
+  находок; 2 non-blocking устранены inline. **round 2** — `PASS` (2026-07-16, Phase B, кнопка в
+  `OfficeExperience`) — независимо перезапустил `typecheck`/`test` (115/115)/`test:e2e` (59/59) плюс
+  `lint`/`format:check`/`build`; подтвердил буквальное соответствие корректирующей инструкции
+  пользователя, честность признания архитектурного нюанса (Header внутри OfficeMachine остаётся не
+  строго необходимым, но откат не сделан — явно объяснено, не blocking), корректность
+  overview-only видимости (тот же механизм, что уже скрывает interactionHint/карту), реальность
+  найденного и исправленного бага в тестах (jsdom не применяет CSS, не подгонка под неверное
+  поведение), корректность двухшагового e2e-пути, отсутствие регрессии round-1 покрытия, чистоту
+  `git diff --stat`. 1 non-blocking (противоречие Manual checks между `WORKPLAN.md`/`WORKLOG.md`) —
+  устранено inline.
+- Skeptic findings: round 1 — см. выше. Round 2 — 1 non-blocking (устранено), 0 blocking.
+- Completion evidence: реализация round 1 выполнена по прямому поручению пользователя 2026-07-16;
+  пользователь скорректировал размещение кнопки до подтверждения `COMPLETED` — round 2 реализован
+  тем же днём (см. `DECISIONS.md` "Возврат кнопки из Header в панель офиса"), прошёл skeptic
+  Phase B round 2 `PASS`. Verification commands финально: `format:check` ✓, `lint` ✓,
+  `typecheck` ✓, `test` ✓ 115/115, `build` ✓, `test:e2e` ✓ 59/59. Ждёт явного подтверждения
+  пользователем перехода в `COMPLETED`.
 
 ## Step 7.5 — Tablet touch flow
 
-- Status: `APPROVED` (новый шаг, добавлен Amendment 4 — см. "## Plan amendments" ниже; skeptic Phase A
-  прошёл вместе со Step 7, round 3 `PASS` (2026-07-16); исходный ответ пользователя на OQ-T1 получен
-  2026-07-16 — «(b) Показывать как есть» — **тем же днём переопределён `Amendment 5`** (см. "## Plan
-  amendments" ниже и `DECISIONS.md` "OQ-T1 переопределён"): `interactionHint` теперь скрывается на
-  Tablet тоже. Реализация не начата и не может начаться до фактического закрытия Step 7 — см.
-  Dependencies; `APPROVED` разрешает старт после этого условия, не является отчётом о выполнении.)
+- Status: `PASSED` (2026-07-17 — реализация выполнена, все verification commands прогнаны с exit 0;
+  skeptic Phase B round 1 → `PASS`, blocking-находок нет, 4 non-blocking исправлены inline; см.
+  `WORKLOG.md` Entry 35/36 и `Skeptic verdict (review реализации, Phase B)` ниже. Ждёт явного
+  подтверждения пользователем перехода `PASSED` → `COMPLETED` — тот же прецедент, что Steps 5/7/7.2/
+  7.3/7.4. Предусловия Dependencies выполнены: Step 7 `COMPLETED`,
+  Step 7.2 `COMPLETED`, Step 7.3 `COMPLETED`. Новый шаг, добавлен Amendment 4 — см. "## Plan
+  amendments" ниже; skeptic Phase A прошёл вместе со Step 7, round 3 `PASS` (2026-07-16); исходный
+  ответ пользователя на OQ-T1 получен 2026-07-16 — «(b) Показывать как есть» — **тем же днём
+  переопределён `Amendment 5`** (см. "## Plan amendments" ниже и `DECISIONS.md` "OQ-T1
+  переопределён"): `interactionHint` теперь скрывается на Tablet тоже.)
 - Objective: Адаптировать уже реализованный и принятый Desktop 10/90 shell (Step 6, `COMPLETED`,
   коммит `5756d8d`) для pointer-опционального touch-использования на ширинах viewport 768–1279px
   (`docs/08-responsive-behavior.md` "Tablet 768–1279": "hover не обязателен; выбор кликом/касанием;
@@ -2923,6 +3729,14 @@ pointer and touch").
   17. `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
       `npm run test:e2e` — все exit 0.
   18. `git diff --stat` относительно коммита закрытия Step 7 ограничен списком Expected files.
+      **Известное ограничение метода, зафиксировано 2026-07-17 (skeptic Phase B, non-blocking 1):**
+      буквальная форма невыполнима — Steps 7.2/7.3/7.4 остались незакоммиченными (`WORKLOG.md`
+      Entry 34; коммит по CLAUDE.md требует запроса пользователя), поэтому diff против `42d80d2`
+      включает и их. Суть критерия (изоляция шага) проверена эквивалентным методом: перечислением
+      файлов, реально изменённых этим шагом, и сверкой их с Expected files. Skeptic подтвердил
+      изоляцию независимо, тремя несходящимися сигналами (mtime, маркеры "7.5" в `src/`, счётчики
+      тестов 63+18=81). Это замена метода верификации, не scope — Amendment не требуется (вердикт
+      skeptic Phase B).
   19. `DECISIONS.md` содержит запись по OQ-T1 с реальным согласованием пользователя, полученным до
       начала реализации, а не проставленную исполнителем.
   20. Ни одна новая npm-зависимость не добавлена в `package.json`/`package-lock.json`.
@@ -3000,14 +3814,61 @@ pointer and touch").
   к тексту Step 7/Amendment 4/перекрёстным ссылкам (focus-restoration `OfficeMachine.tsx`, конфликт
   с `docs/03`, `Step 8` `Dependencies`, `DECISIONS.md`/`Amendment 4` bookkeeping); специфичных для
   именно содержания Step 7.5 находок ни один из трёх раундов не выявил.
+- Skeptic verdict (review реализации, Phase B): **`PASS`** (2026-07-17, round 1). Blocking-находок
+  нет. Skeptic перепрогнал весь набор проверок независимо (format/lint/typecheck exit 0; unit 122
+  passed/16 files — совпадает с базой Entry 33, значит ни один тест не удалён; build exit 0; e2e 81
+  passed = база 63 + 18 новых, значит существующие сьюты не ослаблены и не удалены), подтвердил
+  изоляцию шага по существу (mtime + маркеры + счётчики), проверил scoping CSS статически и
+  эмпирически (opacity 0 на 1280 vs 1 на 1279; `DepartmentHotspot` импортируется только из
+  `OfficeSemanticMap`, скрытой на ≤767px) и признал законными правку `expect.poll` (артефакт
+  transition 0.15s, ожидания не ослаблены) и `min-height: 44px` до 1279px (условие Expected files
+  сработало по измерению 33px). Также выдвинул и **опроверг собственную гипотезу дефекта**: обрезка
+  безусловно раскрытого `.problem` (`max-height: 4rem` + `overflow: hidden`) на узком 768px — probe
+  показал `scrollHeight` максимум 28px против лимита 64px, `clipped=false` на всех 5 хотспотах и
+  всех трёх Tablet-ширинах.
+- Skeptic findings (Phase B): blocking — нет. Non-blocking (1) AC18 формально заменён по методу —
+  **FIXED**: зафиксировано прямо в тексте AC18 выше как известное ограничение. (3) `docs/03`
+  "Левая панель 10–14%" не квалифицирован по breakpoint'ам — **FIXED**: в `docs/03` "Режим 10/90"
+  добавлено уточнение про Tablet со ссылкой на `docs/08`. (4) AC2 проверялся по opacity только на
+  1024px — **FIXED**: e2e AC2 параметризован по обоим краям диапазона (768/1279) и дополнен явной
+  проверкой отсутствия обрезки текста (`scrollHeight > clientHeight`), закрывающей ровно ту
+  гипотезу, которую skeptic проверял вручную. (5) LCP-warning без владельца — **FIXED**:
+  зарегистрирован в "## Известные дефекты без владельца" ниже. (2) Незакоммиченные Steps 7–7.5 и
+  вытекающая недоступность документированного rollback — **не в компетенции исполнителя**, вынесено
+  пользователю (см. "Next"). (6) Текстовый фильтр `/error|hydrat/i` в AC16 — унаследованный
+  прецедент Steps 5/6/7, не дефект этого шага, оставлен как есть.
 - Skeptic findings (Phase A): см. Step 7 → `Skeptic findings` выше — общие находки, разделённые по
   раундам; ни одна не относится конкретно к Step 7.5.
 - Completion evidence: план прошёл skeptic Phase A round 3 `PASS` (вместе со Step 7); все открытые
   вопросы получили ответ пользователя 2026-07-16 (**исходный** OQ-T1 = (b) "показывать как есть",
   **тем же днём переопределён `Amendment 5`** — см. `DECISIONS.md` "OQ-T1 переопределён"; OQ-M5 = (a)
   "подтвердить карусель, честно поправить `docs/03`" — см. Step 7 → "Open questions (Step 7)";
-  схема нумерации "Step 7.5" подтверждена — см. `Amendment 4`). Ждёт фактического закрытия Step 7
-  (см. Dependencies), от которого зависит старт реализации этого шага.
+  схема нумерации "Step 7.5" подтверждена — см. `Amendment 4`).
+  **Реализация (2026-07-17, `WORKLOG.md` Entry 35):** только CSS (4 файла) + новый
+  `src/tests/e2e/tablet-touch-flow.spec.ts`; ни одного `.tsx` — обещание Objective "без единого
+  нового React-компонента" выполнено буквально. Все verification commands прогнаны с exit 0
+  (`format:check`/`lint`/`typecheck`/`test` 122 passed/`build`/`test:e2e` **81 passed**, включая
+  регрессию Desktop ≥1280px (AC13) и Mobile ≤767px (AC14) без ослабления ожиданий) плюс обязательная
+  dev-mode console-проверка на 1024×768 и 768×1024 — по критерию проекта `[]`. Все результаты
+  независимо перепрогнаны skeptic Phase B → `PASS`. AC7 подтверждён измерением, а не допущением:
+  `DepartmentCTA`/«Закрыть» дали 33px и доведены до 44px точечной правкой (условие Expected files);
+  риск плана "малые зоны карты на 768px" не подтвердился — все 5 хотспотов ≥44×44 без floor'а.
+- Next (решение пользователя, не исполнителя): Steps 7–7.5 остаются незакоммиченными пятый шаг
+  подряд, из-за чего документированный rollback этого шага (`git revert` диапазона коммитов) не
+  существует физически, а изоляция каждого следующего шага проверяется всё более косвенно (skeptic
+  Phase B, non-blocking 2). Рекомендуется решить вопрос о коммите до старта Step 8.
+
+## Известные дефекты без владельца
+
+Зарегистрировано 2026-07-17 по находке skeptic Phase B (Step 7.5, non-blocking 5) — чтобы известный
+дефект не потерялся к milestone-review, как это произошло бы, останься он только в `WORKLOG.md`.
+
+- **Dev-only `console.warning` next/image про LCP на `office-background.webp`.** Введён Step 7.3
+  (`OfficeExperience.tsx` — `<Image src={officeBackgroundPhoto} fill unoptimized>` без `priority`).
+  Не Tablet-специфичен: воспроизводится идентично на Desktop 1280×800 (контрольный прогон Step 7.5).
+  В production-сборке отсутствует — e2e AC16 чист. Не подпадает под критерий `/error|hydrat/i`
+  Steps 5/6/7. Владелец не назначен; кандидат — Step 8 (`Reduced motion and fallback`) или
+  performance-часть milestone-review. Не блокирует Step 7.5.
 
 ## Open questions (Step 7.5) — RESOLVED 2026-07-16
 

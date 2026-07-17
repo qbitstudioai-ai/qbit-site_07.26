@@ -1,11 +1,24 @@
 import Image from "next/image";
 import styles from "./Header.module.css";
 
-export function Header() {
+interface HeaderProps {
+  tagline: string;
+}
+
+export function Header({ tagline }: HeaderProps) {
   return (
     <header className={styles.header}>
-      <Image src="/logo.svg" alt="QBit-Studio-Ai" width={90} height={64} className={styles.logo} />
-      <span className={styles.brand}>QBit-Studio-Ai</span>
+      <div className={styles.brandRow}>
+        <Image
+          src="/logo.svg"
+          alt="QBit-Studio-Ai"
+          width={90}
+          height={64}
+          className={styles.logo}
+        />
+        <span className={styles.brand}>QBit-Studio-Ai</span>
+      </div>
+      <p className={styles.tagline}>{tagline}</p>
     </header>
   );
 }

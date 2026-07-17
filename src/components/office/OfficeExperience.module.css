@@ -3,7 +3,10 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding: 0 var(--space-6) var(--space-6);
+  /* Step 7.2: единообразный отступ по всем сторонам — раньше верхний зазор от Header обеспечивал
+     padding самого HeroCopy; после его скрытия в overview .office нуждается в собственном верхнем
+     отступе, иначе карта/карусель окажутся вплотную к Header. */
+  padding: var(--space-6);
   /* Внутренний скролл панели офиса включён не только при "Низком desktop" (docs/08, ниже), но и
      всегда: панель рендерит либо карту офиса (overview), либо 10/90-раскладку активного отдела
      (Step 6) — оба варианта могут превысить доступную высоту на низких viewport. Единственный
@@ -13,19 +16,28 @@
   overflow-y: auto;
 }
 
+/* Step 7.2: interactionHint скрывается на ВСЕХ ширинах (docs/05 "overview", Amendment 5 — включая
+   Tablet, не только Mobile как раньше в Step 7) — безусловно, без :global(.js)-обёртки: в отличие
+   от HeroCopy, для этой подсказки no-JS исключение не сделано (см. WORKPLAN.md Step 7.2, решение 3). */
 .hint {
-  flex-shrink: 0;
-  font-size: 0.875rem;
-  color: var(--color-graphite-500);
-  margin-bottom: var(--space-3);
+  display: none;
 }
 
-/* interactionHint не рендерится на ≤767px (OQ-M4 = (a), WORKPLAN.md Step 7) — на touch подсказка
-   "наведите курсор" не имеет смысла, а карусель уже показывает problem-текст без наведения. */
-@media (max-width: 767px) {
-  .hint {
-    display: none;
-  }
+/* Step 7.4 (правка после визуальной проверки): возврат в hero — над картой отделов, не в Header
+   (пользователь прямо указал разместить кнопку здесь). Тап-таргет ≥44px по высоте (CLAUDE.md
+   Accessibility rules). */
+.returnButton {
+  align-self: flex-start;
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--color-graphite-300);
+  border-radius: 6px;
+  padding: var(--space-2) var(--space-3);
+  min-height: 44px;
+  margin-bottom: var(--space-3);
+  font-size: 0.875rem;
+  color: var(--color-graphite-700);
+  cursor: pointer;
 }
 
 /* Step 6: 10/90-раскладка активного отдела. grid-template-areas разделяет визуальный порядок
@@ -33,6 +45,7 @@
    OfficeExperience.tsx и WORKPLAN.md Step 6 acceptance criterion 5). Ширина rail — "10–14%"
    docs/03-office-map.md, не буквальные 10%/90% (docs/08 "Не использовать буквальный 10/90"). */
 .shell10x90 {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(140px, 14%) 1fr;
   grid-template-areas: "rail main";
@@ -41,8 +54,21 @@
   gap: var(--space-4);
 }
 
+/* Step 7.3: затемнённое/десатурированное фото офиса позади содержимого (docs/03 "Режим 10/90").
+   next/image `fill` даёт absolute-позиционирование само по себе; z-index здесь и на
+   .mainArea/.railArea ниже — явная подстраховка порядка отрисовки, не полагается на неявный
+   порядок DOM. */
+.backgroundPhoto {
+  z-index: 0;
+  object-fit: cover;
+  filter: grayscale(0.5) brightness(0.55);
+  border-radius: 8px;
+}
+
 .mainArea {
   grid-area: main;
+  position: relative;
+  z-index: 1;
   min-height: 0;
   min-width: 0;
   display: flex;
@@ -50,6 +76,8 @@
 
 .railArea {
   grid-area: rail;
+  position: relative;
+  z-index: 1;
   min-height: 0;
   min-width: 0;
   display: flex;
@@ -74,6 +102,20 @@
 
   .railArea {
     display: none;
+  }
+}
+
+/* Step 7.5: Tablet 768–1279px (docs/08 "Tablet 768–1279": "панель может быть шире"). Обе колонки
+   сохраняются — в отличие от Mobile, Tablet не переходит на одну колонку и продолжает использовать
+   ту же пространственную карту офиса и тот же DepartmentNavigationRail, что Desktop. 20% против
+   desktop-значения 14% — исполнительская настройка (тот же прецедент, что и само значение 14% в
+   Step 6); floor 180px против 140px удерживает подписи rail читаемыми на узком портретном 768px.
+   Диапазон scoped строго 768–1279 — Desktop (≥1280px) остаётся пиксель-в-пиксель как в Step 6.
+   interactionHint здесь не адресуется: безусловное .hint { display: none } выше (Step 7.2,
+   Amendment 5) уже покрывает Tablet. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .shell10x90 {
+    grid-template-columns: minmax(180px, 20%) 1fr;
   }
 }
 

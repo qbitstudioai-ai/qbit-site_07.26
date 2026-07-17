@@ -7,6 +7,11 @@ async function activateCta(page: import("@playwright/test").Page) {
   await page.getByRole("button", { name: copy.primaryCta }).click();
 }
 
+async function activateCtaViaSecondary(page: import("@playwright/test").Page) {
+  const copy = getHomepageCopy();
+  await page.getByRole("link", { name: copy.secondaryCta }).click();
+}
+
 test.describe("office overview", () => {
   test("hero is visible immediately, but department hotspots are hidden (not in the a11y tree) until ACTIVATE_CTA", async ({
     page,
@@ -113,6 +118,9 @@ test.describe("office overview", () => {
     await page.goto("/");
     const navWithoutQuery = page.getByRole("navigation", { name: "Отделы компании" });
     await expect(navWithoutQuery.getByRole("button")).toHaveCount(5);
+    // Step 7.2: HeroCopy скрывается только `:global(.js)`-gated правилом — без JS оно не
+    // срабатывает, hero и раскрытый офис по-прежнему рендерятся одновременно (docs/05 "## hero").
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
     // ?department=<id> вычисляет начальное состояние редьюсера (department-active) уже на сервере
     // (initOfficeMachineState вызывается синхронно при первом рендере) — SSR-разметка одинакова с
@@ -127,6 +135,9 @@ test.describe("office overview", () => {
     await expect(
       page.getByRole("heading", { level: 2, name: salesDepartment.headline }),
     ).toBeVisible();
+    // Step 7.2 AC9: hero остаётся видимым и рядом с напрямую открытым отделом, не только рядом с
+    // overview — тот же `:global(.js)`-gate, что и выше, не срабатывает без JS ни для одного view.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
     await context.close();
   });
@@ -166,15 +177,14 @@ test.describe("office overview", () => {
     });
   }
 
-  test("low-height desktop (docs/08 'Низкий desktop'): heading/CTA never clipped, hotspots keep a readable minimum size, office panel scrolls internally instead of the page", async ({
+  test("low-height desktop (docs/08 'Низкий desktop'): heading/CTA never clipped in hero, hotspots keep a readable minimum size in overview, office panel scrolls internally instead of the page", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1280, height: 500 });
     await page.goto("/");
-    await activateCta(page);
 
-    // Заголовок, основная и вторичная CTA не обрезаются (docs/08: "Заголовок, навигация и CTA не
-    // обрезаются") — полностью в пределах viewport.
+    // Step 7.2: hero (заголовок, обе CTA) скрывается сразу после ACTIVATE_CTA — эти проверки
+    // "не обрезаются" теперь имеют смысл только в состоянии hero, до раскрытия офиса.
     const heading = page.getByRole("heading", { level: 1 });
     const headingBox = await heading.boundingBox();
     expect(headingBox).not.toBeNull();
@@ -186,6 +196,8 @@ test.describe("office overview", () => {
     const primaryCtaBox = await primaryCta.boundingBox();
     expect(primaryCtaBox).not.toBeNull();
     expect(primaryCtaBox!.y + primaryCtaBox!.height).toBeLessThanOrEqual(500);
+
+    await activateCta(page);
 
     // Документ по-прежнему не скроллится целиком — скроллится только панель офиса.
     const { scrollHeight, innerHeight } = await page.evaluate(() => ({
@@ -205,5 +217,109 @@ test.describe("office overview", () => {
       expect(box).not.toBeNull();
       expect(box!.height).toBeGreaterThanOrEqual(44);
     }
+  });
+
+  test("Step 7.2: ACTIVATE_CTA removes the entire hero block from the a11y tree and hides the interaction hint in overview, and stays hidden after opening a department", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const copy = getHomepageCopy();
+
+    await activateCta(page);
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
+    // interactionHint остаётся в DOM (markup не удаляется, см. WORKPLAN.md Step 7.2, решение 3) —
+    // toBeHidden(), а не toHaveCount(0), проверяет именно визуальное сокрытие через CSS.
+    await expect(page.getByText(copy.interactionHint)).toBeHidden();
+
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await nav.getByRole("button").first().click();
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
+    await expect(page.getByText(copy.interactionHint)).toBeHidden();
+  });
+
+  test("Step 7.2: focus moves to the first office hotspot immediately after ACTIVATE_CTA, without any Tab press", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await activateCta(page);
+
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await expect(nav.getByRole("button").first()).toBeFocused();
+  });
+
+  test("Step 7.2: the secondary CTA hides the hero block from the a11y tree and also moves focus to the first hotspot, without any Tab press (AC2/AC5 — same guarantee as the primary CTA)", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const copy = getHomepageCopy();
+
+    await activateCtaViaSecondary(page);
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
+    await expect(page.getByText(copy.interactionHint)).toBeHidden();
+
+    const nav = page.getByRole("navigation", { name: "Отделы компании" });
+    await expect(nav.getByRole("button").first()).toBeFocused();
+  });
+
+  test("the header tagline is visible in every state (hero and overview)", async ({ page }) => {
+    const copy = getHomepageCopy();
+    await page.goto("/");
+    await expect(page.getByText(copy.tagline)).toBeVisible();
+
+    await activateCta(page);
+    await expect(page.getByText(copy.tagline)).toBeVisible();
+  });
+
+  test("the 'return to office' button is absent in hero, appears after ACTIVATE_CTA, and sends the user back to hero with focus on the hero heading", async ({
+    page,
+  }) => {
+    const copy = getHomepageCopy();
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
+
+    await activateCta(page);
+    const returnButton = page.getByRole("button", { name: copy.returnToOfficeLabel });
+    await expect(returnButton).toBeVisible();
+    await returnButton.click();
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
+    await expect(page.getByRole("button", { name: copy.primaryCta })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
+    const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
+    expect(focusedId).toBe("hero-heading");
+  });
+
+  test("the 'return to office' button lives only above the overview grid: absent while a department is open, reachable again after closing it", async ({
+    page,
+  }) => {
+    const copy = getHomepageCopy();
+    const salesDepartment = getDepartments().find((d) => d.id === "sales")!;
+    await page.goto("/?department=sales");
+    await expect(
+      page.getByRole("heading", { level: 2, name: salesDepartment.headline }),
+    ).toBeVisible();
+    // Step 7.4 (правка): кнопка теперь живёт только над сеткой отделов в overview, не в Header —
+    // из открытого отдела её нет, сначала нужно закрыть отдел существующей кнопкой «Закрыть».
+    await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Закрыть" }).click();
+    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+
+    const returnButton = page.getByRole("button", { name: copy.returnToOfficeLabel });
+    await expect(returnButton).toBeVisible();
+    await returnButton.click();
+
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
+    expect(new URL(page.url()).searchParams.get("department")).toBeNull();
   });
 });

@@ -16,6 +16,13 @@ const departmentIdSchema = z.enum(DEPARTMENT_IDS);
 const nonEmptyString = z.string().min(1);
 const nonEmptyStringArray = z.array(nonEmptyString).min(1);
 
+// Step 7.3: заменяет раздельные symptoms (max 3 в UI)/outcomes (5, несвязанные) — ровно 5 пар
+// "боль → выгода" 1:1 (docs/12-content-data-model.md, правка 2026-07-16).
+const painPointSchema = z.object({
+  pain: nonEmptyString,
+  gain: nonEmptyString,
+});
+
 export const departmentSchema = z
   .object({
     id: departmentIdSchema,
@@ -24,8 +31,7 @@ export const departmentSchema = z
     overviewProblem: nonEmptyString,
     headline: nonEmptyString,
     problem: nonEmptyString,
-    symptoms: nonEmptyStringArray,
-    outcomes: nonEmptyStringArray,
+    painPoints: z.array(painPointSchema).length(5),
     ctaLabel: nonEmptyString,
     solutionPath: nonEmptyString,
     reference: nonEmptyString,
@@ -64,6 +70,8 @@ export const homepageCopySchema = z.object({
   secondaryCta: nonEmptyString,
   interactionHint: nonEmptyString,
   valuePoints: nonEmptyStringArray,
+  tagline: nonEmptyString,
+  returnToOfficeLabel: nonEmptyString,
 });
 
 export const officeZoneSchema = z.object({

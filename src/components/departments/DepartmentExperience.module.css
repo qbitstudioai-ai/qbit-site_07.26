@@ -71,7 +71,13 @@
   .experience {
     padding: var(--space-3);
   }
+}
 
+/* Тап-таргет «Закрыть» ≥44px (WORKPLAN.md Step 7 AC 8, Step 7.5 AC 7) — граница поднята с 767px до
+   1279px по той же причине и тем же измерением, что и .cta (DepartmentCTA.module.css): на Tablet
+   ввод касанием, а padding давал только 33px. Отделено от блока ≤767px выше сознательно: более
+   плотный padding самой .experience остаётся мобильным, шире 767px он не нужен. */
+@media (max-width: 1279px) {
   .close {
     min-height: 44px;
   }

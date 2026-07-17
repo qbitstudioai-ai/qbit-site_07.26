@@ -1,5 +1,5 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
 import { getDepartments } from "@/content/departments";
 import { getOfficeZones } from "@/content/office-zones";
@@ -12,6 +12,8 @@ describe("OfficeExperience", () => {
     const { container } = render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
+        returnToOfficeLabel="Выйти из офиса"
+        onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={false}
@@ -33,6 +35,8 @@ describe("OfficeExperience", () => {
     const { container } = render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
+        returnToOfficeLabel="Выйти из офиса"
+        onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
@@ -50,6 +54,8 @@ describe("OfficeExperience", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
+        returnToOfficeLabel="Выйти из офиса"
+        onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
@@ -62,10 +68,52 @@ describe("OfficeExperience", () => {
     expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
   });
 
+  it("renders the return-to-office button above the department grid in overview, and calls onReturnHome when clicked", () => {
+    const onReturnHome = vi.fn();
+    render(
+      <OfficeExperience
+        interactionHint="Наведите курсор на отдел"
+        returnToOfficeLabel="Выйти из офиса"
+        onReturnHome={onReturnHome}
+        departments={departments}
+        officeZones={officeZones}
+        isRevealed={true}
+        machineView="overview"
+        activeDepartmentId={null}
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Выйти из офиса" });
+    expect(button).toBeInTheDocument();
+    fireEvent.click(button);
+    expect(onReturnHome).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not render the return-to-office button once a department is active (Step 7.4: it only lives above the overview grid)", () => {
+    render(
+      <OfficeExperience
+        interactionHint="Наведите курсор на отдел"
+        returnToOfficeLabel="Выйти из офиса"
+        onReturnHome={() => {}}
+        departments={departments}
+        officeZones={officeZones}
+        isRevealed={true}
+        machineView="department-active"
+        activeDepartmentId="sales"
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Выйти из офиса" })).not.toBeInTheDocument();
+  });
+
   it("renders DepartmentExperience and the 4-button DepartmentNavigationRail, and hides the office map (Step 6 10/90 shell)", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
+        returnToOfficeLabel="Выйти из офиса"
+        onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
@@ -91,6 +139,8 @@ describe("OfficeExperience", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
+        returnToOfficeLabel="Выйти из офиса"
+        onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
@@ -122,6 +172,8 @@ describe("OfficeExperience", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
+        returnToOfficeLabel="Выйти из офиса"
+        onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}

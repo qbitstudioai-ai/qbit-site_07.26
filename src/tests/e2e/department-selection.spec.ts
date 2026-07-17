@@ -30,9 +30,12 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     const panel = page.getByRole("region", { name: sales.overviewLabel });
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
     await expect(panel.getByText(sales.problem)).toBeVisible();
-    for (const outcome of sales.outcomes) {
-      await expect(panel.getByText(outcome)).toBeVisible();
+    // Step 7.3: ровно 5 пунктов боли, выгода первого показана по умолчанию (OQ-P2) — на Desktop
+    // видима раскладка PainGainPanel (20/80), не мобильный аккордеон (оба в DOM, CSS переключает).
+    for (const point of sales.painPoints) {
+      await expect(panel.getByRole("button", { name: point.pain }).first()).toBeVisible();
     }
+    await expect(panel.getByText(sales.painPoints[0].gain).first()).toBeVisible();
     await expect(panel.getByRole("button", { name: sales.ctaLabel })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Закрыть" })).toBeVisible();
 

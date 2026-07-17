@@ -2298,3 +2298,717 @@ planner/skeptic Phase A review для нового Step 7.2 предстоит �
 - Next: Step 7.2 готов к реализации (Phase B). Открытый процессный вопрос из плана (Dependencies):
   код Step 7 всё ещё не закоммичен — planner рекомендовал закоммитить его отдельно до старта Step
   7.2, но коммит требует отдельного согласия пользователя (`CLAUDE.md` "Safety").
+
+## Entry 16
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.2 — Overview full-screen (hide hero), Phase B (реализация).
+- Status before: Step 7.2 — `APPROVED`.
+- Пользователь выбрал "3 отдельных коммита" для расчистки рабочего дерева перед стартом. Сделаны и
+  закоммичены: `6209d73` "feat: Step 7 - Mobile touch flow (carousel)" (весь `src/**` Step 7),
+  `f195098` "docs: audit and lighten workflow protocol" (`.claude/**`, `CLAUDE.md`, удалённые
+  `docs/17-19`), `42d80d2` "docs: close Step 7, plan Step 7.2/7.3, Amendment 5" (`WORKPLAN.md`,
+  `WORKLOG.md`, `DECISIONS.md`, `docs/03`/`docs/05`/`docs/12`). Рабочее дерево чистое перед стартом
+  Step 7.2.
+- Реализация (файлы = Expected files плана, без отклонений scope):
+  - `HeroCopy.tsx`/`.module.css` — новый проп `isHiddenAfterReveal`, класс `hiddenAfterReveal`,
+    `:global(.js)`-gated CSS-правило (решение 1).
+  - `OfficeMachine.tsx` — `isHiddenAfterReveal={state.view !== "hero"}` в `HeroCopy`; новая ветка
+    `overview` после `hero` в существующем focus-management `useEffect`, тот же паттерн
+    candidate-list + `offsetParent !== null`, что у close-fallback (решение 2).
+  - `OfficeExperience.module.css` — `.hint { display: none; }` безусловно (решение 3); `.office`
+    padding → `var(--space-6)` (решение 4).
+  - Тесты: `hero-copy.test.tsx` (+1), `home-page.test.tsx` (+1, с временным stub `offsetParent` —
+    jsdom не реализует layout, offsetParent всегда `null` без него, что сделало бы весь
+    candidate-fallback непроверяемым), `office-overview.spec.ts` (low-height rewrite + 2 новых),
+    `office-overview-keyboard.spec.ts` (Tab-order rewrite, CTA активируется клавиатурой вместо
+    клика — иначе Chromium `:focus-visible` не показывает ring для программного focus после
+    мышиного клика), `mobile-touch-flow.spec.ts` (+1).
+  - `README.md` — "7" → `Выполнено`, добавлена "7.2" → `В работе`.
+  - Находка при исполнении: `getByText(...).toHaveCount(0)` не годится для `interactionHint`
+    (markup не удаляется, только CSS-скрытие) — `getByText` матчит независимо от видимости, в
+    отличие от `getByRole`, которое естественно исключает `display:none` из a11y-дерева. Заменено
+    на `toBeHidden()` в 2 местах (`office-overview.spec.ts`, `mobile-touch-flow.spec.ts`) — не
+    изменение scope, корректный матчер для того же инварианта.
+- Status after: Step 7.2 — `AWAITING_SKEPTIC`.
+- Verification (реально прогнано): `npm run format:check` ✓, `npm run lint` ✓,
+  `npm run typecheck` ✓, `npm run test -- --run` ✓ 103/103, `npm run build` ✓,
+  `npm run test:e2e` ✓ 53/53 (после 3 первичных e2e-падений — 2 из-за `getByText`/`toHaveCount`
+  выше, 1 из-за `:focus-visible`-эвристики Chromium — все устранены). Отдельная dev-mode ручная
+  Playwright-проверка (Desktop 1280×800, Mobile 375×812/hasTouch/isMobile) против `npm run dev`
+  (использован уже запущенный сервер пользователя на порту 3100, не отдельный — второй `next dev`
+  на этом же каталоге сам завершился с "Another next dev server is already running") — полный
+  поток hero → ACTIVATE_CTA → overview → открытие отдела → закрытие, `console`/`pageerror` — `[]`
+  на обоих viewport. Скриншоты overview на Desktop/Mobile визуально подтвердили: hero отсутствует,
+  office занимает экран под `Header` с равномерным отступом, подсказка не видна. Временные
+  скрипты/скриншоты — в scratchpad-директории сессии и в `.scratch-*.cjs` (удалены из репозитория
+  после использования, не коммитились).
+  `git diff --stat` — ограничен Expected files (11 файлов: `README.md`, `WORKPLAN.md`, 4 src-файла,
+  5 тестовых файлов).
+- Skeptic review: не проводился в рамках этой записи — следующий шаг: skeptic Phase B review.
+
+## Entry 17
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.2, skeptic Phase B review (round 1) → correction.
+- Skeptic Phase B round 1 verdict: `FAIL`. Независимо перепроверил код (не поверил самоотчёту),
+  подтвердил решения 1–4 и focus-race-condition анализ верными, реально перезапустил все 6
+  verification commands (совпало с самоотчётом) — но нашёл 3 blocking пробела в покрытии:
+  (1) AC2/AC5 никогда не проверялись для `secondaryCta`, только `primaryCta`; (2) AC9 (no-JS) не
+  проверяла видимость `h1` для ветки `?department=sales`; (3) AC7 Manual checks не выполнялись для
+  самого тесного заявленного в Risks viewport (1280×500) и Tablet spot-check.
+- Исправлено:
+  - `office-overview.spec.ts`: добавлен `activateCtaViaSecondary`, новый тест на Desktop
+    (secondaryCta → hero скрыт, focus на первом хотспоте); no-JS тест дополнен проверкой `h1`
+    после `?department=sales`.
+  - `mobile-touch-flow.spec.ts`: добавлен `activateCtaViaSecondary`, новый тест на Mobile
+    (secondaryCta → hero скрыт, focus на `mobile-department-carousel-card`).
+  - Manual checks выполнены (не в составе e2e-сьюта, отдельный разовый Playwright-скрипт против
+    `npm run dev`, порт 3100 — сервер пользователя, не отдельный процесс): 1280×500, 768×1024,
+    1024×768 — `scrollHeight<=innerHeight`, `scrollWidth<=innerWidth` на всех трёх, зазор
+    Header↔office 24px, без наложения. Скриншоты подтвердили визуально. Скрипт и скриншоты не
+    коммитились (scratchpad + удалённый `.scratch-*.cjs`).
+- Status after: Step 7.2 — по-прежнему `AWAITING_SKEPTIC` (round 2).
+- Verification (round 2, реально прогнано заново): `format:check` ✓, `lint` ✓, `typecheck` ✓,
+  `test` ✓ 103/103, `build` ✓, `test:e2e` ✓ 55/55 (было 53, +2 новых теста secondaryCta).
+- Next: skeptic Phase B round 2.
+
+## Entry 18
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.2, skeptic Phase B round 2 → `PASSED`.
+- Skeptic Phase B round 2 verdict: `PASS`, без находок. Независимо перепроверил все 3 round-1
+  фикса не по самоотчёту, а по реальному коду/тестам, плюс самостоятельно перезапустил все 6
+  verification commands — результат совпал с заявленным (103/103 unit, 55/55 e2e).
+- Status before: Step 7.2 — `AWAITING_SKEPTIC` (round 2).
+- Status after: Step 7.2 — `PASSED`. `WORKPLAN.md`: Status/Status history/Completion evidence
+  дополнены итогом round 2. `README.md`: строка "7.2" → `Выполнено`.
+- Verification: `git status --short` — изменены `README.md`, `WORKLOG.md`, `WORKPLAN.md` + 9
+  файлов кода/тестов Step 7.2 (все реализация ещё не закоммичена).
+- Next: ждёт явного подтверждения пользователем перехода `PASSED` → `COMPLETED` (по прецеденту
+  Step 7).
+
+## Entry 19
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: новый Step 7.4 — Global return-to-hero navigation + header tagline. Реализован по прямому
+  поручению пользователя ("Сначала это выполни") БЕЗ предварительного planner Phase A — процессное
+  отклонение, зафиксировано честно в `DECISIONS.md`, не скрыто.
+- Пользователь дал скриншот overview и указал: нет способа вернуться на hero-экран кроме
+  перезагрузки. Поручил: (1) кнопка «Вернуться в офис» под логотипом; (2) тэглайн «Помогаем
+  экономить ДЕНЬГИ и ВРЕМЯ» по центру шапки.
+- Реализация:
+  - `reducer.ts` — новое действие `RETURN_TO_HERO` (в hero из любого состояния, activeDepartmentId
+    → null).
+  - `OfficeMachine.tsx` — `Header` перенесён внутрь (был статичным server-компонентом вне
+    OfficeMachine, без доступа к state/dispatch); новая focus-management ветка (hero heading);
+    `handleReturnToHero`.
+  - `Header.tsx`/`.module.css` — новые пропы, кнопка (условно видима), тэглайн.
+  - `HeroCopy.tsx` — `id="hero-heading" tabIndex={-1}` на h1.
+  - `HomepageShell.tsx`/`.module.css` — Header/main убраны отсюда (перенесены в OfficeMachine);
+    новый `OfficeMachine.module.css` с `.main`.
+  - Контент-модель: `tagline`/`returnToOfficeLabel` — новые поля `HomepageCopy` (types/schema/JSON),
+    не хардкод.
+  - `docs/05` — честная правка: новое событие `RETURN_TO_HERO`, новый раздел.
+  - Тесты: новый `header.test.tsx` (3), reducer `RETURN_TO_HERO` (3), `home-page.test.tsx` (+3),
+    `office-overview.spec.ts` (+3 e2e), `mobile-touch-flow.spec.ts` (+1 e2e +1 расширение
+    tap-target теста), content-фикстуры дополнены новыми полями.
+- Зафиксирован честно, не скрыт: тэглайн «Помогаем экономить...» в напряжении с `CLAUDE.md` Copy
+  rules ("no unsupported savings promises") — прямая формулировка пользователя, реализована как
+  поручено, конфликт записан в `DECISIONS.md`, не решён односторонне.
+- `WORKPLAN.md`: новый Step 7.4 добавлен между 7.3 и 7.5, `Status: AWAITING_SKEPTIC`,
+  Objective/Expected files/AC описаны ретроактивно (по факту сделанного, честно помечено).
+- Verification (реально прогнано): `format:check` ✓, `lint` ✓, `typecheck` ✓, `test` ✓ 112/112,
+  `build` ✓, `test:e2e` ✓ 59/59.
+- Skeptic review: не проводился в рамках этой записи — следующий шаг: skeptic Phase B review
+  (обязателен, несмотря на пропущенный Phase A).
+
+## Entry 20
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.4, correction round (кнопка перенесена из `Header` в `OfficeExperience`).
+- Step 7.4 уже прошёл skeptic Phase B `PASS` (round 1) и ждал подтверждения `COMPLETED`, когда
+  пользователь указал: исходная постановка задачи была неточной — кнопка «Вернуться в офис» должна
+  быть не в шапке, а в панели офиса, над сеткой карточек отделов (выше «Дирекция»). Уточняющий
+  вопрос (`AskUserQuestion`): тэглайн тоже под откат вместе с "верни шапку как была"? Ответ:
+  убрать только кнопку, тэглайн остаётся.
+- Правки:
+  - `Header.tsx`/`.module.css` — упрощены обратно: единственный проп `tagline`, кнопка и связанные
+    пропы (`showReturnButton`/`onReturnHome`) удалены, раскладка вернулась к простому
+    лого+бренд слева / тэглайн по центру (без колонки для кнопки).
+  - `OfficeExperience.tsx`/`.module.css` — новые пропы `returnToOfficeLabel`/`onReturnHome`; кнопка
+    рендерится первым элементом overview-ветки (перед `interactionHint`/картой/каруселью) — видна
+    только когда отдел не выбран, структурно отсутствует в department-active вместе со всей этой
+    веткой.
+  - `OfficeMachine.tsx` — `Header` теперь получает только `tagline`; `OfficeExperience` получает
+    `returnToOfficeLabel`/`onReturnHome`.
+  - `docs/05-homepage-state-machine.md` — раздел "## Возврат в hero" честно переписан: кнопка
+    только в overview, из department-active — два шага («Закрыть» → «Вернуться в офис»); сам
+    редьюсер `RETURN_TO_HERO` не менялся (по-прежнему работает из любого состояния технически,
+    просто не диспетчерится ниоткуда, кроме overview).
+  - Тесты: `header.test.tsx` переписан под упрощённый `Header` (2 теста вместо 3 — убрана
+    button-специфика); `office-experience.test.tsx` — +2 новых теста (кнопка видна+работает в
+    overview; отсутствует в department-active); `office-overview.spec.ts` — последний тест
+    переписан под двухшаговый путь возврата из `?department=<id>` (было: прямой клик; стало:
+    «Закрыть» → overview → «Вернуться в офис»); `mobile-touch-flow.spec.ts` — без изменений (уже
+    тестировал только из overview/carousel, не из department-active).
+- `WORKPLAN.md` Step 7.4: `PASSED` → `AWAITING_SKEPTIC` (round 2) — не Amendment (шаг ещё не был
+  `COMPLETED`), а correction iteration по прецеденту Step 7 Entry 8. Objective/In scope/AC/Risks
+  переписаны под новое поведение.
+- `DECISIONS.md`: новая запись "Возврат кнопки из Header в панель офиса (правка после Step 7.4)".
+- Verification: временная недоступность классификатора инструментов (Bash/PowerShell) в середине
+  сессии — команды откладывались и повторялись; полный прогон зафиксирован в Entry 21.
+- Skeptic review: не проводился в рамках этой записи — следующий шаг: skeptic Phase B round 2.
+
+## Entry 21
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.4 correction round — полный прогон verification commands.
+- `npm run format:check` — 1 файл не по формату (`office-experience.test.tsx`), исправлено
+  `prettier --write`, повторный `format:check` ✓.
+- `npm run lint` ✓.
+- `npm run typecheck` ✓ (после восстановления доступности инструментов — Bash/PowerShell были
+  недоступны продолжительное время в середине сессии из-за сбоя классификатора на стороне
+  инструментов, не проекта; повторные попытки в итоге прошли).
+- `npm run test -- --run` — **2 реальных падения** (не самоотчёт, настоящий fail): оба в
+  `home-page.test.tsx`, оба ожидали `.not.toBeInTheDocument()` для кнопки в hero. Причина: кнопка
+  теперь в overview-ветке `OfficeExperience`, которая в hero только CSS-скрыта
+  (`hiddenUntilRevealed`), а не удалена из DOM (тот же паттерн, что уже у `interactionHint`/карты/
+  карусели) — jsdom не применяет это CSS-правило, элемент реально найден в DOM. Исправлено: тесты
+  переписаны на проверку `data-revealed` (уже установленный в проекте паттерн для этого класса
+  случаев), убрана некорректная assertion. Повторный `test` ✓ 115/115.
+  - `npm run build` ✓.
+  - `npm run test:e2e` ✓ 59/59 (все тесты Step 7.4/7.2 плюс полная регрессия Steps 5–7).
+- Визуальная проверка на dev-сервере (Playwright-скрипт против уже запущенного `npm run dev`,
+  порт 3100): скриншоты подтвердили — кнопка «Вернуться в офис» над сеткой отделов (выше
+  «Дирекция»), Header — просто лого+бренд+тэглайн без кнопки; при открытом отделе кнопки нет
+  вовсе (только «Закрыть»). Скрипт и скриншоты не коммитились.
+- `WORKPLAN.md` Step 7.4: Verification commands дополнены итогом round 2 (включая честную запись о
+  найденном и исправленном баге в тестах, не в коде).
+- Skeptic review: не проводился в рамках этой записи — следующий шаг: skeptic Phase B round 2.
+
+## Entry 22
+
+- Timestamp: 2026-07-16
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.4 correction round, skeptic Phase B round 2 → `PASSED`.
+- Skeptic round 2 verdict: `PASS`. Независимо перезапустил typecheck/test(115/115)/e2e(59/59) +
+  lint/format/build; подтвердил буквальное соответствие корректирующей инструкции пользователя,
+  корректность overview-only видимости кнопки (тот же механизм, что уже скрывает interactionHint/
+  карту), реальность найденного в тестах бага (jsdom не применяет CSS) и корректность его
+  исправления, корректность двухшагового e2e-пути, отсутствие регрессии round-1 покрытия. 1
+  non-blocking (противоречие формулировок Manual checks между WORKPLAN.md/WORKLOG.md) — исправлено
+  inline.
+- Status before: Step 7.4 — `AWAITING_SKEPTIC` (round 2).
+- Status after: Step 7.4 — `PASSED`. `WORKPLAN.md`: Status/Status history/Skeptic verdict/findings/
+  Completion evidence дополнены итогом round 2. `README.md`: строка "7.4" → `Выполнено`.
+- Verification: `git status --short` — изменены только процессные файлы (`WORKPLAN.md`,
+  `WORKLOG.md`, `README.md`), код не менялся в рамках этой записи.
+- Next: ждёт явного подтверждения пользователем перехода Step 7.2 и Step 7.4 (оба `PASSED`) →
+  `COMPLETED`.
+
+## Entry 23
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.4 — переименование кнопки «Вернуться в офис» → «Выйти из офиса» (чисто контентная
+  правка, без изменения логики/структуры).
+- Пользователь: "переименуй кнопку. Вместо «Вернуться в офис» «Выйти из офиса»".
+- Правки: `data/homepage-copy.json` (`returnToOfficeLabel`); комментарии в `OfficeMachine.tsx`/
+  `OfficeMachine.module.css`; `docs/05-homepage-state-machine.md` "## Возврат в hero";
+  форвард-смотрящие описания в `WORKPLAN.md` Step 7.4 (Objective/In scope/Out of scope/AC/Risks);
+  захардкоженный литерал в `office-experience.test.tsx` обновлён вручную. Тесты, читающие
+  `copy.returnToOfficeLabel` через `getHomepageCopy()` (все e2e, `home-page.test.tsx`), подхватили
+  новый текст автоматически — без правок. Историческая часть `WORKLOG.md`/`DECISIONS.md` (записи о
+  прошлых review, где текст ещё был «Вернуться в офис») **не переписана** — честная фиксация
+  состояния на момент review, не текущая спецификация. Новая запись `DECISIONS.md`
+  "Переименование кнопки...".
+- Поле `returnToOfficeLabel` (`content/types.ts`/`content/schema.ts`, пропы `OfficeExperience`) не
+  переименовано — внутренний идентификатор, не обязан буквально совпадать с текстом копии.
+- Verification: `format:check` ✓, `lint` ✓, `typecheck` ✓, `test` ✓ 115/115 (без правок тестов,
+  кроме одного файла с захардкоженным литералом), `build` ✓, `test:e2e` ✓ 59/59 (все прошли без
+  изменений — динамически читают текст из контента). Визуальная проверка на dev-сервере —
+  скриншот подтвердил корректный текст кнопки.
+- Skeptic review: не проводился в рамках этой записи — следующий шаг: лёгкий skeptic Phase B
+  review (чисто контентная правка, без изменения поведения).
+
+## Entry 24
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.4 — переименование кнопки, skeptic review.
+- Skeptic verdict: `PASS`. Подтвердил: значение в JSON без опечаток; тестовый литерал
+  (`office-experience.test.tsx`) обновлён полностью и согласованно (проп + assertion в каждом
+  тесте); комментарии в коде и `docs/05` больше не ссылаются на старый текст; самостоятельно
+  перезапустил `test` (115/115) и `test:e2e` (59/59) — совпало. 1 non-blocking: глобальная замена
+  случайно затронула историческую запись `WORKPLAN.md` "Manual checks" Step 7.4, описывающую
+  скриншот, СДЕЛАННЫЙ ДО переименования (2026-07-16) — там должен был остаться старый текст
+  «Вернуться в офис», чтобы честно фиксировать, что было видно на тот момент.
+- Исправлено: `WORKPLAN.md` Step 7.4 "Manual checks" — восстановлен исторически точный текст
+  («Вернуться в офис», с явной пометкой "на тот момент, до переименования 2026-07-17"), добавлена
+  ссылка на повторную проверку после переименования (`WORKLOG.md` Entry 23).
+- Status: Step 7.4 остаётся `PASSED` — переименование не меняло статус, только контент поверх уже
+  одобренного шага.
+- Verification: `npm run format:check` ✓ после правки.
+
+## Entry 25
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: закрытие Step 7.2 и Step 7.4.
+- Пользователь: «Закрывай Step 7.2 и Step 7.4. Как закроешь, остановись и сообщи.» — явное,
+  недвусмысленное согласие на закрытие обоих шагов (тот же формат подтверждения, что уже
+  использовался для Step 5/Step 7).
+- Status before: Step 7.2 — `PASSED`; Step 7.4 — `PASSED`.
+- Status after: Step 7.2 — `COMPLETED`; Step 7.4 — `COMPLETED`. `WORKPLAN.md` Status/Status
+  history обоих шагов обновлены. `README.md` — без изменений (статус "Выполнено" уже
+  соответствовал `PASSED` по правилу таблицы статусов, изменение статуса на `COMPLETED` не меняет
+  отображаемую метку).
+- Код не менялся — реализация обоих шагов (включая переименование кнопки) осталась
+  незакоммиченной в рабочем дереве, как и было на протяжении всей сессии; коммит не запрашивался
+  пользователем в рамках этого поручения.
+- Verification: `git status --short` — изменения ограничены `WORKPLAN.md`/`WORKLOG.md`.
+- Skeptic review: не требуется — закрытие по явному подтверждению пользователя, не по результату
+  review (тот же прецедент, что закрытие Step 5/Step 7).
+
+## Entry 26
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.3 — Phase A planning cycle (planner draft → skeptic Phase A review).
+- Context: новая сессия, пользователь подтвердил закрытие Step 7.2/7.4 (Entry 25) и указал
+  продолжать по очереди — Step 7.3 (ещё не проходил Phase A), затем Step 7.5 (`APPROVED`, ждёт
+  старта, но зависит от результата Step 7.3).
+- `planner` subagent прочитал `WORKPLAN.md` (Step 6/7/7.2/7.3/7.4/7.5), `DECISIONS.md`
+  (2026-07-16 записи), `docs/03`/`docs/05`/`docs/07`/`docs/08`/`docs/11`/`docs/12`, текущий код
+  (`OfficeExperience`, `DepartmentNavigationRail`, `CarouselNavControls`, `MobileDepartmentCarousel`,
+  `DepartmentExperience`, `DepartmentCopy`, `OutcomePanel`, `content/types.ts`/`schema.ts`,
+  `data/departments.json`, `Header.tsx` для `next/image`-прецедента, `references/README.md` и размеры
+  файлов). Подготовил полный черновик Phase A: Objective/In scope/Out of scope/Dependencies/Expected
+  files/Acceptance criteria/Verification commands/Manual checks/Risks/Rollback плюс 6 открытых
+  вопросов (OQ-P1–OQ-P6).
+- Найдено planner'ом (не решено самостоятельно, вынесено на review/пользователя):
+  1. Ни один компонент не рендерит `Department.reference`/фото нигде сегодня; `references/*.png` —
+     3.3–3.7 МБ, референс для дизайнера, не готовый UI-ассет → **OQ-P1**.
+  2. `docs/05-homepage-state-machine.md` "department-active" устарел относительно honesty-правок
+     `docs/03`/`docs/12` от 2026-07-16 — добавлено в In scope как честная правка.
+  3. `DepartmentExperience` не размонтируется при `SWITCH_DEPARTMENT` (в отличие от
+     `MobileDepartmentCarousel`, чей `previewIndex` сбрасывается только благодаря размонтированию
+     всей ветки `overview`) — наивное копирование паттерна Step 7 молча протащило бы устаревший
+     индекс боли через переключение отдела → **OQ-P3**.
+  4. `CarouselNavControls` (Step 7, Mobile Prev/Next) живёт внутри `DepartmentExperience.tsx` —
+     редизайн не должен его регрессировать.
+  5. Поле `Dependencies` в черновике Step 7.3 всё ещё указывало "Step 7.2 (`PROPOSED`)" — обновлено
+     на `COMPLETED`.
+- Skeptic Phase A review (`PASS`): независимо перепроверил все пункты 1–5 выше напрямую по
+  репозиторию (grep на `reference`/`next/image`, реальные размеры `references/**/*.png` —
+  3.32–3.73 МБ, чтение `OfficeExperience.tsx`/`reducer.ts` на предмет `key`/remount, чтение `docs/05`,
+  `.length(5)`-паттерн в `schema.ts`, `docs/11` на предмет tablist-конвенции) — все подтверждены как
+  реальные, не выдуманные. 1 non-blocking: черновик не зафиксировал явно, что панель использует
+  `overviewLabel` (не неиспользуемое нигде в рендере поле `Department.name`) — применено inline.
+  Blocking-находок нет.
+- `WORKPLAN.md` Step 7.3 полностью переписан по итогам planner+skeptic (Objective/In scope/Out of
+  scope/Dependencies/Expected files/Acceptance criteria/Verification commands/Manual checks/Risks/
+  Rollback/Skeptic verdict/Skeptic findings заполнены; non-blocking правка про `overviewLabel`
+  применена). Добавлен новый раздел `## Open questions (Step 7.3)` с полным текстом OQ-P1–OQ-P6.
+  `Status` остаётся `PROPOSED` — переход в `APPROVED` заблокирован до ответа пользователя на все 6
+  вопросов.
+- Verification: изменения этой записи ограничены `WORKPLAN.md`/`WORKLOG.md` (документация/план, не
+  код) — `git diff --stat` не запускался отдельно для этой записи, так как код не менялся.
+- Next: задать OQ-P1–OQ-P6 пользователю напрямую (`AskUserQuestion`).
+
+## Entry 27
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.3 — ответы пользователя на OQ-P1–OQ-P6, переработка плана.
+- Все 6 вопросов заданы через `AskUserQuestion` (два раунда, 4+2). Ответы: OQ-P1 = (a) с уточнением
+  ("фотографии используются как полноразмерные, так и для миниатюр" — реальные `references/**/*.png`,
+  не CSS-заглушка, разошлось с рекомендацией исполнителя); OQ-P2 = (a) с уточнением (дефолт №1,
+  всегда сброс при переключении/возврате); OQ-P3 = (a) (локальное состояние, сброс на
+  переключении); OQ-P4 = (a) (обычный Tab/нативные кнопки); OQ-P5 = (a) (черновая копия для всех 5
+  отделов сейчас); OQ-P6 = (b) (отдельный mobile-аккордеон). Полный текст — `DECISIONS.md`
+  2026-07-17 "Step 7.3: ответы на OQ-P1–OQ-P6".
+- Так как OQ-P1 и OQ-P6 расходятся с минимальным/условным содержанием, которое видел skeptic на
+  round 1 (реальные фото вместо заглушки; новый mobile-компонент вместо условной регрессии), план
+  переписан: In scope/Out of scope/Expected files/Acceptance criteria/Manual checks/Risks — заменены
+  условные "по итогу OQ-Px" формулировки на конкретные решения; добавлен новый mobile-компонент
+  (аккордеон) и его тесты в Expected files; acceptance criteria пронумерованы полностью (15 пунктов,
+  было 12 фиксированных + нерасписанные условные). `Status` остаётся `PROPOSED` — требуется round 2
+  skeptic Phase A review.
+- `WORKPLAN.md` "## Open questions (Step 7.3)" переименован в "— OQ-P1–OQ-P6 RESOLVED 2026-07-17" с
+  кратким резюме ответов сверху; исходный текст вариантов сохранён целиком ниже для истории.
+- Verification: изменения ограничены `WORKPLAN.md`/`WORKLOG.md`/`DECISIONS.md` (план/документация,
+  код не менялся).
+- Next: отправить переработанный план на skeptic Phase A round 2.
+
+## Entry 28
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.3 — skeptic Phase A round 2 → `FAIL`, исправления применены.
+- Skeptic round 2 verdict: `FAIL`. 3 Blocking: (1) заявление "тот же прецедент, что `Header.tsx`"
+  фактически неверно — `Header.tsx` использует строковый `public/`-путь к SVG, не статический
+  ES-импорт растрового файла извне `src/`; сама техника (static import + `next/image` Optimization
+  для `.png` вне `src/`) подтверждена как рабочая независимо, но ссылка на прецедент была ложной;
+  (2) судьба поля `Department.reference` не решена — `next/image` требует литеральных путей,
+  runtime-строка `department.reference` не может быть спецификатором `import`, значит реализация
+  неизбежно вводит захардкоженную карту фото-импортов как второй источник истины без теста на
+  расхождение с JSON; (3) `src/tests/unit/components/office/department-hotspot.test.tsx` (типизированный
+  литерал `Department` с `symptoms`/`outcomes`) пропущен в Expected files — без правки сломает
+  `npm run typecheck`. Non-blocking: Manual checks не проверяли явно размер сетевого ответа
+  миниатюры rail.
+- Исправления (все inline, без нового решения пользователя — по заключению skeptic):
+  1. Ложная ссылка на `Header.tsx`-прецедент заменена честной формулировкой ("первое использование
+     такой техники в проекте"), техническая состоятельность самого механизма сохранена.
+  2. Добавлено явное решение: `Department.reference` остаётся в модели данных; новый unit-тест
+     проверяет совпадение путей захардкоженной карты фото-импортов с этим полем (новый Acceptance
+     criterion 16).
+  3. `department-hotspot.test.tsx` добавлен в Expected files с пояснением причины.
+  4. Manual checks дополнены Network-проверкой размера миниатюры rail.
+- `WORKPLAN.md` Step 7.3: `Status`/`Skeptic verdict`/`Skeptic findings`/`Completion evidence`
+  дополнены итогом round 2 и списком исправлений.
+- Verification: изменения ограничены `WORKPLAN.md`/`WORKLOG.md` (план, код не менялся).
+- Next: сфокусированный skeptic re-check четырёх исправлений (не полный новый раунд).
+
+## Entry 29
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.3 — сфокусированный skeptic re-check (проверка 4 исправлений Entry 28) → `FAIL`,
+  исправлено.
+- Skeptic перепроверил именно 4 точки исправления (не весь план заново). Результат: 2 из 4 —
+  подтверждены как реально исправленные (`department-hotspot.test.tsx` в Expected files;
+  Network-проверка миниатюры в Manual checks). 2 находки:
+  1. **Blocking** — Correction-запись утверждала, что drift-check тест (`photoByDepartmentId` ↔
+     `Department.reference`) отражён в Expected files, но независимая проверка показала, что
+     Expected files его фактически не упоминал (только Objective и Acceptance criterion 16) — та же
+     категория дефекта, что оригинальная round 2 находка №1 (ложное утверждение в тексте плана).
+  2. **Non-blocking** — исправление ложной ссылки на `Header.tsx`-прецедент в Objective было
+     ошибочно помечено как "non-blocking correction", что противоречило классификации той же находки
+     как Blocking в Status/round 2 verdict/Correction.
+- Исправлено: bullet `departments.test.ts` в Expected files дополнен явным упоминанием drift-check
+  теста и AC16; метка "non-blocking" убрана из Objective (заменена на нейтральное "исправлено inline"
+  без противоречащей severity-классификации).
+- `WORKPLAN.md` Step 7.3: `Status`/"Correction"/"Skeptic findings" дополнены итогом re-check.
+- Verification: изменения ограничены `WORKPLAN.md`/`WORKLOG.md` (план, код не менялся).
+- Next: представить финализированный план пользователю для явного утверждения перед стартом
+  реализации.
+
+## Entry 30
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.3 — утверждение плана пользователем, старт реализации.
+- Пользователь: «Переводи шаг APPROVED и приступай к реализации» — явное согласование финализированного
+  плана (после round 1/round 2/focused re-check skeptic review).
+- `WORKPLAN.md` Step 7.3 `Status`: `PROPOSED` → `IN_PROGRESS` (approved пользователем, реализация
+  начата немедленно, без отдельной паузы на `APPROVED`).
+- Verification: изменение ограничено `WORKPLAN.md`/`WORKLOG.md`.
+- Next: реализация по плану (data model → контент → фото → компоненты → тесты → verification
+  commands → skeptic Phase B).
+
+## Entry 31
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.3 — реализация (после `APPROVED`).
+
+### Scope executed
+
+- `src/content/types.ts`/`schema.ts` — `Department.symptoms`/`outcomes` заменены на
+  `painPoints: {pain, gain}[]` (ровно 5, zod `.length(5)`); `PainPoint` тип добавлен.
+- `data/departments.json` — реальная (черновая, OQ-P5) копия боль/выгода для всех 5 отделов; черновик
+  "Дирекция" переиспользован как есть, 20 новых пар написаны для Продажи/Поддержка/HR/Логистика.
+- `docs/12-content-data-model.md`, `docs/03-office-map.md`, `docs/05-homepage-state-machine.md` —
+  честные правки: тип `Department` в docs/12 обновлён (`painPoints`, `beforeSteps`/`automationSteps`/
+  `visual` остаются отдельным известным расхождением, Step 2); docs/03 подтверждён как реализованный,
+  уточнение по OQ-P1 (фон — не в overview, только department-active; миниатюры — реальные фото);
+  docs/05 "department-active" честно переписан (Step 6 сохранил временный блок Step 5, реальная
+  замена — этот шаг).
+- Новый `src/components/office/departmentPhotos.ts` — `photoByDepartmentId`/`officeBackgroundPhoto`,
+  статический импорт `references/**/*.png` через `next/image` (без копирования в `public/`).
+- `src/components/office/DepartmentNavigationRail.tsx`/`.module.css` — фото-миниатюра (32×32,
+  `next/image fill`) на каждый пункт (активный и кликабельные).
+- `src/components/office/OfficeExperience.tsx`/`.module.css` — фоновое фото офиса (`fill`, `filter:
+  grayscale(0.5) brightness(0.55)`) позади `.shell10x90`, только в ветке `department-active`
+  (лениво монтируется вместе с ней); `position:relative`/`z-index` на `.mainArea`/`.railArea` —
+  явная защита порядка отрисовки.
+- Новый `src/components/departments/PainGainPanel.tsx`/`.module.css` — Desktop/Tablet (≥768px)
+  20/80-раскладка; локальный `useState`, дефолт на пункт №1 (OQ-P2), обычные `<button>`/Tab (OQ-P4).
+- Новый `src/components/departments/MobilePainGainAccordion.tsx`/`.module.css` — Mobile (≤767px)
+  столбик/аккордеон (OQ-P6), тот же дефолт/клавиатурный паттерн.
+- `src/components/departments/DepartmentExperience.tsx` — `PainGainPanel`/`MobilePainGainAccordion`
+  вместо `OutcomePanel`, оба с `key={`desktop-${id}`}`/`key={`mobile-${id}`}` (OQ-P3 — принудительный
+  сброс состояния при `SWITCH_DEPARTMENT`, так как сам компонент не размонтируется).
+- `src/components/departments/DepartmentCopy.tsx`/`.module.css` — рендер `symptoms` убран.
+- `src/components/departments/OutcomePanel.tsx`/`.module.css` — удалены.
+- Обновлены unit-тесты: `department-hotspot.test.tsx` (фикстура), `invalid-fixtures.test.ts`
+  (`painPoints`-фикстуры вместо `symptoms`/`outcomes`, +3 новых invalid-теста), `departments.test.ts`
+  (+1 drift-check тест: путь `photoByDepartmentId` совпадает с `Department.reference` — сверка по
+  исходному тексту файла, не по runtime-значению импорта), `department-navigation-rail.test.tsx`
+  (+1 тест на 5 фото-миниатюр), `department-experience.test.tsx` (переписан вокруг `painPoints`,
+  +2 новых теста на выбор пункта боли в обоих вариантах раскладки, через `data-testid`-скоуп).
+- Новые/обновлённые e2e: `department-selection.spec.ts` (ассерты `outcomes`→`painPoints`),
+  `desktop-10x90-shell.spec.ts` (Tab-порядок с 5 пунктами боли; +3 новых теста: выбор пункта боли,
+  сброс при переключении отдела, граница breakpoint 767/768px), `mobile-touch-flow.spec.ts`
+  (Tab-порядок с аккордеоном; +2 новых теста: раскрытие пункта боли, тап-таргеты аккордеона ≥44px).
+
+### Found and fixed during implementation
+
+1. Дублирующийся React key `department.id` у двух соседних JSX-элементов (`PainGainPanel`/
+   `MobilePainGainAccordion`) — реальная console-ошибка ("two children with the same key"), ловилась
+   e2e-тестом на консоль. Исправлено: `key={`desktop-${id}`}`/`key={`mobile-${id}`}`.
+2. Собственный баг в CSS-комментарии: буквальная строка `references/**/*.png` внутри `/* ... */`
+   содержит `**/`, преждевременно закрывающий сам комментарий — ломало `npm run build` (Turbopack
+   CSS parse error). Исправлено: убрана глоб-нотация из текста комментария.
+3. `page.goto("/?department=...")` таймауты (несколько e2e-тестов, до 30s+) — **первоначальное
+   объяснение в этой записи ("осиротевшие node-процессы") было неверным**, независимо опровергнуто
+   skeptic Phase B review (см. Entry 32) и последующим собственным расследованием: настоящая причина
+   — исчерпание эфемерных портов Windows под нагрузкой `/next/image`-запросов на нестандартно тяжёлые
+   исходники. См. Entry 32 для честного описания находки и фикса.
+
+### Command results
+
+- `npm run format:check` ✓ (после `npm run format`, 2 файла реформатированы).
+- `npm run lint` ✓.
+- `npm run typecheck` ✓ (1 ошибка найдена и исправлена — `department-selection.spec.ts` всё ещё
+  ссылался на `.outcomes`).
+- `npm run test` ✓ 122/122.
+- `npm run build` ✓ (Turbopack; статически подтверждён рабочий статический импорт `.png` из
+  `references/` вне `src/`/`public/`).
+- `npm run test:e2e` ✓ 63/63 (после устранения дублирующегося key), но нестабильно на отдельных
+  повторных прогонах — см. Entry 32 (skeptic Phase B нашёл реальную причину, не разовый флейк).
+- Ручная dev-проверка — см. "Completion evidence" в `WORKPLAN.md` Step 7.3.
+
+### Skeptic review
+
+Не проводился в рамках этой записи — следующий шаг: skeptic Phase B review.
+
+## Entry 32
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.3 — skeptic Phase B review (round 1) → `FAIL`, найдена и устранена настоящая причина
+  нестабильности `test:e2e`.
+
+### Skeptic verdict (round 1)
+
+`FAIL`. 3 Blocking:
+
+1. **`npm run test:e2e` реально нестабилен, не разовый флейк.** Independently reproduced в 4 из 5
+   полных прогонов, включая `--workers=1` (опровергает гипотезу параллелизма). `WORKLOG.md` Entry 31
+   и `WORKPLAN.md` Completion evidence на тот момент давали ДВА РАЗНЫХ объяснения одного инцидента
+   (осиротевшие процессы vs холодный кэш Image Optimization) — сам факт расхождения показывал, что
+   причина не была реально установлена, только предположена.
+2. **AC16 drift-check тест не ловил ключевой failure mode.** Проверял только "путь `reference`
+   встречается где-то в тексте файла" — подмена присвоений местами (`sales: supportPhoto`) оставила
+   бы оба пути/обе переменные в файле нетронутыми, тест остался бы зелёным.
+3. **`npm run format:check` реально падал** на независимом прогоне skeptic'а (README.md таблица
+   рассинхронизирована после моей ручной правки) — противоречило заявленным "все exit 0". (Skeptic
+   также прозрачно раскрыл, что по ошибке запустил `prettier --write` на README.md при диагностике —
+   проверено: изменились только пробелы выравнивания таблицы, содержимое ячеек не пострадало.)
+
+### Root-cause investigation (после round 1 FAIL)
+
+Первая гипотеза (унаследованная из Entry 31: "осиротевшие процессы") была опровергнута — skeptic
+воспроизвёл таймаут на чистом порту. Вторая гипотеза (холодный кэш Next.js Image Optimization под
+конкурентной нагрузкой) тоже оказалась неполной: сгенерированные предварительно лёгкие WebP-версии
+исходников (5–7 КБ миниатюры, 285 КБ фон — было 3.1–3.6 МБ) НЕ устранили таймауты (4 failed на
+повторном прогоне сразу после фикса размера). Настоящая причина найдена через `netstat`: сотни–тысячи
+TCP-соединений в состоянии `TIME_WAIT` на порту 3100 в рамках ОДНОГО прогона — эфемерные порты
+Windows (диапазон ~49152–65535) исчерпывались из-за большого числа отдельных HTTP-запросов к
+`/next/image`-эндпойнту (по одному на каждую комбинацию размер/формат для 5 миниатюр + фона на
+каждый рендер отдела, помноженное на десятки открытий отделов за весь прогон). Воспроизводилось
+независимо от `--workers` (даже `--workers=1` не спасал — исчерпание порта копится ЗА ВЕСЬ прогон,
+не только внутри одного момента времени).
+
+### Fix
+
+1. `src/assets/office-photos/*.webp` — новые предварительно сгенерированные (одноразовый скрипт на
+   `sharp`, не сохранён в репозитории) WebP-производные: 5 миниатюр 160×160 (под рендер 32×32 CSS px)
+   + фон 1536×1024 (лучшее сжатие, чем исходный PNG для этого типа контента).
+2. `src/components/office/departmentPhotos.ts` — импорт переключён на эти производные вместо
+   оригиналов `references/**/*.png`; `Department.reference` в `data/departments.json` не менялся —
+   по-прежнему описывает исходный дизайн-референс.
+3. `DepartmentNavigationRail.tsx`/`OfficeExperience.tsx` — добавлен `unoptimized` на оба `<Image>`:
+   раз производные уже нужного размера/формата, проход через `/next/image` не нужен, файл отдаётся
+   как обычный статический ассет без лишнего round-trip.
+4. `src/tests/unit/content/departments.test.ts` — drift-check тест переписан: для каждого `id`
+   проверяет и (а) существование import из `${id}-thumbnail.webp`, и (б) что именно эта переменная
+   присвоена ключу `id` в `photoByDepartmentId` — не другая. Эмпирически проверено: временная подмена
+   `sales`/`support` местами реально уронила тест; возврат кода — тест снова зелёный.
+5. `npm run format` — почищен `format:check`.
+6. `WORKPLAN.md` Step 7.3 — Objective/Expected files/Risks/Manual checks/AC16-17/Completion evidence
+   переписаны без противоречащих друг другу объяснений; полная честная история находки сохранена.
+
+### Verification after fix
+
+- `npm run format:check`/`lint`/`typecheck`/`test` (122/122) — все exit 0.
+- `npm run build` — ✓ (чистая пересборка).
+- `npm run test:e2e` — **5 подряд чистых прогонов, 63/63 каждый**: 1 при полном параллелизме сразу
+  после фикса, 3 подряд ещё раз (накопление тысяч TIME_WAIT-сокетов между прогонами не мешало), 1 —
+  `--workers=1` (тот же сценарий, где round 1 нашёл проблему). Время прогона ~20с против ~48–50с до
+  фикса.
+
+### Next
+
+Отправить на сфокусированный skeptic Phase B re-check (не полный новый раунд, по прецеденту Phase A
+round 2 → focused re-check) перед переводом `Status` в `COMPLETED`.
+
+## Entry 33
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.3 — сфокусированный skeptic Phase B re-check → `PASS`, шаг переведён в `PASSED`.
+- Перед re-check (после кратковременной недоступности инструментов из-за сбоя классификатора на
+  стороне платформы, не проекта) полный набор перепрогнан начисто: `format:check`/`lint`/`typecheck`
+  ✓, `test` ✓ 122/122, `build` ✓, `test:e2e` ✓ 63/63 параллельно (23.8с) и ✓ 63/63 `--workers=1`
+  (45.4с).
+- Skeptic Phase B re-check verdict: `PASS`. Независимо перепроверил все 3 Blocking-находки round 1
+  как реально устранённые: (1) `test:e2e` стабилен — сам прогнал параллельно (63/63) и `--workers=1`
+  (63/63, та же конфигурация, где round 1 ловил таймаут); (2) drift-check тест — сам воспроизвёл
+  падение подменой `sales`↔`support` местами, затем возврат (файл byte-identical по хешу); (3)
+  `format:check` exit 0; полный набор проверок прогнал сам — все exit 0. Подтвердил, что
+  `WORKPLAN.md`/`WORKLOG.md` больше не содержат противоречащих объяснений флейка. 1 non-blocking:
+  строка `departmentPhotos.ts` не была отдельным пунктом Expected files — добавлена inline после
+  re-check. Blocking: нет. Рабочее дерево оставлено чистым (временная подмена skeptic'а отменена).
+- Status before: Step 7.3 — `AWAITING_SKEPTIC`.
+- Status after: Step 7.3 — `PASSED`. `WORKPLAN.md` Status/Skeptic Phase B re-check/Completion
+  evidence/Expected files/Next дополнены; убран дубль блока Completion evidence, возникший при
+  правке. `README.md` строка "7.3" → `Выполнено`.
+- Verification: `git status --short` — код и `src/assets/office-photos/*.webp` не менялись в рамках
+  этой записи (только процессные `WORKPLAN.md`/`WORKLOG.md`/`README.md`).
+- Next: ждёт явного подтверждения пользователем перехода Step 7.3 `PASSED` → `COMPLETED`.
+
+## Entry 34
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: закрытие Step 7.3.
+- Пользователь: «Закрывай Step 7.3 и больше ничего не делай.» — явное, недвусмысленное подтверждение
+  закрытия (тот же формат, что уже использовался для Step 5/7/7.2/7.4).
+- Status before: Step 7.3 — `PASSED`.
+- Status after: Step 7.3 — `COMPLETED`. `WORKPLAN.md` Status/строка закрытия обновлены. `README.md`
+  без изменений (метка "Выполнено" уже соответствовала `PASSED` по mapping-таблице; переход в
+  `COMPLETED` не меняет отображаемую метку).
+- Код не менялся — реализация Step 7.3 (включая `src/assets/office-photos/*.webp`) осталась
+  незакоммиченной в рабочем дереве, как и вся сессия; коммит не запрашивался.
+- Verification: `git status --short` — изменения ограничены `WORKPLAN.md`/`WORKLOG.md`.
+- Skeptic review: не требуется — закрытие по явному подтверждению пользователя, не по результату
+  review (тот же прецедент, что закрытие предыдущих шагов).
+
+## Entry 35
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.5 — Tablet touch flow. Реализация (`APPROVED` → `IN_PROGRESS` → `AWAITING_SKEPTIC`).
+- Предусловия Dependencies выполнены: Step 7, 7.2, 7.3 — `COMPLETED`.
+- Файлы (реализация — только CSS + новый e2e, ни одного `.tsx`):
+  - `src/components/office/DepartmentHotspot.module.css` — снятие hover-gating `.problem`: новый
+    `@media (max-width: 1279px)` с `opacity: 1; max-height: 4rem`. Одна широкая граница вместо
+    768–1279: на ≤767px `.map` уже скрыта (Step 7), правило там безвредно. Desktop ≥1280px не
+    затронут — hover-раскрытие Step 3 сохранено.
+  - `src/components/office/OfficeExperience.module.css` — новый
+    `@media (min-width: 768px) and (max-width: 1279px)`: `.shell10x90` →
+    `grid-template-columns: minmax(180px, 20%) 1fr` (desktop: `minmax(140px, 14%)`). Обе колонки
+    сохранены. Собственного CSS для `interactionHint` не добавлено — безусловное
+    `.hint { display: none }` Step 7.2 уже покрывает Tablet (Amendment 5, AC12).
+  - `src/components/departments/DepartmentCTA.module.css` — граница `min-height: 44px` поднята с
+    `max-width: 767px` до `max-width: 1279px` (условный Expected file; условие сработало).
+  - `src/components/departments/DepartmentExperience.module.css` — `.close` `min-height: 44px`
+    вынесен в отдельный `@media (max-width: 1279px)`; блок ≤767px сохраняет только свой padding
+    (условный Expected file; условие сработало).
+  - `src/tests/e2e/tablet-touch-flow.spec.ts` — новый, 18 тестов (AC1–AC12, AC16).
+  - `WORKPLAN.md` Status, `README.md` строка "7.5" → `В работе`.
+- Измерение тап-таргетов (AC7) — фактический результат, не предположение:
+  - `DepartmentCTA` и «Закрыть» — **33px** на всех трёх Tablet-ширинах (768/1024/1279) → <44,
+    исправлено точечной CSS-правкой, как и предусматривал план ("решается по факту измерения").
+    Прежний комментарий "на Desktop/Tablet padding уже достаточен" (Step 7) измерением опровергнут
+    для Tablet и заменён.
+  - Кнопки rail (~48px: миниатюра 32px + padding 2×8px), хотспоты карты, пункты `PainGainPanel` —
+    уже ≥44×44 без правок. `DepartmentNavigationRail.module.css` не потребовался.
+  - Риск плана "малые зоны карты (HR 26%, executive 24%) на 768px" — не подтвердился: все 5
+    хотспотов ≥44×44 на 768×1024. Защитный `min-width`-floor не вводился (план: только по факту).
+  - Условные Expected files `HeroCopy.module.css`/`Header.module.css` не потребовались — проблем на
+    768/1279px не найдено. `department-hotspot.test.tsx` не менялся — контракт компонента
+    (пропы/`aria-describedby`/позиционирование) не изменился, jsdom не вычисляет media queries.
+- Находка в тесте (не в продукте): первая версия AC11 читала `getComputedStyle().opacity` сразу
+  после `setViewportSize` и получала **0.887** — середину `transition opacity 0.15s` (`.problem`,
+  Step 3), а не осевшее значение. Заменено на `expect.poll` (опрашивает осевшее состояние);
+  ожидания не ослаблены (по-прежнему строго `0` на 1280px и `1` на 1279px).
+- Verification (все команды реально выполнены):
+  - `npm run format:check` — exit 0. `npm run lint` — exit 0. `npm run typecheck` — exit 0.
+  - `npm run test` — exit 0 (16 файлов, 122 теста).
+  - `npm run build` — exit 0.
+  - `npm run test:e2e` — exit 0, **81 passed**, включая полную регрессию Desktop ≥1280px (AC13) и
+    Mobile ≤767px (AC14) без ослабления ожиданий.
+  - Dev-mode console-проверка (`npm run dev`, 1024×768 и 768×1024 hasTouch, полный поток
+    открыть/переключить через rail/закрыть/`?department=hr`/Escape): по критерию проекта
+    (`/error|hydrat/i`) — `[]`, exit 0. Dev-сервер остановлен.
+- Известный, НЕ введённый этим шагом дефект: dev-only console.warning Next.js про LCP на
+  `office-background.webp` (Step 7.3). Проверено контрольным прогоном на 1280×800 — воспроизводится
+  идентично на Desktop, значит не Tablet-специфичен и не регрессия этого шага; в production-сборке
+  отсутствует (e2e AC16 чист). Не входит в критерий `/error|hydrat/i` Steps 5/6/7. Non-blocking,
+  фиксируется честно, владелец — не Step 7.5.
+- AC15: тривиально выполнен — этим шагом не изменён ни один `.tsx`. Три компонента из Expected files
+  (`DepartmentHotspot`/`DepartmentExperience`/`OfficeExperience`) содержат только `import type ...
+  from "@/content/types"` — type-only, стирается при компиляции, не загрузчик контента, унаследовано
+  без изменений; единственный импорт загрузчиков (`getDepartments`/`getHomepageCopy`/
+  `getOfficeZones`) — в server-компоненте `HomepageShell.tsx`, не трогался.
+- AC20: `git diff --stat 42d80d2 -- package.json package-lock.json` — пусто, новых зависимостей нет.
+- AC18 — честное ограничение: буквальная формулировка ("`git diff --stat` относительно коммита
+  закрытия Step 7") невыполнима как изоляция, потому что Steps 7.2/7.3/7.4 остались
+  незакоммиченными в рабочем дереве (см. Entry 34) — diff против `42d80d2` включает и их. Проверено
+  тем, что реально доступно: набор файлов, изменённых именно этим шагом (список выше), полностью
+  лежит внутри Expected files Step 7.5. Ни один файл вне этого списка этим шагом не тронут.
+- Status before: Step 7.5 — `APPROVED`.
+- Status after: Step 7.5 — `AWAITING_SKEPTIC`.
+- Next: skeptic review Phase B.
+
+## Entry 36
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 7.5 — skeptic review Phase B (`AWAITING_SKEPTIC` → `PASSED`).
+- Skeptic verdict: **`PASS`** (round 1). Blocking: нет.
+- Skeptic перепрогнал проверки независимо, не со слов исполнителя: format/lint/typecheck exit 0;
+  unit 122 passed/16 files (= база Entry 33 → ни один тест не удалён); build exit 0; e2e 81 passed
+  (= база 63 + 18 новых → существующие сьюты не ослаблены и не удалены). Изоляцию шага подтвердил
+  тремя независимыми сигналами (mtime файлов, маркеры "7.5" в `src/`, счётчики тестов), то есть по
+  существу, а не по объёму общего diff.
+- Skeptic выдвинул и **опроверг собственную гипотезу дефекта**, которую исполнитель не проверял:
+  обрезка безусловно раскрытого `.problem` (`max-height: 4rem` + `overflow: hidden` у `.hotspot`) на
+  узком 768px. Probe: `scrollHeight` максимум 28px против лимита 64px, `clipped=false` на всех 5
+  хотспотах и всех трёх Tablet-ширинах. Probe удалён, рабочее дерево восстановлено.
+- Non-blocking находки — 4 исправлены inline, 2 отклонены с обоснованием:
+  - (1) AC18 заменён по методу без Amendment → **FIXED**: ограничение записано прямо в текст AC18
+    (`WORKPLAN.md`). Skeptic подтвердил, что это замена метода верификации, а не scope — Amendment
+    не требуется.
+  - (3) `docs/03` "Левая панель 10–14%" не квалифицирован по breakpoint'ам, а Tablet даёт 20% →
+    **FIXED**: в `docs/03` "Режим 10/90" добавлено уточнение про Tablet со ссылкой на `docs/08`
+    ("панель может быть шире"). Молчаливого противоречия approved-документу не остаётся.
+  - (4) AC2 проверялся по opacity только на 1024px → **FIXED**: e2e-тест AC2 параметризован по обоим
+    краям диапазона (768/1279) и дополнен проверкой отсутствия обрезки текста
+    (`scrollHeight > clientHeight`) — ровно та гипотеза, которую skeptic проверял вручную, теперь
+    закреплена автотестом. e2e: 81 → **82 passed**.
+  - (5) LCP-warning без владельца → **FIXED**: заведена секция `WORKPLAN.md`
+    "## Известные дефекты без владельца" с записью, атрибуцией (Step 7.3) и кандидатом-владельцем.
+  - (2) Незакоммиченные Steps 7–7.5 → документированный rollback Step 7.5 физически не существует;
+    вынесено пользователю, не в компетенции исполнителя (см. `WORKPLAN.md` Step 7.5 → "Next").
+  - (6) Текстовый фильтр `/error|hydrat/i` в AC16 пропустил бы `console.error` без этих подстрок —
+    унаследованный прецедент Steps 5/6/7, не дефект этого шага; оставлено как есть.
+- Verification после inline-правок (реально выполнены): `npm run format:check`, `npm run lint`,
+  `npm run typecheck` — exit 0; `npm run test:e2e` — exit 0, **82 passed**.
+- Status before: Step 7.5 — `AWAITING_SKEPTIC`.
+- Status after: Step 7.5 — `PASSED`. `README.md` строка "7.5" → `Выполнено` (mapping-таблица
+  README: `PASSED`/`COMPLETED` → "Выполнено"; тот же прецедент, что Entry 33 для Step 7.3 —
+  последующий переход `PASSED` → `COMPLETED` отображаемую метку уже не меняет).
+- Код остаётся незакоммиченным в рабочем дереве — коммит не запрашивался.
+- Next: ждёт явного подтверждения пользователем перехода Step 7.5 `PASSED` → `COMPLETED`.

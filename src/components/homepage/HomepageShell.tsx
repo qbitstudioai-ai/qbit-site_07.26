@@ -3,7 +3,6 @@ import { getHomepageCopy } from "@/content/homepage-copy";
 import { getOfficeZones } from "@/content/office-zones";
 import type { DepartmentId } from "@/content/types";
 import { OfficeMachine } from "@/features/office-machine/OfficeMachine";
-import { Header } from "./Header";
 import styles from "./HomepageShell.module.css";
 
 interface HomepageShellProps {
@@ -18,16 +17,13 @@ export function HomepageShell({ initialRevealed, initialDepartmentId }: Homepage
 
   return (
     <div className={styles.shell}>
-      <Header />
-      <main className={styles.main}>
-        <OfficeMachine
-          copy={copy}
-          departments={departments}
-          officeZones={officeZones}
-          initialRevealed={initialRevealed}
-          initialDepartmentId={initialDepartmentId}
-        />
-      </main>
+      <OfficeMachine
+        copy={copy}
+        departments={departments}
+        officeZones={officeZones}
+        initialRevealed={initialRevealed}
+        initialDepartmentId={initialDepartmentId}
+      />
     </div>
   );
 }

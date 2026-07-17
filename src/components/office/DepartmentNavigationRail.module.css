@@ -54,3 +54,18 @@
 .currentMark {
   color: var(--color-accent-warm);
 }
+
+/* Step 7.3: фото-миниатюра на каждый отдел (OQ-P1 — реальные фото из references/, не заглушка). */
+.thumbnailWrap {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--color-graphite-100);
+}
+
+.thumbnail {
+  object-fit: cover;
+}

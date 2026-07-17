@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DepartmentExperience } from "@/components/departments/DepartmentExperience";
 import { getDepartments } from "@/content/departments";
@@ -22,7 +22,7 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
     expect((heading as HTMLElement).tabIndex).toBe(-1);
   });
 
-  it("renders problem, at most 3 symptoms (docs/12), and all outcomes", () => {
+  it("renders problem and exactly 5 pain points, defaulting to the first pain's gain (Step 7.3, OQ-P2)", () => {
     render(
       <DepartmentExperience
         department={department}
@@ -33,12 +33,48 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
       />,
     );
     expect(screen.getByText(department.problem)).toBeInTheDocument();
-    for (const symptom of department.symptoms.slice(0, 3)) {
-      expect(screen.getByText(symptom)).toBeInTheDocument();
+    expect(department.painPoints).toHaveLength(5);
+    for (const point of department.painPoints) {
+      expect(screen.getAllByText(point.pain).length).toBeGreaterThan(0);
     }
-    for (const outcome of department.outcomes) {
-      expect(screen.getByText(outcome)).toBeInTheDocument();
-    }
+    // Оба варианта раскладки (PainGainPanel Desktop/Tablet, MobilePainGainAccordion Mobile)
+    // рендерятся одновременно в DOM (видимость по CSS, Step 7 прецедент) — по умолчанию (без клика)
+    // оба показывают выгоду именно первого пункта боли (OQ-P2).
+    expect(screen.getAllByText(department.painPoints[0].gain).length).toBeGreaterThan(0);
+  });
+
+  it("selecting a pain point in PainGainPanel shows exactly its gain, and no other (Step 7.3)", () => {
+    render(
+      <DepartmentExperience
+        department={department}
+        machineView="department-active"
+        departments={departments}
+        onSelectDepartment={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    const panel = within(screen.getByTestId("pain-gain-panel"));
+    const thirdPain = department.painPoints[2];
+    fireEvent.click(panel.getByRole("button", { name: thirdPain.pain }));
+    expect(panel.getByText(thirdPain.gain)).toBeInTheDocument();
+    expect(panel.queryByText(department.painPoints[0].gain)).not.toBeInTheDocument();
+  });
+
+  it("expanding a pain point in the mobile accordion shows exactly its gain, collapsing the previous one (Step 7.3, OQ-P6)", () => {
+    render(
+      <DepartmentExperience
+        department={department}
+        machineView="department-active"
+        departments={departments}
+        onSelectDepartment={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    const accordion = within(screen.getByTestId("mobile-pain-gain-accordion"));
+    const secondPain = department.painPoints[1];
+    fireEvent.click(accordion.getByRole("button", { name: secondPain.pain }));
+    expect(accordion.getByText(secondPain.gain)).toBeInTheDocument();
+    expect(accordion.queryByText(department.painPoints[0].gain)).not.toBeInTheDocument();
   });
 
   it("renders a visible CTA button and an explicit close button that calls onClose", () => {

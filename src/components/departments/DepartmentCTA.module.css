@@ -8,9 +8,12 @@
   font-weight: 600;
 }
 
-/* Тап-таргет ≥44×44 CSS px (WORKPLAN.md Step 7, AC 8) — на Desktop/Tablet padding уже достаточен,
-   явный min-height нужен только на ≤767px, чтобы не увеличивать визуальный размер кнопки шире. */
-@media (max-width: 767px) {
+/* Тап-таргет ≥44×44 CSS px (WORKPLAN.md Step 7 AC 8, Step 7.5 AC 7). Граница поднята с 767px до
+   1279px в Step 7.5: измерение на Tablet показало реальную высоту 33px — прежнее допущение "на
+   Desktop/Tablet padding уже достаточен" верно только для Desktop, где ввод указательный, а не
+   касанием. Одна широкая граница вместо двух синхронизируемых правил — тот же приём, что для
+   hover-gating .problem (DepartmentHotspot.module.css). */
+@media (max-width: 1279px) {
   .cta {
     min-height: 44px;
   }

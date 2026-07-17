@@ -1,4 +1,6 @@
+import Image from "next/image";
 import type { Department, DepartmentId } from "@/content/types";
+import { photoByDepartmentId } from "./departmentPhotos";
 import styles from "./DepartmentNavigationRail.module.css";
 
 interface DepartmentNavigationRailProps {
@@ -28,6 +30,15 @@ export function DepartmentNavigationRail({
             <li key={department.id} className={styles.item}>
               {isActive ? (
                 <span className={styles.current} aria-current="true">
+                  <span className={styles.thumbnailWrap}>
+                    <Image
+                      src={photoByDepartmentId[department.id]}
+                      alt=""
+                      fill
+                      unoptimized
+                      className={styles.thumbnail}
+                    />
+                  </span>
                   <span aria-hidden="true" className={styles.currentMark}>
                     ●
                   </span>
@@ -39,6 +50,15 @@ export function DepartmentNavigationRail({
                   className={styles.railButton}
                   onClick={() => onSelectDepartment(department.id)}
                 >
+                  <span className={styles.thumbnailWrap}>
+                    <Image
+                      src={photoByDepartmentId[department.id]}
+                      alt=""
+                      fill
+                      unoptimized
+                      className={styles.thumbnail}
+                    />
+                  </span>
                   {department.overviewLabel}
                 </button>
               )}

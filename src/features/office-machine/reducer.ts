@@ -21,7 +21,8 @@ export type OfficeMachineAction =
   | { type: "SWITCH_COMPLETE" }
   | { type: "CLOSE_DEPARTMENT" }
   | { type: "CLOSE_COMPLETE" }
-  | { type: "ESCAPE" };
+  | { type: "ESCAPE" }
+  | { type: "RETURN_TO_HERO" };
 
 export interface OfficeMachineInit {
   initialRevealed: boolean;
@@ -77,6 +78,10 @@ export function officeMachineReducer(
     case "CLOSE_COMPLETE":
       if (state.view !== "department-closing") return state;
       return { view: "overview", activeDepartmentId: null };
+
+    case "RETURN_TO_HERO":
+      if (state.view === "hero") return state;
+      return { view: "hero", activeDepartmentId: null };
 
     default:
       return state;
