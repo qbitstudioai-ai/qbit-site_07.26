@@ -40,7 +40,7 @@ README.md синхронно с каждым изменением статуса
 | 7.4 | Return-to-hero navigation + tagline        | Выполнено     |
 | 7.5 | Tablet touch flow                          | Выполнено     |
 | 7.6 | Header: clickable logo + tagline           | Выполнено     |
-| 8   | Reduced motion and fallback                | Не приступили |
+| 8   | Reduced motion and fallback                | Выполнено     |
 | 9   | Browser acceptance tests                   | Не приступили |
 
 Полные критерии и детали каждого шага — `WORKPLAN.md`. История исполнения и доказательства —

@@ -5,17 +5,29 @@ import { Header } from "@/components/homepage/Header";
 import { HeroCopy } from "@/components/homepage/HeroCopy";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
 import type { Department, DepartmentId, HomepageCopy, OfficeZone } from "@/content/types";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import styles from "./OfficeMachine.module.css";
 import { initOfficeMachineState, officeMachineReducer } from "./reducer";
 import { useDepartmentUrlSync } from "./url-sync";
 
 // Ориентировочная длительность (docs/07-motion-system.md "Уровень Transition") — книгоучёт для
-// focus-management/CSS-классов, не строгий acceptance-критерий; под prefers-reduced-motion реальная
-// CSS transition/animation обнуляется глобально (globals.css), эти таймеры лишь продвигают
-// наблюдаемый `view` вперёд по docs/05, не блокируя доступность контента (Motion rules CLAUDE.md).
+// focus-management/CSS-классов, не строгий acceptance-критерий.
 const OPEN_DURATION_MS = 800;
 const SWITCH_DURATION_MS = 600;
 const CLOSE_DURATION_MS = 700;
+
+// Step 8. Прежний комментарий здесь утверждал, что под prefers-reduced-motion эти таймеры "лишь
+// продвигают view вперёд, не блокируя доступность контента". Это было неверно, и правится не
+// косметически, а по факту: CSS обнуляется глобально (globals.css), поэтому под reduce fade-out
+// отрабатывал мгновенно — а CLOSE_COMPLETE всё равно приходил через 700 мс. Пользователь с reduce
+// видел пустую 90%-область эти 700 мс и столько же ждал возврата focus на хотспот. Ровно то, что
+// запрещают docs/07 ("критические кнопки после длинной анимации", "оставить все функции"),
+// docs/05 (инвариант "reduced motion сохраняет функции") и CLAUDE.md Motion rules ("Critical content
+// must not depend on animation completion"). Под reduce длительности схлопываются в 0: переход
+// остаётся асинхронным (setTimeout 0 — состояние не меняется во время рендера), но незаметным.
+function resolveDurationMs(durationMs: number, prefersReducedMotion: boolean): number {
+  return prefersReducedMotion ? 0 : durationMs;
+}
 
 interface OfficeMachineProps {
   copy: HomepageCopy;
@@ -40,20 +52,31 @@ export function OfficeMachine({
 
   useDepartmentUrlSync(state.activeDepartmentId);
 
+  const prefersReducedMotion = usePrefersReducedMotion();
+
   useEffect(() => {
     if (state.view === "department-opening") {
-      const timer = setTimeout(() => dispatch({ type: "OPEN_COMPLETE" }), OPEN_DURATION_MS);
+      const timer = setTimeout(
+        () => dispatch({ type: "OPEN_COMPLETE" }),
+        resolveDurationMs(OPEN_DURATION_MS, prefersReducedMotion),
+      );
       return () => clearTimeout(timer);
     }
     if (state.view === "department-switching") {
-      const timer = setTimeout(() => dispatch({ type: "SWITCH_COMPLETE" }), SWITCH_DURATION_MS);
+      const timer = setTimeout(
+        () => dispatch({ type: "SWITCH_COMPLETE" }),
+        resolveDurationMs(SWITCH_DURATION_MS, prefersReducedMotion),
+      );
       return () => clearTimeout(timer);
     }
     if (state.view === "department-closing") {
-      const timer = setTimeout(() => dispatch({ type: "CLOSE_COMPLETE" }), CLOSE_DURATION_MS);
+      const timer = setTimeout(
+        () => dispatch({ type: "CLOSE_COMPLETE" }),
+        resolveDurationMs(CLOSE_DURATION_MS, prefersReducedMotion),
+      );
       return () => clearTimeout(timer);
     }
-  }, [state.view]);
+  }, [state.view, prefersReducedMotion]);
 
   // Escape закрывает активный отдел из любого department-*-состояния (docs/11).
   useEffect(() => {

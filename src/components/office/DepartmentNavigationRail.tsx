@@ -1,6 +1,6 @@
-import Image from "next/image";
 import type { Department, DepartmentId } from "@/content/types";
 import { photoByDepartmentId } from "./departmentPhotos";
+import { OfficePhoto } from "./OfficePhoto";
 import styles from "./DepartmentNavigationRail.module.css";
 
 interface DepartmentNavigationRailProps {
@@ -31,11 +31,8 @@ export function DepartmentNavigationRail({
               {isActive ? (
                 <span className={styles.current} aria-current="true">
                   <span className={styles.thumbnailWrap}>
-                    <Image
+                    <OfficePhoto
                       src={photoByDepartmentId[department.id]}
-                      alt=""
-                      fill
-                      unoptimized
                       className={styles.thumbnail}
                     />
                   </span>
@@ -51,11 +48,8 @@ export function DepartmentNavigationRail({
                   onClick={() => onSelectDepartment(department.id)}
                 >
                   <span className={styles.thumbnailWrap}>
-                    <Image
+                    <OfficePhoto
                       src={photoByDepartmentId[department.id]}
-                      alt=""
-                      fill
-                      unoptimized
                       className={styles.thumbnail}
                     />
                   </span>

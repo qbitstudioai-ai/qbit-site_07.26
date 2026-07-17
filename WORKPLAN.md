@@ -4053,7 +4053,20 @@ CSS. Полный текст исходных вариантов сохранё�
 
 ## Step 8 — Reduced motion and fallback
 
-- Status: `PROPOSED`
+- Status: `COMPLETED`
+- Approval provenance: пользователь прямой инструкцией 2026-07-17 («Приступай к Step 8. Сразу
+  выполняй без дополнительного планирования») санкционировал старт без Phase A (planner-черновик +
+  skeptic review плана), в отличие от Steps 5–7.6. Поля ниже, ранее помеченные «детализируется
+  перед стартом шага», заполнены исполнителем при старте — это раскрытие уже утверждённых
+  Objective/Acceptance criteria, не Amendment (Objective и оба AC не менялись). Phase B (skeptic
+  review исполнения) **не отменяется** — остаётся обязательной.
+- **Разрешение отложенного вопроса «что является visual layer»** (owner по Step 3 Risks/Step 5/Step 6
+  Out of scope — «перед стартом Step 8»): visual layer этого milestone — **фотослой `next/image`**
+  (`officeBackgroundPhoto` позади 10/90-раскладки + 5 миниатюр отделов в `DepartmentNavigationRail`,
+  Step 7.3, OQ-P1). `OfficeVisualLayer`/WebGL/Canvas **не вводятся** — это не новое решение, а
+  подтверждение уже зафиксированного в Steps 3/5/6 Out of scope и в CLAUDE.md «First milestone»
+  («No final 3D art»). Следствие: «ошибка визуального слоя» = ошибка загрузки фото, а не падение
+  WebGL-контекста. См. `DECISIONS.md` 2026-07-17.
 - Objective: Реализовать reduced-motion и visual fallback.
 - Dependencies: Step 7 (`COMPLETED`), Step 7.5 (`COMPLETED`) — **дополнено при skeptic Phase A
   review Step 7/Step 7.5 (Amendment 4, 2026-07-16):** Step 7.5 физически вставлена между Step 7 и
@@ -4062,17 +4075,122 @@ CSS. Полный текст исходных вариантов сохранё�
   8/Step 9 не сдвигается). **Дополнено 2026-07-16:** между Step 7 и Step 7.5 также вставлены новые
   Step 7.2 (`Overview full-screen (hide hero)`, `PROPOSED`) и Step 7.3 (`Department view redesign
   (pain/gain panel)`, `PROPOSED`) — тот же принцип (нелинейная метка, не сдвиг нумерации).
-- Expected files: _(детализируется перед стартом шага)_
+- In scope:
+  - **(A) Reduced motion — реальный разрыв, а не косметика.** Сегодня `globals.css` обнуляет CSS
+    `animation`/`transition` под `prefers-reduced-motion: reduce`, но JS-таймеры машины состояний
+    (`OfficeMachine.tsx`: `OPEN_DURATION_MS` 800, `SWITCH_DURATION_MS` 600, `CLOSE_DURATION_MS` 700)
+    работают независимо от медиа-запроса. Под reduced motion это даёт: пустая 90%-область в течение
+    700 мс на закрытии (fade-out уже отработал мгновенно, а `CLOSE_COMPLETE` ещё не пришёл) и на
+    столько же отложенный возврат focus на хотспот. Нарушает `docs/05` инвариант «reduced motion
+    сохраняет функции», `docs/07` «оставить все функции», CLAUDE.md Motion rules («Critical content
+    must not depend on animation completion») и `docs/07` запрет «критические кнопки после длинной
+    анимации». Исправление: новый хук `usePrefersReducedMotion` (`matchMedia`, подписка на
+    изменение — это и есть `MOTION_PREFERENCE_CHANGE` из `docs/05`, без отдельного действия
+    редьюсера) → под reduce все три длительности схлопываются в 0.
+  - **(B) Visual fallback.** Обёртка `OfficePhoto` над `next/image` с `onError` → детерминированный
+    нейтральный CSS-плейсхолдер вместо битой картинки. Применяется в обеих точках рендера фотослоя
+    (`OfficeExperience` фон, `DepartmentNavigationRail` миниатюры).
+  - Тесты: unit (хук, `OfficePhoto`, fallback в rail) + e2e (reduced-motion закрытие без 700 мс
+    задержки и с возвратом focus; `route.abort()` по `**/*.webp` → контент и 5 кнопок живы).
+  - Честная правка `docs/05` «## error-fallback» — привести документ в соответствие с реальностью
+    (прецедент: honesty-правка `docs/05` после skeptic FAIL в Step 3).
+- Out of scope:
+  - `OfficeVisualLayer`, WebGL/Canvas — не вводятся (см. «Разрешение отложенного вопроса» выше).
+  - **`SCENE_ERROR` в редьюсере и отдельное машинное состояние `error-fallback`** — сознательно не
+    добавляются. При DOM/фото-слое (не WebGL) ошибка локальна для одного `<img>` и не имеет
+    оснований поднимать глобальное состояние: `docs/05` требует от `error-fallback` «статичный
+    overview с пятью HTML-кнопками», а `OfficeSemanticMap`/`MobileDepartmentCarousel` **уже** ровно
+    это и есть — HTML-кнопки, не зависящие от фото (все фото декоративны, `alt=""`). Поднимать
+    состояние машины ради декоративной картинки — расширение blast radius без выигрыша. Явно
+    поднятое, не молчаливое ограничение; фиксируется правкой `docs/05`.
+  - Параллакс, ambient-анимации, «камерный перелёт» (`docs/07`) — не существуют в коде (GSAP
+    исключён, OQ-A = (b)); убирать под reduced motion нечего.
+  - `VISIBILITY_CHANGE`/пауза анимаций при скрытой вкладке (`docs/07` «Пауза») — нет бесконечных
+    циклов, которые нужно останавливать; owner не назначается.
+  - Автоматизированное axe-сканирование, `popstate` — по-прежнему owner Step 9.
+  - Правка `data/*.json`, `MANIFEST.json`, CI pipeline.
+- Expected files:
+  - `src/hooks/usePrefersReducedMotion.ts` (новый).
+  - `src/components/office/OfficePhoto.tsx` + `.module.css` (новые).
+  - `src/features/office-machine/OfficeMachine.tsx` (длительности схлопываются под reduce).
+  - `src/components/office/OfficeExperience.tsx`, `src/components/office/DepartmentNavigationRail.tsx`
+    (переход на `OfficePhoto`).
+  - `src/tests/unit/hooks/use-prefers-reduced-motion.test.ts`,
+    `src/tests/unit/components/office/office-photo.test.tsx` (новые).
+  - `src/tests/e2e/reduced-motion-and-fallback.spec.ts` (новый).
+  - `src/tests/unit/setup.ts` (заглушка `window.matchMedia` — jsdom не реализует её вовсе; без неё
+    новый хук роняет весь набор). **Уточнено по факту исполнения (skeptic Phase B, N2):** при старте
+    шага здесь ошибочно значился
+    `src/tests/unit/components/office/department-navigation-rail.test.tsx` («дополняется»), а
+    `setup.ts` не значился вовсе. Реально вышло наоборот: rail-покрытие fallback'а живёт в
+    `office-photo.test.tsx` (второй `describe`), а `department-navigation-rail.test.tsx` не тронут.
+    Строка приведена в соответствие с диффом, а не наоборот.
+  - `docs/05-homepage-state-machine.md`, `WORKPLAN.md`, `WORKLOG.md`, `DECISIONS.md`, `README.md`.
 - Acceptance criteria:
   1. Функции сохраняются.
   2. Visual layer error не блокирует контент.
-- Verification commands: _(детализируется перед стартом шага)_
-- Manual checks: _(детализируется перед стартом шага)_
-- Risks: _(детализируется перед стартом шага)_
-- Rollback: _(детализируется перед стартом шага)_
-- Skeptic verdict:
+  - Раскрытие AC 1 (проверяемо): под `prefers-reduced-motion: reduce` открытие/переключение/закрытие
+    отдела и возврат focus происходят без ожидания motion-длительностей; весь остальной flow
+    (Escape, rail, URL-sync, mobile) остаётся рабочим — прежние reduced-motion e2e-тесты не падают.
+  - Раскрытие AC 2 (проверяемо): при полном блоке загрузки `*.webp` overview показывает 5 рабочих
+    HTML-кнопок, отдел открывается/закрывается, вместо каждого фото — нейтральный плейсхолдер, а не
+    битая картинка; в консоли нет необработанных ошибок.
+- Verification commands: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`,
+  `npm run build`, `npm run test:e2e`.
+- Manual checks: Desktop ≥1280px на `http://localhost:3100` с включённым reduced motion (DevTools →
+  Rendering → Emulate CSS `prefers-reduced-motion: reduce`): открыть отдел, переключить через rail,
+  закрыть — переходы мгновенные, focus возвращается на хотспот, скролла страницы нет. Отдельно —
+  DevTools Network блок `*.webp`: overview и открытый отдел остаются читаемыми и кликабельными.
+- Risks:
+  - `useSyncExternalStore` + `matchMedia` на SSR: сервер не знает предпочтение пользователя →
+    серверный снапшот обязан быть `false` (motion разрешён), иначе hydration mismatch. Смягчается
+    явным `getServerSnapshot`, юнит-тестом и `npm run build`.
+  - Схлопывание длительностей в 0 меняет тайминг, на который опираются существующие e2e-тесты
+    reduced motion (5 спеков). Смягчается полным прогоном `npm run test:e2e` — это регрессионная
+    проверка, а не новая.
+  - `onError` у `next/image` не срабатывает в jsdom так же, как в браузере (нет реальной сети) —
+    unit-тест диспатчит `error` вручную; настоящее поведение проверяется e2e через `route.abort()`.
+    Оба уровня заявлены сознательно, ни один не выдаётся за другой.
+  - `OfficePhoto` становится client-компонентом (`useState`). Реального роста клиентского бандла
+    нет: обе точки рендера уже в клиентском графе `OfficeMachine.tsx` (`"use client"`).
+- Rollback: `git revert` коммита(ов) Step 8 — шаг аддитивен (2 новых компонента/хук + новые тесты +
+  точечные правки 3 существующих файлов); `data/*.json` не меняются. Деструктивный `git reset --hard`
+  — только с явного разрешения пользователя.
+- Skeptic verdict: **round 1 `PASS`** (Phase B, review исполнения). Blocking findings — нет. Skeptic
+  независимо перезапустил все 6 команд (не принял отчёт на веру) и отдельно эмпирически перепроверил
+  спорное утверждение про jsdom.
 - Skeptic findings:
+  - Blocking: нет.
+  - N1 (non-blocking, **исправлено inline**): комментарий в
+    `use-prefers-reduced-motion.test.ts` ложно утверждал, что jsdom реализует `matchMedia` с
+    `matches: false` — на деле (jsdom@29.1.1, проверено запуском) функции нет вовсе, а `false` даёт
+    заглушка самого проекта в `setup.ts`. Комментарий противоречил `setup.ts` в том же диффе.
+  - N2 (non-blocking, **исправлено inline**): `Expected files` разошлись с реальным диффом — см.
+    уточнение в самой секции выше.
+  - N3/N4/N7 (non-blocking, приняты без правки): `getSnapshot` создаёт `MediaQueryList` на рендер
+    (возвращает `boolean` → `Object.is` стабилен, петли ре-рендера нет; `OfficeMachine` рендерится
+    только на переходах); `hasFailed` сбрасывается при remount элемента rail на переключении отдела
+    (самоизлечивается за один `setState`, ценой одного повторного неудачного запроса на сломанной
+    сети); два reduce-теста не слушают `pageerror` (предпочтение не влияет ни на какую разметку —
+    ловить нечего).
+  - N5 (для пользователя): ручная браузерная проверка исполнителем не выполнялась — оба Manual
+    checks остаются за пользователем; шаг не считать визуально принятым до них.
+  - N6 (для пользователя): рекомендация явно ратифицировать запись `DECISIONS.md` 2026-07-17
+    (решение о visual layer принято исполнителем, отдельным вопросом пользователю не задавалось).
 - Completion evidence:
+  - Команды (перепроверены skeptic'ом независимо): `format:check`, `lint`, `typecheck`, `build` —
+    exit 0; `npm run test` — **133 passed** (18 файлов); `npm run test:e2e` — **93 passed** (было 87,
+    +6 новых; ни один прежний тест не изменён/не ослаблен — подтверждено `git status`).
+  - AC 1 — `reduced-motion-and-fallback.spec.ts:20` и `:42`, с контрольным `:68` (без предпочтения
+    закрытие по-прежнему ≥650 мс). Пара мутационно доказывает, что схлопывание привязано к
+    предпочтению, а не «motion сломан вообще»: на коде до Step 8 тест `:20` намерил бы ~700 мс и упал.
+  - AC 2 — `:96` и `:130`, с контрольным `:145` (здоровая сеть → 6 реальных фото, 0 плейсхолдеров).
+  - Skeptic отдельно подтвердил полноту AC 1 исчерпывающим grep'ом motion-поверхности: 3 CSS-анимации
+    + 1 transition + 3 JS-таймера; ни `rAF`, ни `setInterval`, ни `scrollIntoView`/`smooth` в проекте
+    нет — JS-таймеры действительно были единственной непокрытой поверхностью.
+  - Раскладка при отказе фото цела by construction: `.thumbnailWrap` имеет явные 32×32, `.shell10x90`
+    — `flex:1` grid; absolute-плейсхолдер не участвует в раскладке и схлопнуть их не может. Наборы
+    свойств `.fallback` и `.backgroundPhoto` не пересекаются — порядок классов не важен.
 
 ## Step 9 — Browser acceptance tests
 

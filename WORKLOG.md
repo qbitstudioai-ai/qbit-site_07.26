@@ -3175,3 +3175,132 @@ round 2 → focused re-check) перед переводом `Status` в `COMPLET
   Steps 7.2–7.5). Состояние на момент коммита зелёное: format/lint/typecheck/build exit 0, unit
   125 passed, e2e 87 passed.
 - Next: по плану — Step 8 (`Reduced motion and fallback`, `PROPOSED`/не начат).
+
+## Entry 41
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 8 (`Reduced motion and fallback`) — реализация.
+- Провенанс старта: пользователь прямой инструкцией («Приступай к Step 8. Сразу выполняй без
+  дополнительного планирования») санкционировал старт без Phase A (planner + skeptic review плана).
+  Поля Step 8, помеченные «детализируется перед стартом шага», заполнены исполнителем при старте —
+  Objective и оба AC не менялись, поэтому это не Amendment. Phase B (skeptic review исполнения) не
+  отменяется.
+- Разрешён отложенный вопрос «что является visual layer» (owner — «перед стартом Step 8», Step 3
+  Risks / Step 5, Step 6 Out of scope): visual layer = фотослой `next/image`; WebGL/Canvas не
+  вводится. Подтверждение уже зафиксированного, не новое решение. См. `DECISIONS.md` 2026-07-17.
+- Найденный дефект (A), реальный, не косметический: JS-таймеры переходов
+  (`OfficeMachine.tsx` 800/600/700 мс) шли независимо от `prefers-reduced-motion`, хотя CSS
+  обнулялся глобально. Под reduce закрытие отдела оставляло пустую 90%-область на 700 мс и на
+  столько же задерживало возврат focus на хотспот. Нарушало инвариант `docs/05` «reduced motion
+  сохраняет функции», `docs/07` («оставить все функции», запрет «критические кнопки после длинной
+  анимации») и CLAUDE.md Motion rules. Прежний комментарий в `OfficeMachine.tsx` прямо утверждал
+  обратное («не блокируя доступность контента») — утверждение было ложным, заменено.
+- Файлы (созданы): `src/hooks/usePrefersReducedMotion.ts`, `src/components/office/OfficePhoto.tsx`,
+  `src/components/office/OfficePhoto.module.css`,
+  `src/tests/unit/hooks/use-prefers-reduced-motion.test.ts`,
+  `src/tests/unit/components/office/office-photo.test.tsx`,
+  `src/tests/e2e/reduced-motion-and-fallback.spec.ts`.
+- Файлы (изменены): `src/features/office-machine/OfficeMachine.tsx` (длительности схлопываются в 0
+  под reduce), `src/components/office/OfficeExperience.tsx` и
+  `src/components/office/DepartmentNavigationRail.tsx` (переход на `OfficePhoto`),
+  `src/tests/unit/setup.ts` (см. ниже), `docs/05-homepage-state-machine.md` (две честные правки),
+  `WORKPLAN.md`, `README.md` (Step 8 → «В работе»).
+- Регрессия, внесённая и устранённая в рамках шага: jsdom не реализует `window.matchMedia` вовсе
+  (не «возвращает matches: false» — функции нет), из-за чего новый хук ронял 9 тестов
+  `home-page.test.tsx` с `TypeError`. Устранено заглушкой в `src/tests/unit/setup.ts`, а не
+  защитной веткой в самом хуке: matchMedia есть во всех целевых браузерах, и защита в
+  продакшн-коде маскировала бы дефект окружения. `npm run build` и e2e при этом были зелёными —
+  дефект существовал только в jsdom.
+- `SCENE_ERROR`/машинное состояние `error-fallback` сознательно не добавлены (`WORKPLAN.md` Step 8
+  Out of scope) — при фотослое (не WebGL) ошибка локальна для одного декоративного `<img>`, а
+  требуемый `docs/05` результат («статичный overview с пятью HTML-кнопками») уже является базовым
+  состоянием: `OfficeSemanticMap` от фото не зависит. Зафиксировано правкой `docs/05`.
+- Команды (все выполнены реально, в этом порядке):
+  - `npm run format:check` — сначала FAIL (1 файл), после `npx prettier --write` — exit 0.
+  - `npm run lint` — exit 0.
+  - `npm run typecheck` — exit 0.
+  - `npm run test` — сначала FAIL (9 failed / 124 passed, matchMedia), после фикса setup.ts —
+    exit 0, **133 passed (18 файлов)**.
+  - `npm run build` — exit 0.
+  - `npm run test:e2e` — exit 0, **93 passed** (было 87; +6 новых). Все 5 прежних reduced-motion
+    спеков, чей тайминг затронут схлопыванием, прошли без правок — регрессии нет.
+- Контрольные тесты (защита от «зелёного вхолостую»): (1) без предпочтения закрытие по-прежнему
+  занимает ≥650 мс — доказывает, что схлопывание привязано к предпочтению, а не сломало motion
+  вообще; (2) при здоровой сети рендерятся 6 реальных фото и 0 плейсхолдеров — доказывает, что
+  fallback-тест не проходит вхолостую.
+- Уровни проверки заявлены честно и не подменяют друг друга: jsdom-тесты `OfficePhoto` диспатчат
+  `error` вручную (реальной сети нет); настоящее поведение браузера при недоступном файле проверено
+  e2e через `route.abort("**/*.webp")`.
+- **Ручная проверка в браузере не выполнялась исполнителем** (нет интерактивного браузерного
+  инструмента в сессии): заявленные в Step 8 Manual checks (DevTools → Emulate
+  `prefers-reduced-motion`; DevTools Network блок `*.webp`) остаются за пользователем. Автоматически
+  оба сценария покрыты в реальном Chromium (`emulateMedia`, `route.abort`) — но это не то же самое,
+  что визуальный осмотр, и за него не выдаётся.
+- Код Step 8 остаётся незакоммиченным — коммит не запрашивался.
+- Status: `IN_PROGRESS` → `AWAITING_SKEPTIC`.
+- Next: Phase B skeptic review исполнения Step 8.
+
+## Entry 42
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: Step 8 — Phase B skeptic review (round 1).
+- Verdict: **`PASS`**. Blocking findings — нет.
+- Skeptic перезапустил все 6 команд независимо, не приняв отчёт Entry 41 на веру: `format:check`,
+  `lint`, `typecheck`, `build` — exit 0; `npm run test` — 133 passed / 18 файлов; `npm run test:e2e`
+  — 93 passed. Арифметика 87 + 6 = 93 проверена отдельно: `git status` подтверждает, что новый спек —
+  единственное изменение в `src/tests/e2e/`, ни один прежний тест не изменён и не ослаблен.
+- Независимые проверки skeptic'а сверх перезапуска команд:
+  - Эмпирически опроверг утверждение исполнителя в комментарии теста: jsdom@29.1.1 не имеет
+    `matchMedia` вовсе (`typeof === "undefined"`) — то есть правы были `setup.ts` и Entry 41, а
+    комментарий в тесте лгал (N1). Подтвердил, что заглушка не маскирует дефект продукта.
+  - Исчерпывающий grep motion-поверхности: 3 CSS-анимации + 1 transition + 3 JS-таймера; `rAF`,
+    `setInterval`, `scrollIntoView`/`smooth` в проекте отсутствуют → JS-таймеры действительно были
+    единственной непокрытой поверхностью, заявленная полнота AC 1 подтверждена.
+  - Проверил `--color-graphite-100` реально определён (`tokens.css:14`) — плейсхолдер непрозрачен,
+    а не «невидимый по недосмотру».
+- Non-blocking findings N1 и N2 **исправлены inline** (см. `WORKPLAN.md` Step 8 → Skeptic findings):
+  N1 — ложный комментарий про jsdom в `use-prefers-reduced-motion.test.ts`; N2 — `Expected files`
+  разошлись с реальным диффом (`department-navigation-rail.test.tsx` значился, но не тронут;
+  `setup.ts` тронут, но не значился). Оба — записи/комментарии, поведение кода не менялось.
+- N3/N4/N7 приняты без правки как осознанные trade-off'ы (обоснование — `WORKPLAN.md`).
+- Процессная легитимность (skeptic проверял отдельно, по прямому запросу): нарушения протокола нет.
+  Пропуск Phase A соответствует букве CLAUDE.md §2 («если следующий шаг уже описан в `WORKPLAN.md`,
+  идти сразу в реализацию»); заполнение полей, которые сам утверждённый план пометил «детализируется
+  перед стартом шага», — не Amendment (Objective и оба AC не менялись, сверено диффом). Amendment не
+  требуется.
+- Остаётся за пользователем (N5, N6): (1) два Manual checks в браузере — шаг не считать визуально
+  принятым до них; (2) явная ратификация записи `DECISIONS.md` 2026-07-17 о visual layer — решение
+  принято исполнителем и отдельным вопросом не задавалось.
+- Status: `AWAITING_SKEPTIC` → `PASSED`.
+- Next: подтверждение пользователя на перевод в `COMPLETED` и переход к Step 9.
+
+## Entry 43
+
+- Timestamp: 2026-07-17
+- Task: Создать первый low-fidelity прототип интерактивной главной страницы Allqbit.
+- Step: закрытие Step 8.
+- Пользователь прямой инструкцией: «переводи Step 8 в COMPLETED и останавливайся. Дальше я сделаю
+  новую сессию.» — явное, недвусмысленное подтверждение закрытия (тот же формат, что для
+  Steps 5/7/7.2–7.6).
+- Status before: Step 8 — `PASSED` (Phase B skeptic `PASS`, blocking findings нет).
+- Status after: Step 8 — `COMPLETED`. `WORKPLAN.md` Status обновлён; `README.md` строка 8 →
+  «Выполнено» (mapping `PASSED`/`COMPLETED` → «Выполнено»).
+- Skeptic review повторно не требуется — закрытие по явному подтверждению пользователя, не по
+  результату review (тот же прецедент, что закрытие предыдущих шагов).
+- Открытые вопросы, переданные пользователю (skeptic N5/N6), на момент закрытия **остаются
+  открытыми** и сознательно не блокируют перевод в `COMPLETED` (пользователь закрыл шаг, зная о них):
+  - N5 — два Manual checks в браузере (DevTools reduced-motion; DevTools блок `*.webp`) исполнителем
+    не выполнялись; автоматически оба сценария покрыты в реальном Chromium, но визуального осмотра
+    не было.
+  - N6 — явная ратификация записи `DECISIONS.md` 2026-07-17 о visual layer пользователем отдельно
+    не давалась; решение принято исполнителем и scope не расширяет.
+- Код Step 8 остаётся **незакоммиченным** — коммит не запрашивался (пользователь уходит в новую
+  сессию; commit/verify финальных пост-вердиктных правок — за следующей сессией).
+- Незавершённая проверка (честно): пост-вердиктные правки N1/N2 (правка ложного комментария в
+  `use-prefers-reduced-motion.test.ts` + разметка в `WORKPLAN.md`/`WORKLOG.md`) не были повторно
+  прогнаны через `format:check`/`test` — классификатор Bash/PowerShell в этой сессии временно
+  отказал. Правки затрагивают только комментарий и markdown, поведение кода не менялось; повторный
+  прогон quality gate — задача следующей сессии перед коммитом.
+- Next: новая сессия пользователя — Step 9 (`Browser acceptance tests`, `PROPOSED`).

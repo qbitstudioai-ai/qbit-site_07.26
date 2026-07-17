@@ -1,10 +1,10 @@
-import Image from "next/image";
 import { DepartmentExperience } from "@/components/departments/DepartmentExperience";
 import type { Department, DepartmentId, OfficeZone } from "@/content/types";
 import type { OfficeMachineView } from "@/features/office-machine/reducer";
 import { officeBackgroundPhoto } from "./departmentPhotos";
 import { DepartmentNavigationRail } from "./DepartmentNavigationRail";
 import { MobileDepartmentCarousel } from "./MobileDepartmentCarousel";
+import { OfficePhoto } from "./OfficePhoto";
 import { OfficeSemanticMap } from "./OfficeSemanticMap";
 import styles from "./OfficeExperience.module.css";
 
@@ -72,13 +72,7 @@ export function OfficeExperience({
               "офис остаётся контекстом", не исчезает целиком, когда отдел открыт. Не рендерится
               в overview (см. docs/03 уточнение по OQ-P1) — монтируется только вместе с этой веткой,
               то есть лениво по отношению к самому открытию отдела. */}
-          <Image
-            src={officeBackgroundPhoto}
-            alt=""
-            fill
-            unoptimized
-            className={styles.backgroundPhoto}
-          />
+          <OfficePhoto src={officeBackgroundPhoto} className={styles.backgroundPhoto} />
           <div className={styles.mainArea}>
             <DepartmentExperience
               department={activeDepartment}
