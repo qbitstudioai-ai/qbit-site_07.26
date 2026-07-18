@@ -3355,3 +3355,79 @@ round 2 → focused re-check) перед переводом `Status` в `COMPLET
   открытыми. В текущем 9-шаговом skeleton шага «Step 10» нет — его добавление будет отдельным решением
   новой сессии.
 - Next: новая сессия пользователя (упомянут «Step 10»). Дерево незакоммичено.
+
+## Entry 45
+
+- Timestamp: 2026-07-18
+- Task: Milestone 1 (low-fidelity прототип) — milestone review.
+- Не отдельный WORKPLAN-шаг: gate конца 9-шагового milestone (Steps 1–9 + 7.2–7.6 — все
+  `COMPLETED`), по `CLAUDE.md` §6 «Milestone review». Запрошен пользователем; отложен из Step 9
+  (Entry 44) на эту сессию.
+- Запущены 4 независимых read-only ревьюера параллельно: `frontend-architect`, `qa-reviewer`,
+  `ux-strategist`, `motion-engineer`.
+- Вердикт каждого — **Blocker/Critical нет**. Gate: **PASS** (переход к следующему milestone не
+  блокируется).
+- `qa-reviewer` независимо перезапустил весь quality gate (не по отчётам): `format:check` exit 0,
+  `lint` exit 0, `typecheck` exit 0, `test` **133 passed**, `build` exit 0, `test:e2e` **101
+  passed**. Рабочее дерево чистое (изменены только gitignored `.next`/`*.tsbuildinfo`). Пропущенных/
+  `.only`-тестов нет.
+- Консолидированные находки (все non-blocking):
+  - Major A — `docs/06-department-content.md` описывал устаревший шаблон (симптомы/До/После/
+    результаты), противореча модели pain/gain (Step 7.3). Единственный source-of-truth документ, не
+    обновлённый Step 7.3.
+  - Major B — `DepartmentCTA` — фокусируемая кнопка-no-op (нет lead-destination). Запланированное
+    ограничение milestone (backend/CRM/форма вне scope, OQ #15 открыт) → бэклог.
+  - Minor: axe не покрывает tablet-ширину и порог только serious+; e2e только chromium; focus прыгает
+    на h2 отдела при deep-link mount; `max-height` transition (layout-свойство) в
+    `DepartmentHotspot.module.css`; дублирование длительностей CSS↔JS и логики сортировки отделов; нет
+    code-splitting поддерева отдела; `matchMedia` создаётся каждый рендер в `getSnapshot`; `.gitignore`
+    без `.env.production/.development` (риска нет); overview не URL-адресуем / не переживает refresh;
+    браузерный Back не закрывает отдел (by design, OQ-B — вопрос к продукту).
+- Действие (выбор пользователя через `AskUserQuestion`: «Починить docs/06, затем закрыть»): Major A
+  устранён этой сессией; Major B и все Minor → бэклог следующего этапа.
+- Files touched:
+  - `docs/06-department-content.md` — переписан на модель pain/gain: обновлён шаблон/правила, один
+    иллюстративный пример («Продажи»), каноничные значения делегированы `data/departments.json`,
+    датированная пометка супрессии Step 7.3 (стиль `docs/12`).
+  - `WORKLOG.md` (эта запись), `DECISIONS.md` (решение milestone review).
+- Проверки после правки docs/06: правка чисто документная (`.md` в `.prettierignore`, не в code
+  scope) — quality gate не затрагивается, повторный прогон не требуется; данные/код/тесты не менялись.
+- Skeptic: не применяется — milestone review сам является независимой read-only приёмкой (4 ревьюера);
+  правка docs/06 документная и в пределах уже принятого решения Step 7.3.
+- Не сделано: коммит (не запрашивался).
+- Next: решение пользователя по следующему milestone; Major B (CTA→воронка, OQ #15) и Minor — в
+  бэклог. Дерево незакоммичено.
+
+## Entry 46
+
+- Timestamp: 2026-07-18
+- Task: Планирование milestone «Этап 2 — Art direction» (следующий после закрытого Этапа 1).
+- Триггер: пользователь выбрал «идём по плану, Этап 2» и сообщил, что изображения уже в проекте
+  (`references/**`, подписаны) — их брать в работу; поручил составить и сохранить план.
+- Инспекция ассетов: 6 PNG (`office-overview/01` + 5 отделов, ~3.2–3.7 МБ, 1536×1024) + `logo/Logo111.svg`;
+  уже есть лёгкие WebP-производные в `src/assets/office-photos/` (5 миниатюр + `office-background.webp`),
+  рендерятся через `<Image unoptimized>`. Ключевой факт: overview фото НЕ рендерит (карточки на
+  токен-фоне); в `department-active` — один ОБЩИЙ фон + миниатюры в рельсе.
+- `planner` (read-only) составил PROPOSED-план: 7 шагов **Step 10–16** (пайплайн ассетов → токены →
+  overview-сцена → сцены отделов → графика логотипа → адаптивное кадрирование → motion), глобальные
+  scope/риски/rollback, 7 открытых вопросов + нумерация.
+- План сохранён в `WORKPLAN.md` (+502 строки, секции «## Milestone: Этап 2 — Art direction» …
+  «## Open questions (Этап 2)»), статус `PROPOSED`.
+- `skeptic` Phase A (review плана): **`PASS`**. Blocking — нет. 5 non-blocking findings внесены в план
+  до утверждения: (1) метод измерения контраста текста поверх фото (против эффективной подложки скрима,
+  не из axe) — Step 12/13 AC2; (2) решение по фону открытого отдела вынесено новым **OQ-A2-8**
+  (симметрично OQ-A2-1), а не «тихой honesty-правкой» `docs/03` — Step 13; (3) axe на tablet-ширине
+  требует расширения `accessibility-scan.spec.ts` — Step 15 AC4 (заодно закрывает Minor-1 milestone
+  review); (4) смягчена формулировка воспроизводимости Step 10 AC1 (набор файлов, не байты); (5)
+  пометка про длительности motion — Step 16 AC1. Строки «Skeptic verdict» всех 7 шагов и Plan status
+  milestone обновлены на Phase A `PASS`.
+- Files touched: `WORKPLAN.md` (новый milestone + правки скептика), `WORKLOG.md` (эта запись).
+- Проверки: правки документные (`.md` в `.prettierignore`) — quality gate не затрагивается; код не
+  менялся.
+- Статус: план `PROPOSED`, НЕ утверждён. Precondition к `APPROVED` — ответы пользователя на OQ-A2-1…8
+  + схема нумерации, затем явный перевод в `APPROVED`. Реализация (Step 10) не начата.
+- Не сделано: коммит (не запрашивался); README-строки Step 10–16 (добавлю при `APPROVED`, чтобы не
+  плодить churn на неутверждённом плане).
+- Next: вынести OQ-A2-1…8 + нумерацию пользователю; после ответов — правки под решения и перевод в
+  `APPROVED`. Дерево незакоммичено.
+
