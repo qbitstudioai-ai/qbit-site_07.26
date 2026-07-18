@@ -4582,12 +4582,12 @@ CSS. Полный текст исходных вариантов сохранё�
 
 ## Milestone: Этап 2 — Art direction
 
-- Plan status: `PROPOSED` (черновик planner'а; **skeptic-review плана (Phase A) пройден `PASS`
-  2026-07-18** — blocking находок нет, non-blocking findings 1–5 внесены; **все Open questions
-  OQ-A2-1…8 + нумерация закрыты 2026-07-18** (`AskUserQuestion` + принятые дефолты, см. блок
-  «RESOLVED» и `DECISIONS.md`), поправка на черновой арт внесена. Остался единственный precondition к
-  `APPROVED` — **явное подтверждение пользователя начать реализацию**; после него план становится
-  неизменяемым (по прецеденту Amendment 3/4).
+- Plan status: `APPROVED` (skeptic-review плана (Phase A) пройден `PASS` 2026-07-18 — blocking находок
+  нет, non-blocking findings 1–5 внесены; **все Open questions OQ-A2-1…8 + нумерация закрыты
+  2026-07-18** (`AskUserQuestion` + принятые дефолты, см. блок «RESOLVED» и `DECISIONS.md`), поправка
+  на черновой арт внесена. **Пользователь явно подтвердил старт реализации Step 10 (2026-07-18, новая
+  сессия: «Начинай работать со Step 10. Переходи сразу к исполнению»)** — план переведён в `APPROVED` и
+  с этого момента неизменяем, кроме как через записанную Amendment (по прецеденту Amendment 3/4).
 - Task: перевести закрытый low-fidelity прототип (Этап 1, Steps 1–9 + 7.2–7.6 — `COMPLETED`, milestone
   review gate `PASS`) в состояние art direction по `docs/02-art-direction.md`, `docs/03-office-map.md`,
   `docs/08`, `docs/10`, `docs/11`, `docs/07` и `docs/13` («Этап 2 — art direction»), не начиная
@@ -4664,7 +4664,7 @@ Amendment 4).
 
 ## Step 10 — Adaptive image asset pipeline
 
-- Status: `PROPOSED`
+- Status: `COMPLETED`
 - Objective: Ввести воспроизводимый пайплайн адаптивных оптимизированных производных (мастер-сцена
   overview + 5 сцен отделов) в нескольких размерах и современном формате, укладывающийся в
   `docs/10-performance-budget.md`, взамен нынешних одноразово сгенерированных `office-background.webp`
@@ -4733,8 +4733,12 @@ Amendment 4).
   devDependency); UI не затронут.
 - Профильный ревьюер (milestone review): frontend-architect (пайплайн/бандл), qa-reviewer (перф-бюджет).
 - Skeptic verdict (Phase A, review плана): `PASS` (2026-07-18, весь milestone одним раундом; blocking
-  находок нет; non-blocking findings 1–5 внесены в план до утверждения). Phase B (review исполнения) —
-  обязателен при выполнении шага.
+  находок нет; non-blocking findings 1–5 внесены в план до утверждения).
+- Skeptic verdict (Phase B, review исполнения): `PASS` (2026-07-18; независимо перепрогнан весь quality
+  gate — 141 unit + 101 e2e + build exit 0, детерминизм побайтово, 0 PNG в `.next`, бюджет соблюдён,
+  тест ловит перепутанное присваивание; blocking находок нет). Non-blocking: (a) `docs/06` —
+  предсессионная правка вне scope, вынесена в отдельный коммит до Step 10; (b) косметика единиц КБ/KiB
+  в `docs/10` — исправлена inline (пороги заданы в байтах); (c) source-text тест — обоснованный выбор.
 
 ---
 

@@ -7,24 +7,65 @@ import hrThumbnail from "../../assets/office-photos/hr-thumbnail.webp";
 import logisticsThumbnail from "../../assets/office-photos/logistics-thumbnail.webp";
 import officeBackgroundPhotoSource from "../../assets/office-photos/office-background.webp";
 
+// Адаптивные производные сцен (Step 10). WebP+AVIF × ширины 768/1280/1536, порождаются
+// `npm run assets:images` (scripts/generate-office-images.mjs) из оригиналов references/**.
+import overview768Avif from "../../assets/office-photos/overview-768.avif";
+import overview1280Avif from "../../assets/office-photos/overview-1280.avif";
+import overview1536Avif from "../../assets/office-photos/overview-1536.avif";
+import overview768Webp from "../../assets/office-photos/overview-768.webp";
+import overview1280Webp from "../../assets/office-photos/overview-1280.webp";
+import overview1536Webp from "../../assets/office-photos/overview-1536.webp";
+import sales768Avif from "../../assets/office-photos/sales-768.avif";
+import sales1280Avif from "../../assets/office-photos/sales-1280.avif";
+import sales1536Avif from "../../assets/office-photos/sales-1536.avif";
+import sales768Webp from "../../assets/office-photos/sales-768.webp";
+import sales1280Webp from "../../assets/office-photos/sales-1280.webp";
+import sales1536Webp from "../../assets/office-photos/sales-1536.webp";
+import support768Avif from "../../assets/office-photos/support-768.avif";
+import support1280Avif from "../../assets/office-photos/support-1280.avif";
+import support1536Avif from "../../assets/office-photos/support-1536.avif";
+import support768Webp from "../../assets/office-photos/support-768.webp";
+import support1280Webp from "../../assets/office-photos/support-1280.webp";
+import support1536Webp from "../../assets/office-photos/support-1536.webp";
+import executive768Avif from "../../assets/office-photos/executive-768.avif";
+import executive1280Avif from "../../assets/office-photos/executive-1280.avif";
+import executive1536Avif from "../../assets/office-photos/executive-1536.avif";
+import executive768Webp from "../../assets/office-photos/executive-768.webp";
+import executive1280Webp from "../../assets/office-photos/executive-1280.webp";
+import executive1536Webp from "../../assets/office-photos/executive-1536.webp";
+import hr768Avif from "../../assets/office-photos/hr-768.avif";
+import hr1280Avif from "../../assets/office-photos/hr-1280.avif";
+import hr1536Avif from "../../assets/office-photos/hr-1536.avif";
+import hr768Webp from "../../assets/office-photos/hr-768.webp";
+import hr1280Webp from "../../assets/office-photos/hr-1280.webp";
+import hr1536Webp from "../../assets/office-photos/hr-1536.webp";
+import logistics768Avif from "../../assets/office-photos/logistics-768.avif";
+import logistics1280Avif from "../../assets/office-photos/logistics-1280.avif";
+import logistics1536Avif from "../../assets/office-photos/logistics-1536.avif";
+import logistics768Webp from "../../assets/office-photos/logistics-768.webp";
+import logistics1280Webp from "../../assets/office-photos/logistics-1280.webp";
+import logistics1536Webp from "../../assets/office-photos/logistics-1536.webp";
+
 // Step 7.3, OQ-P1: реальные фото из references/ (не CSS-заглушки), но НЕ статический импорт
 // оригиналов напрямую. Найдено при skeptic Phase B review: оригиналы (3.1–3.6 МБ, 1536×1024,
 // плохо сжатый PNG для этого типа контента) заставляли next/image заново декодировать/пересжимать
 // тяжёлый исходник на каждый холодный кэш-промах Image Optimization. Исправлено в два шага:
-// (1) предварительная генерация лёгких WebP-производных (`src/assets/office-photos/`,
-// сгенерированы один раз из оригиналов references/**/*.png — миниатюры 160×160 под рендер 32×32
-// CSS px, фон — тот же 1536×1024 с лучшим сжатием); (2) `<Image unoptimized>` в
-// `DepartmentNavigationRail.tsx`/`OfficeExperience.tsx` — раз производные уже нужного размера и
-// формата, повторная обработка через `/next/image`-эндпойнт на каждый запрос не нужна и лишь
-// добавляет сетевой round-trip. Независимо найдено (не только теоретически): под нагрузкой полного
-// e2e-прогона это порождало сотни short-lived TCP-соединений к `/_next/image`, вплоть до исчерпания
-// эфемерных портов Windows в рамках одного прогона (`netstat` показывал TIME_WAIT-сокеты вплоть до
-// верхней границы диапазона) — устранено полностью переходом на `unoptimized` (обычная статическая
-// раздача файла, без отдельного оптимизирующего запроса). `Department.reference` в
-// data/departments.json по-прежнему указывает на оригинал в references/ — это описание исходного
-// дизайн-референса, не буквальный путь импорта. Соответствие department.id ↔ конкретный
-// файл-производное проверяется тестом (src/tests/unit/content/departments.test.ts) через саму схему
-// именования (`${id}-thumbnail.webp`), чтобы перепутанное присваивание в объекте ниже не осталось
+// (1) предварительная генерация лёгких WebP-производных (`src/assets/office-photos/`) — миниатюры
+// 160×160 под рендер 32×32 CSS px, фон — тот же 1536×1024 с лучшим сжатием; (2) `<Image
+// unoptimized>` в `DepartmentNavigationRail.tsx`/`OfficeExperience.tsx` — раз производные уже нужного
+// размера и формата, повторная обработка через `/next/image`-эндпойнт на каждый запрос не нужна и
+// лишь добавляет сетевой round-trip. Независимо найдено (не только теоретически): под нагрузкой
+// полного e2e-прогона это порождало сотни short-lived TCP-соединений к `/_next/image`, вплоть до
+// исчерпания эфемерных портов Windows в рамках одного прогона (`netstat` показывал TIME_WAIT-сокеты
+// вплоть до верхней границы диапазона) — устранено полностью переходом на `unoptimized` (обычная
+// статическая раздача файла, без отдельного оптимизирующего запроса). Со Step 10 эти производные
+// (миниатюры + `office-background.webp`) больше не «чёрный ящик»: они детерминированно
+// перегенерируются тем же `npm run assets:images`, что и адаптивные сцены ниже.
+// `Department.reference` в data/departments.json по-прежнему указывает на оригинал в references/ —
+// это описание исходного дизайн-референса, не буквальный путь импорта. Соответствие
+// department.id ↔ конкретный файл-производное проверяется тестами (src/tests/unit/content/
+// departments.test.ts для миниатюр, src/tests/unit/components/office/office-scenes.test.ts для
+// адаптивных сцен) через саму схему именования, чтобы перепутанное присваивание не осталось
 // незамеченным.
 export const photoByDepartmentId: Record<DepartmentId, StaticImageData> = {
   sales: salesThumbnail,
@@ -35,5 +76,68 @@ export const photoByDepartmentId: Record<DepartmentId, StaticImageData> = {
 };
 
 // Общий фон офиса позади department-active (docs/03-office-map.md "Режим 10/90") — не рендерится в
-// overview этим шагом (см. docs/03 уточнение по OQ-P1, Step 7.3).
+// overview этим шагом (см. docs/03 уточнение по OQ-P1, Step 7.3). Со Step 10 — производная
+// мастер-сцены overview @1536 (тот же оригинал, что overview-1536.webp); имя сохранено ради
+// неизменности импорта до подключения адаптивной overview-сцены в Step 12.
 export const officeBackgroundPhoto: StaticImageData = officeBackgroundPhotoSource;
+
+// ── Адаптивные сцены офиса (Step 10) ─────────────────────────────────────────────────────────────
+// Мастер-сцена overview + 5 сцен отделов. Экспортируются как источники + метаданные для ручного
+// <picture>/srcset (OQ-A2-4). НЕ подключены к рендеру на этом шаге — overview остаётся карточками
+// на токен-фоне (Step 12 подключит мастер-сцену), department-active использует общий фон выше
+// (Step 13 подключит per-department сцены). Оригиналы references/** сюда не входят.
+
+/** id сцены офиса: мастер-сцена overview + пять отделов (совпадают с DepartmentId). */
+export type OfficeSceneId = "overview" | DepartmentId;
+
+/** Ширины адаптивных производных, по возрастанию (см. scripts/generate-office-images.mjs). */
+export const OFFICE_SCENE_WIDTHS = [768, 1280, 1536] as const;
+
+/**
+ * `sizes` по умолчанию для полноэкранной сцены офиса: сцена раздаётся во всю ширину вьюпорта
+ * (overview на весь экран — OQ-A2-1; per-department сцена в 90%-области — практически тоже
+ * near-full-bleed). Значение может быть переопределено местом использования в Steps 12/13.
+ */
+export const OFFICE_SCENE_SIZES = "100vw";
+
+/**
+ * Источники одной сцены: массивы производных, упорядоченные по {@link OFFICE_SCENE_WIDTHS}.
+ * `avif` — предпочтительный формат, `webp` — фолбэк.
+ *
+ * Дескриптор ширины для `<source srcset>` в Steps 12/13 берётся из {@link OFFICE_SCENE_WIDTHS}
+ * по индексу, а `.src` — из StaticImageData. Turbopack не читает размеры AVIF (эмитит
+ * предоптимизированный файл как есть — это и есть наша стратегия, см. `<Image unoptimized>`),
+ * поэтому `StaticImageData.width` у AVIF ненадёжен; ширины из массива констант надёжны и
+ * совпадают с реальными по построению (scripts/generate-office-images.mjs).
+ */
+export interface OfficeSceneSources {
+  readonly avif: readonly StaticImageData[];
+  readonly webp: readonly StaticImageData[];
+}
+
+export const officeSceneById: Record<OfficeSceneId, OfficeSceneSources> = {
+  overview: {
+    avif: [overview768Avif, overview1280Avif, overview1536Avif],
+    webp: [overview768Webp, overview1280Webp, overview1536Webp],
+  },
+  sales: {
+    avif: [sales768Avif, sales1280Avif, sales1536Avif],
+    webp: [sales768Webp, sales1280Webp, sales1536Webp],
+  },
+  support: {
+    avif: [support768Avif, support1280Avif, support1536Avif],
+    webp: [support768Webp, support1280Webp, support1536Webp],
+  },
+  executive: {
+    avif: [executive768Avif, executive1280Avif, executive1536Avif],
+    webp: [executive768Webp, executive1280Webp, executive1536Webp],
+  },
+  hr: {
+    avif: [hr768Avif, hr1280Avif, hr1536Avif],
+    webp: [hr768Webp, hr1280Webp, hr1536Webp],
+  },
+  logistics: {
+    avif: [logistics768Avif, logistics1280Avif, logistics1536Avif],
+    webp: [logistics768Webp, logistics1280Webp, logistics1536Webp],
+  },
+};

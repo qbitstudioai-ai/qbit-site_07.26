@@ -42,6 +42,7 @@ README.md синхронно с каждым изменением статуса
 | 7.6 | Header: clickable logo + tagline           | Выполнено |
 | 8   | Reduced motion and fallback                | Выполнено |
 | 9   | Browser acceptance tests                   | Выполнено |
+| 10  | Adaptive image asset pipeline              | Выполнено |
 
 Полные критерии и детали каждого шага — `WORKPLAN.md`. История исполнения и доказательства —
 `WORKLOG.md`. Архитектурные и технологические решения — `DECISIONS.md`.

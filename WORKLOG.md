@@ -3431,3 +3431,67 @@ round 2 → focused re-check) перед переводом `Status` в `COMPLET
 - Next: вынести OQ-A2-1…8 + нумерацию пользователю; после ответов — правки под решения и перевод в
   `APPROVED`. Дерево незакоммичено.
 
+---
+
+- Timestamp: 2026-07-18
+- Task: Step 10 — Adaptive image asset pipeline (первый шаг milestone «Этап 2 — Art direction»).
+- Триггер: пользователь (новая сессия) — «Начинай работать со Step 10. Переходи сразу к исполнению».
+  OQ-A2-4 (`sharp`+скрипт, WebP+AVIF, ширины 768/1280/1536, ручной `<picture>`/srcset) и OQ-A2-7
+  (черновой арт) закрыты 2026-07-18; milestone-план и Step 10 переведены `PROPOSED`→`APPROVED`
+  →`IN_PROGRESS`.
+- Реализация (scope шага):
+  - Новый `scripts/generate-office-images.mjs` + npm-скрипт `assets:images`: детерминированно
+    порождает из оригиналов `references/**` 42 производных в `src/assets/office-photos/` — мастер-сцена
+    overview + 5 сцен отделов ×{768,1280,1536}×{webp,avif} (36), 5 миниатюр рельса (160×160 cover),
+    legacy `office-background.webp` (overview@1536). Встроенная проверка performance-budget (exit 1
+    при превышении).
+  - `package.json`/`package-lock.json`: `sharp@^0.34.5` вынесен в явные devDependencies (был только
+    транзитивной optional-зависимостью Next); добавлен скрипт `assets:images`.
+  - `departmentPhotos.ts`: существующие экспорты (миниатюры + `officeBackgroundPhoto`) сохранены;
+    добавлены `officeSceneById` (overview + 5 отделов, avif+webp по ширинам), `OfficeSceneId`,
+    `OFFICE_SCENE_WIDTHS`, `OFFICE_SCENE_SIZES`, тип `OfficeSceneSources`. UI не подключает сцены
+    (Steps 12/13).
+  - Новый `src/tests/unit/components/office/office-scenes.test.ts` (8 тестов): соответствие
+    id↔сцена↔формат↔ширина по исходному тексту (ловит перепутанные присваивания/форматы/ширины).
+  - Документация: `references/README.md`, `docs/10-performance-budget.md` (процесс + таблица бюджета),
+    `README.md` (Step 10 = «В работе»).
+- Команды (exit 0):
+  - `npm run assets:images` → 42 производных, все в бюджете; суммарно ~4.29 МБ (1536: WebP ~215–240 КБ,
+    AVIF ~118–132 КБ).
+  - Детерминизм: повторный прогон → побайтово идентичный набор. Manual «из чистого состояния»:
+    удаление всех 42 → `assets:images` → `diff -r` с бэкапом = идентично.
+  - `npm run format:check` PASS; `npm run lint` PASS; `npm run typecheck` PASS (AVIF-импорты
+    типизируются как StaticImageData через next/image-types).
+  - `npm run test` → 141 passed (133 baseline + 8 новых).
+  - `npm run build` → exit 0. Turbopack печатает по AVIF-импорту warning «does not support AVIF …
+    will emit without optimization or encoding» — ожидаемо и совпадает со стратегией (раздаём
+    предоптимизированный файл как есть, `unoptimized`/ручной picture); все 18 AVIF эмитятся в
+    `.next/static/media/` с хешированными URL (`.src` рабочий). Дескрипторы ширины для srcset берутся
+    из `OFFICE_SCENE_WIDTHS`, не из ненадёжного `StaticImageData.width` AVIF (задокументировано в коде).
+  - `npm run test:e2e` → 101 passed.
+- AC3 (оригиналы не в клиенте): `references/**/*.png` встречаются в `src/` только как строки-литералы
+  (`Department.reference`, фикстуры), импортов нет; браузер запрашивает лишь производные.
+- AC5 (визуальная идентичность): UI-структура не меняется. Единственная дельта — перегенерированные
+  потребляемые ассеты; попиксельная разница со старыми (git HEAD): office-background 0.27%,
+  sales/hr-thumbnail ~1.0% (только компрессия; совпадение кропа доказывает center-cover). Все e2e,
+  включая рендер реальных фото, зелёные.
+- Files touched: `scripts/generate-office-images.mjs` (new), `package.json`, `package-lock.json`,
+  `src/components/office/departmentPhotos.ts`, `src/tests/unit/components/office/office-scenes.test.ts`
+  (new), 36 новых производных + 6 перегенерированных ассетов в `src/assets/office-photos/`,
+  `references/README.md`, `docs/10-performance-budget.md`, `README.md`, `WORKPLAN.md`, `DECISIONS.md`,
+  `WORKLOG.md`. (`docs/06-department-content.md` в git status — предсессионная правка, не относится к
+  Step 10.)
+- Skeptic Phase B (review исполнения): `PASS` (2026-07-18). Независимо перепрогнал весь quality gate
+  (141 unit + 101 e2e + build exit 0), подтвердил детерминизм (побайтово), 0 PNG в `.next`, соблюдение
+  бюджета, отсутствие `sharp` в клиентском бандле и что тест реально ловит перепутанное присваивание.
+  Blocking — нет. Non-blocking: (a) `docs/06` вне scope — коммитить отдельно (коммит не делался);
+  (b) косметика КБ/KiB в `docs/10` — исправлена inline (пороги в байтах); (c) source-text тест —
+  обоснованный выбор. Forward-looking (Steps 12/13): при подключении AVIF в `<picture>` проверить
+  `.src`/рендер в реальном браузере (Turbopack не декодирует AVIF; ширины берутся из
+  `OFFICE_SCENE_WIDTHS`).
+- Статус: `COMPLETED`. Закоммичено по запросу пользователя тремя раздельными коммитами: `docs/06`
+  (предсессионная правка Этапа 1) → план Этапа 2 (`WORKPLAN`/`DECISIONS`/`WORKLOG`, чтобы revert шага
+  не удалял сам план) → `feat: Step 10` (скрипт, ассеты, экспорт, тест, доки, статусы). Push не
+  делался.
+- Next: Step 11 — Art-direction design tokens (новая сессия; план уже написан, идти сразу в
+  исполнение, OQ-A2-3 предъявляется в браузере на самом шаге).
