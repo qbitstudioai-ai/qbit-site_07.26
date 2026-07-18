@@ -43,6 +43,7 @@ README.md синхронно с каждым изменением статуса
 | 8   | Reduced motion and fallback                | Выполнено |
 | 9   | Browser acceptance tests                   | Выполнено |
 | 10  | Adaptive image asset pipeline              | Выполнено |
+| 11  | Art-direction design tokens                | Выполнено |
 
 Полные критерии и детали каждого шага — `WORKPLAN.md`. История исполнения и доказательства —
 `WORKLOG.md`. Архитектурные и технологические решения — `DECISIONS.md`.

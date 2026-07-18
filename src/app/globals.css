@@ -1,16 +1,21 @@
 @import "../styles/tokens.css";
 
+/* Step 11: базовые background/foreground документа больше не самостоятельные значения, а ссылки на
+   палитру — иначе холодный #171717 соседствовал бы с тёплой графитовой шкалой токенов. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: var(--color-surface);
+  --foreground: var(--color-graphite-900);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Step 11: блок @media (prefers-color-scheme: dark) удалён (решение пользователя, см. DECISIONS.md).
+   Он достался от стартового шаблона Next.js и переключал ТОЛЬКО фон и foreground документа
+   (#0a0a0a/#ededed), тогда как настоящей тёмной темы в проекте нет: все поверхности — белые и
+   кремовые (--color-surface, --color-surface-cream), все текстовые токены — тёмные, и компоненты
+   берут цвет напрямую из --color-graphite-*, а не из --foreground. Результат: у пользователей с
+   системной тёмной темой тёмный текст оказывался на тёмном фоне — контраст заголовков 1.16:1
+   (замерено до Step 11, дефект унаследованный, не регрессия этого шага). axe его не ловил, потому
+   что accessibility-scan.spec.ts прогоняется в светлой схеме. Полноценная тёмная палитра — если
+   понадобится — вводится отдельным шагом с собственным набором токенов и axe-прогоном. */
 
 html {
   height: 100%;
@@ -28,7 +33,15 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  /* Step 11: раньше здесь стоял литеральный Arial, Helvetica — при том что --font-family-base
+     существовал с Step 1 и не использовался ни разу. Теперь шрифт документа берётся из токена
+     (системный стек), а не из значения, дублирующего его мимо палитры. --line-height-base
+     намеренно НЕ навешивается на body: компоненты задают собственный line-height, а глобальные
+     1.5 увеличили бы высоту текстовых блоков и могли задеть инвариант «документ не скроллится»
+     (HomepageShell) — сведение к токену относится к будущему шагу типографики. --font-size-base
+     задан в rem, поэтому эта строка не переопределяет пользовательскую настройку размера шрифта. */
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -44,11 +57,8 @@ a {
   text-decoration: none;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-}
+/* Step 11: `color-scheme: dark` удалён вместе с тёмной схемой выше — иначе браузер продолжал бы
+   отрисовывать скроллбары и системные контролы тёмными поверх светлого интерфейса. */
 
 :focus-visible {
   outline: 3px solid var(--color-accent-warm);
