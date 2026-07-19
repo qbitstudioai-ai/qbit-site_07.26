@@ -220,6 +220,42 @@ test.describe("Amendment 12 — окно пояснения справа от с
     expect(await heading.evaluate((node) => (node as HTMLElement).tabIndex)).toBe(-1);
   });
 
+  // Step 14: графика логотипа как ФУНКЦИЯ, а не украшение (docs/02). Две точки применения внутри
+  // панели: маркер выбранной боли и коннектор «боль → результат» между колонками.
+  test("маркеры логотипа стоят в функциональных местах и не объявляются скринридеру", async ({
+    page,
+  }) => {
+    const department = await openDepartment(page, "sales");
+    const panel = page.getByTestId("pain-gain-panel");
+
+    // Коннектор стоит МЕЖДУ колонками: правее списка болей и левее окна пояснения. Если он окажется
+    // где-то ещё, он перестанет указывать переход и станет украшением — ровно то, что docs/02
+    // запрещает.
+    const painBox = (await painListOf(page).boundingBox())!;
+    const gainBox = (await gainOf(page).boundingBox())!;
+    const connectorBox = (await panel.locator("[data-connector]").boundingBox())!;
+    expect(connectorBox.x).toBeGreaterThanOrEqual(painBox.x + painBox.width - 1);
+    expect(connectorBox.x + connectorBox.width).toBeLessThanOrEqual(gainBox.x + 1);
+
+    // Маркер выбранной боли стоит только у выбранного пункта — иначе форма не отличала бы состояние.
+    const markersInList = painListOf(page).locator("svg");
+    await expect(markersInList).toHaveCount(1);
+
+    // Переключение переносит маркер, а не добавляет второй.
+    await panel.getByRole("button", { name: department.painPoints[3].pain }).click();
+    await expect(markersInList).toHaveCount(1);
+
+    // Вся графика декоративна: смысл несут aria-pressed и aria-live, а не глифы.
+    for (const svg of await panel.locator("svg").all()) {
+      expect(await svg.getAttribute("aria-hidden")).toBe("true");
+    }
+
+    // И имя кнопки не зависит от состояния — маркер в него не просачивается.
+    await expect(
+      panel.getByRole("button", { name: department.painPoints[3].pain }),
+    ).toHaveAttribute("aria-pressed", "true");
+  });
+
   test("под списком болей пояснения больше нет", async ({ page }) => {
     await openDepartment(page, "logistics");
 

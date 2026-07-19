@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { getHomepageCopy } from "../../content/homepage-copy";
+import { getDepartments } from "../../content/departments";
 
 // Step 9 — автоматизированный axe-скан (owner назначен ещё в Step 3 Risks, подтверждён Step 4/Step 8
 // Out of scope как «owner Step 9»). Заменяет ручной прогон axe DevTools, о котором Steps 3/4 писали
@@ -59,6 +60,32 @@ for (const viewport of viewports) {
       const violations = await scanSeriousViolations(page);
       expect(violations, summarize(violations)).toEqual([]);
     });
+
+    // Объявляется ТОЛЬКО для ширин >= 768px: на мобильном рельса скрыта (display:none), её роль
+    // играет CarouselNavControls. Условие стоит на объявлении теста, а НЕ через test.skip() в теле
+    // describe: последний скипнул бы весь блок целиком, включая мобильные axe-сканы, — то есть тихо
+    // ослабил бы гейт (поймано прогоном: «4 skipped» вместо ожидаемых 4 passed).
+    if (viewport.width >= 768) {
+      test("активный отдел в рельсе объявляется скринридеру текстом, а не только формой", async ({
+        page,
+      }) => {
+        await page.goto("/?department=sales");
+        const sales = getDepartments().find((d) => d.id === "sales")!;
+        await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
+
+        // Сторож ставится на ДЕРЕВО ДОСТУПНОСТИ (aria-snapshot), а не на наличие атрибута в DOM, и это
+        // не придирка: прежняя редакция полагалась на `aria-current` у <span> без роли, атрибутная
+        // проверка была зелёной, а до дерева атрибут не доходил вовсе (skeptic Phase B Step 14).
+        // Chromium не выводит `current` даже для listitem, поэтому единственный канал, который можно
+        // проверить и на который можно положиться, — настоящий текст.
+        const rail = page.getByRole("navigation", { name: "Панель отделов" });
+        const snapshot = await rail.ariaSnapshot();
+        expect(snapshot).toContain(`Текущий отдел: ${sales.overviewLabel}`);
+
+        // И активный пункт по-прежнему НЕ кнопка — иначе он попал бы в Tab-порядок (Step 6 AC5).
+        await expect(rail.getByRole("button", { name: sales.overviewLabel })).toHaveCount(0);
+      });
+    }
 
     test("department-active has no serious/critical axe violations", async ({ page }) => {
       await page.goto("/?department=sales");

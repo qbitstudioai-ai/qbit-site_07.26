@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PainPoint } from "@/content/types";
+import { RouteMarker } from "@/components/graphics/RouteMarker";
 import { TypedText } from "./TypedText";
 import styles from "./PainGainPanel.module.css";
 
@@ -33,14 +34,15 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
                 aria-pressed={isSelected}
                 onClick={() => setSelectedIndex(index)}
               >
-                {/* Слот постоянной ширины: занимает место и когда пуст, поэтому появление глифа
+                {/* Слот постоянной ширины: занимает место и когда пуст, поэтому появление маркера
                     не смещает текст и не меняет перенос строк (Amendment 12 — именно из-за таких
                     сдвигов пришлось отказаться от жирного начертания у выбранного пункта).
-                    aria-hidden обязателен: без него глиф попал бы в вычисляемое имя кнопки, и
-                    выбранный пункт назывался бы иначе, чем невыбранный, — имя контрола менялось бы
-                    от состояния. Смысл выбранности несёт aria-pressed. */}
+                    Step 14: текстовый глиф «▸» заменён треугольником логотипа. Маркер aria-hidden;
+                    без этого он попал бы в вычисляемое имя кнопки, и выбранный пункт назывался бы
+                    иначе, чем невыбранный, — имя контрола менялось бы от состояния. Смысл
+                    выбранности несёт aria-pressed. */}
                 <span className={styles.painMarker} aria-hidden="true">
-                  {isSelected ? "▸" : ""}
+                  {isSelected ? <RouteMarker direction="right" /> : null}
                 </span>
                 {point.pain}
               </button>
@@ -48,6 +50,18 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
           );
         })}
       </ul>
+      {/* Step 14: коннектор «боль → результат». Это не украшение промежутка, а указатель перехода
+          (`docs/02` «Графическая система»: стрелки логотипа — маршруты, указатели, переходы). После
+          Amendment 12 боли и результат стоят двумя колонками, и связь между ними держится только
+          соседством; треугольник, направленный вправо, называет эту связь явно.
+          Позиционируется абсолютно в зазоре сетки (см. .connector) — то есть не занимает колонки и
+          не участвует в раскладке, поэтому равенство высот и неизменность окна пояснения (AC8)
+          остаются ровно теми же. aria-hidden: смысл «эта боль → этот результат» уже выражен
+          разметкой (aria-pressed у выбранной боли + aria-live у пояснения), маркер его дублирует
+          визуально, а не заменяет. */}
+      <span className={styles.connector} aria-hidden="true" data-connector="pain-to-gain">
+        <RouteMarker direction="right" />
+      </span>
       {/* aria-live озвучивает смену выгоды при выборе другого пункта боли (не aria-describedby на
           кнопках — текст описывает результат уже выбранного пункта, а не сами кнопки).
           Amendment 12: блок переехал из-под списка вправо и печатается посимвольно. aria-live здесь

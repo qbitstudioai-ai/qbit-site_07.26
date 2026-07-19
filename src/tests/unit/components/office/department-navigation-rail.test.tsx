@@ -39,6 +39,45 @@ describe("DepartmentNavigationRail", () => {
     expect(current).not.toBeNull();
   });
 
+  // Step 14: текстовый «●» заменён треугольным маркером логотипа. Замена не должна ослабить
+  // не-цветовую различимость статуса — это прямой риск, записанный в плане шага (AC2).
+  it("keeps the active status readable without colour after «●» became a logo marker (Step 14)", () => {
+    const { container } = render(
+      <DepartmentNavigationRail
+        departments={departments}
+        activeSectionId="sales"
+        taskRailLabel="Ваша задача"
+        onSelectDepartment={() => {}}
+      />,
+    );
+    const sales = departments.find((d) => d.id === "sales")!;
+    const current = screen.getByText(sales.overviewLabel).closest('[aria-current="true"]')!;
+
+    // 1. Форма: внутри активного пункта есть маркер, и ровно один — не россыпь.
+    const markers = current.querySelectorAll("svg");
+    expect(markers).toHaveLength(1);
+
+    // 2. Маркер декоративен — смысл несёт не он.
+    expect(markers[0]).toHaveAttribute("aria-hidden", "true");
+
+    // 3. ТЕКСТОВЫЙ эквивалент статуса присутствует настоящим текстом. Это ключевая проверка, а не
+    //    дополнительная: `aria-current` на <span> без роли Chromium ОТБРАСЫВАЕТ (сводит элемент к
+    //    `generic`), и до дерева доступности атрибут не доходит — установлено снимком AX-дерева на
+    //    skeptic Phase B. Поэтому статус не может опираться только на ARIA-атрибут.
+    expect(current).toHaveTextContent(`Текущий отдел: ${sales.overviewLabel}`);
+
+    // 4. И сам aria-current стоит на элементе с НАСТОЯЩЕЙ ролью (<li> → listitem), а не на
+    //    безролевом span, иначе он был бы отброшен так же.
+    expect(current!.tagName).toBe("LI");
+    expect(current).toHaveAttribute("aria-current", "true");
+
+    // 5. Не-интерактивность активного пункта сохранена: он вне Tab-порядка (Step 6 AC5).
+    expect(screen.queryByRole("button", { name: sales.overviewLabel })).not.toBeInTheDocument();
+
+    // 6. Маркер стоит ТОЛЬКО у активного пункта — иначе форма перестала бы отличать состояние.
+    expect(container.querySelectorAll("svg")).toHaveLength(1);
+  });
+
   it("renders a photo thumbnail for every department, including the active one (Step 7.3, OQ-P1)", () => {
     const { container } = render(
       <DepartmentNavigationRail
