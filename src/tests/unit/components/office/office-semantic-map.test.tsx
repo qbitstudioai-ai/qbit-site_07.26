@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { OfficeSemanticMap } from "@/components/office/OfficeSemanticMap";
@@ -68,6 +70,48 @@ describe("OfficeSemanticMap", () => {
       expect(button.style.width).toBe(`${zone.width}%`);
       expect(button.style.height).toBe(`${zone.height}%`);
     }
+  });
+
+  // Step 12: overview стал настоящей сценой офиса, а не карточками на токен-фоне.
+  it("renders a scene photo behind the hotspot layer", () => {
+    const { container } = render(
+      <OfficeSemanticMap
+        departments={departments}
+        officeZones={officeZones}
+        onSelectDepartment={() => {}}
+      />,
+    );
+    expect(container.querySelector("picture")).not.toBeNull();
+  });
+
+  // Что подключена именно МАСТЕР-сцена overview, а не сцена какого-нибудь отдела, проверяется по
+  // исходному тексту: в Vite image-импорты резолвятся в строки-URL, а не в StaticImageData, поэтому
+  // `img.src` в jsdom пуст и отличить сцены по нему нельзя (тот же артефакт окружения и тот же приём
+  // обхода, что в office-scenes.test.ts и content/departments.test.ts).
+  it("wires the overview master scene, not a department scene", () => {
+    const source = readFileSync(
+      path.resolve(process.cwd(), "src/components/office/OfficeSemanticMap.tsx"),
+      "utf-8",
+    );
+    expect(source).toMatch(/sources=\{officeSceneById\.overview\}/);
+  });
+
+  it("keeps all 5 department buttons usable when the scene photo fails to load (Step 8 fallback)", () => {
+    const { container } = render(
+      <OfficeSemanticMap
+        departments={departments}
+        officeZones={officeZones}
+        onSelectDepartment={() => {}}
+      />,
+    );
+    fireEvent.error(container.querySelector("img")!);
+
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("[data-photo-fallback]")).not.toBeNull();
+
+    // Коммерческий путь overview не зависит от фотослоя вовсе.
+    const nav = screen.getByRole("navigation", { name: "Отделы компании" });
+    expect(within(nav).getAllByRole("button")).toHaveLength(5);
   });
 
   it("clicking a hotspot calls onSelectDepartment with that department's id (Step 5 no-op inversion)", () => {

@@ -1,3 +1,7 @@
+/* Step 12 (OQ-A2-1 = (a)): хотспот — прозрачная ЗОНА поверх мастер-сцены, а не белая карточка на
+   токен-фоне. Носитель смысла теперь сама сцена, поэтому зона не закрашивает её, а очерчивает
+   участок; читаемость подписи обеспечивает скрим на самой подписи (см. .label/.problem ниже), а не
+   сплошная заливка всей зоны. */
 .hotspot {
   position: absolute;
   display: flex;
@@ -5,40 +9,82 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1);
-  border: 1px solid var(--color-graphite-300);
-  border-radius: 6px;
-  background: var(--color-surface);
+  background: transparent;
+  /* Двухтоновая рамка: светлая линия + тёмное кольцо снаружи. Граница зоны обязана читаться и на
+     светлом, и на тёмном участке фотографии, а какой именно участок окажется под ней — заранее
+     неизвестно. Один цвет этого не гарантирует, пара контрастных — гарантирует. */
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 1px rgba(24, 20, 16, 0.55);
+  border-radius: 8px;
   cursor: pointer;
   padding: var(--space-2);
   text-align: center;
   overflow: hidden;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.hotspot:hover {
-  background: var(--color-graphite-100);
+/* Наведение/выбор затемняют зону вместо подсветки: на фотофоне затемнение читается как выделение
+   надёжнее подсветки (фото само по себе светлое местами) и вдобавок ПОДНИМАЕТ контраст подписи. */
+.hotspot:hover,
+.hotspot:focus-visible {
+  background: var(--scrim-soft);
+  border-color: var(--color-accent-warm);
 }
 
+/* Фокус поверх фото: к общему акцентному outline (globals.css) добавляется белое кольцо вплотную к
+   рамке. Акцент #8f5722 тёмный — на тёмном участке сцены он один мог бы потеряться; белое кольцо
+   между ним и фото делает индикатор различимым на любом кадре. */
+.hotspot:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-surface);
+}
+
+/* Подписи лежат на скриме, а не прямо на фото. --scrim-strong рассчитан на ХУДШИЙ случай фотофона:
+   белый текст поверх чисто белого участка фотографии даёт 6.80:1 (см. docs/design-tokens.md), то
+   есть WCAG AA держится независимо от того, какой кусок сцены окажется под подписью. Это и есть
+   способ измерения, которого требует WORKPLAN.md Step 12 AC2: axe помечает text-over-image как
+   incomplete, а не serious, и подтвердить контраст сам не может. */
 .label {
   font-weight: 600;
   font-size: 0.9rem;
-  color: var(--color-graphite-900);
+  color: var(--color-surface);
+  background: var(--scrim-strong);
+  padding: var(--space-1) var(--space-3);
+  border-radius: 6px;
 }
 
+/* Свёрнутое состояние обнуляет и вертикальный padding, а не только max-height. Причина: padding не
+   сжимается вместе с max-height — со скрим-плашкой (Step 12) свёрнутое описание продолжало занимать
+   ~8px и рисовать тёмную полоску под подписью. Глазу она незаметна из-за opacity: 0, но место
+   занимает и в измерениях элемент считается видимым. */
 .problem {
   font-size: 0.75rem;
-  color: var(--color-graphite-700);
+  color: var(--color-surface);
+  background: var(--scrim-strong);
+  padding: 0 var(--space-2);
+  border-radius: 6px;
   opacity: 0;
   max-height: 0;
   overflow: hidden;
   transition:
     opacity 0.15s ease,
-    max-height 0.15s ease;
+    max-height 0.15s ease,
+    padding 0.15s ease;
 }
 
+/* :focus-visible, а НЕ :focus. Разница здесь не косметическая: после ACTIVATE_CTA фокус переносится
+   программно на первый хотспот (OfficeMachine.tsx, Step 7.2), чтобы он не потерялся на <body> при
+   скрытии hero. При программном переносе браузер ставит :focus, но НЕ :focus-visible — рамка не
+   рисуется. С прежним селектором это выглядело как баг: у «Поддержки» сама собой всплывала подпись
+   «Отвечать быстрее и разгрузить первую линию», без наведённого курсора и без видимой причины
+   (замерено: :focus = true, :focus-visible = false, outline-style = none). Теперь описание
+   раскрывается ровно тогда же, когда видна рамка фокуса, — клавиатурный сценарий не пострадал. */
 .hotspot:hover .problem,
-.hotspot:focus .problem {
+.hotspot:focus-visible .problem {
   opacity: 1;
   max-height: 4rem;
+  padding: var(--space-1) var(--space-2);
 }
 
 /* Step 7.5: touch не гарантирует hover (docs/08 "Tablet 768–1279": "hover не обязателен") — проблема
@@ -50,5 +96,6 @@
   .problem {
     opacity: 1;
     max-height: 4rem;
+    padding: var(--space-1) var(--space-2);
   }
 }
