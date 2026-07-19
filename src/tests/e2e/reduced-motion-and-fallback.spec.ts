@@ -127,11 +127,11 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
     expect(pageErrors).toEqual([]);
   });
 
-  // Блокируется только *.webp — этого достаточно ИМЕННО ЗДЕСЬ: тест открывает /?department=sales,
-  // где ветка overview не рендерится, а весь фотослой (5 миниатюр рельса + общий фон) — webp.
-  // Сцена overview со Step 12 отдаётся через <picture> с AVIF-приоритетом и одной блокировкой webp
-  // не роняется; её фолбэк проверяется отдельно в overview-scene.spec.ts, где заблокированы оба
-  // формата.
+  // Блокируется только *.webp. До Step 13 это роняло весь фотослой экрана отдела: и 5 миниатюр
+  // рельса, и общий фон офиса были одноисточниковыми webp. Со Step 13 фон — это сцена отдела через
+  // <picture> с AVIF-приоритетом, поэтому одной блокировки webp она переживает (ровно то же уже было
+  // верно для сцены overview со Step 12). Полное падение фотослоя обоих форматов проверяется там,
+  // где ему и место: overview-scene.spec.ts и department-scene.spec.ts (AC4).
   test("failed photos are replaced by placeholders, not left as broken images", async ({
     page,
   }) => {
@@ -140,11 +140,21 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
 
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
-    // 5 миниатюр rail + 1 общий фон офиса позади 10/90-раскладки.
-    await expect(page.locator("[data-photo-fallback]")).toHaveCount(6);
+    // Падают только 5 миниатюр рельса — они одноисточниковые webp.
+    await expect(page.locator("[data-photo-fallback]")).toHaveCount(5);
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
     // Селектор по src, а не по alt="": логотип в Header — тоже декоративный img[alt=""], но он
-    // .svg, не часть фотослоя и блокировкой webp не затрагивается.
-    await expect(page.locator("img[src*='.webp']")).toHaveCount(0);
+    // .svg, не часть фотослоя и блокировкой webp не затрагивается. Скоуп на рельс исключает
+    // <img> сцены: его атрибут src указывает на webp-фолбэк, но реально браузер берёт AVIF из
+    // <source>, то есть по одному лишь атрибуту нельзя судить, упала картинка или нет.
+    await expect(rail.locator("img[src*='.webp']")).toHaveCount(0);
+
+    // А сцена отдела осталась живой и ДЕКОДИРОВАННОЙ — не битым <img> и не плейсхолдером.
+    // Проверка по naturalWidth, а не по видимости: битая картинка тоже «видима».
+    const scene = page.locator("picture > img").first();
+    await expect
+      .poll(async () => scene.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
   });
 
   test("the same view renders real photos when the network is healthy (guards the test above)", async ({

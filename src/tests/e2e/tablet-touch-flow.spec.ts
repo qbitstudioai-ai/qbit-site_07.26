@@ -95,7 +95,12 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     await openSalesFromMap(page);
 
     const railBox = await page.getByRole("navigation", { name: "Панель отделов" }).boundingBox();
-    const mainBox = await page.getByRole("region", { name: sales.overviewLabel }).boundingBox();
+    // Колонка сетки (.mainArea), а не панель отдела внутри неё — см. пояснение в
+    // desktop-10x90-shell.spec.ts: со Step 13 панель занимает лишь часть колонки, остальное — сцена.
+    const mainBox = await page
+      .getByRole("region", { name: sales.overviewLabel })
+      .locator("..")
+      .boundingBox();
     expect(railBox).not.toBeNull();
     expect(mainBox).not.toBeNull();
 
@@ -109,7 +114,10 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     page,
   }) => {
     const railLocator = page.getByRole("navigation", { name: "Панель отделов" });
-    const mainLocator = page.getByRole("region", { name: sales.overviewLabel });
+    // Колонка сетки, а не панель внутри неё (Step 13) — доля рельса считается от раскладки 10/90.
+    // По панели доля была бы завышена: на ≥1280px панель ограничена 46% колонки (Amendment 8), и
+    // сравнение «планшет шире desktop» сравнивало бы ширину карточек, а не ширину рельса.
+    const mainLocator = page.getByRole("region", { name: sales.overviewLabel }).locator("..");
 
     async function measureAt(width: number) {
       await page.setViewportSize({ width, height: 800 });

@@ -56,11 +56,35 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         onClose={() => {}}
       />,
     );
-    const panel = within(screen.getByTestId("pain-gain-panel"));
+    const panelElement = screen.getByTestId("pain-gain-panel");
+    const panel = within(panelElement);
     const thirdPain = department.painPoints[2];
     fireEvent.click(panel.getByRole("button", { name: thirdPain.pain }));
-    expect(panel.getByText(thirdPain.gain)).toBeInTheDocument();
-    expect(panel.queryByText(department.painPoints[0].gain)).not.toBeInTheDocument();
+
+    // Сверка по textContent, а не getByText, по двум причинам сразу. Amendment 12 разбил печать на
+    // посимвольные <span>, и у <p> больше нет ПРЯМЫХ текстовых узлов — а getByText сопоставляет
+    // именно их, не всё поддерево. Плюс пояснение теперь состоит из ДВУХ слоёв (правка по skeptic
+    // Phase B): видимые глифы, скрытые от дерева доступности, и один доступный текстовый узел,
+    // скрытый визуально — поэтому textContent самого <p> содержит текст дважды, и сверяться надо со
+    // слоями по отдельности.
+    // Проверка при этом не ослаблена, а строже прежней: раньше утверждалось «узел с таким текстом
+    // существует», теперь — что КАЖДЫЙ слой равен выгоде выбранной боли целиком (`toBe`), то есть
+    // подмена, обрезка или рассинхрон слоёв тоже провалили бы тест.
+    const visual = panelElement.querySelector("[data-typed-visual]");
+    const accessible = panelElement.querySelector("[data-typed-accessible]");
+
+    expect(visual?.textContent).toBe(thirdPain.gain);
+    expect(accessible?.textContent).toBe(thirdPain.gain);
+    expect(visual?.textContent).not.toContain(department.painPoints[0].gain);
+
+    // Доступный слой скрыт от глаза, но НЕ от AT, а видимый — наоборот. Именно это разделение
+    // даёт скринридеру целое предложение одним узлом вместо россыпи однобуквенных (AC9).
+    expect(visual).toHaveAttribute("aria-hidden", "true");
+    expect(accessible).not.toHaveAttribute("aria-hidden");
+
+    // И полный текст лежит в DOM сразу, не дожидаясь конца анимации — на этом держится и aria-live,
+    // и требование «критический контент не ждёт анимации» (CLAUDE.md Motion rules).
+    expect(accessible?.textContent).toHaveLength(thirdPain.gain.length);
   });
 
   it("expanding a pain point in the mobile accordion shows exactly its gain, collapsing the previous one (Step 7.3, OQ-P6)", () => {

@@ -7,10 +7,10 @@ import {
   type OfficeSectionId,
 } from "@/features/office-machine/reducer";
 import { TaskSectionExperience } from "@/components/task/TaskSectionExperience";
-import { officeBackgroundPhoto } from "./departmentPhotos";
+import { officeSceneById, OFFICE_SCENE_SIZES, type OfficeSceneId } from "./departmentPhotos";
 import { DepartmentNavigationRail } from "./DepartmentNavigationRail";
 import { MobileDepartmentCarousel } from "./MobileDepartmentCarousel";
-import { OfficePhoto } from "./OfficePhoto";
+import { OfficeScenePhoto } from "./OfficePhoto";
 import { OfficeSemanticMap } from "./OfficeSemanticMap";
 import styles from "./OfficeExperience.module.css";
 
@@ -58,6 +58,10 @@ export function OfficeExperience({
   // содержимым 90%-области, поэтому шелл, рельс и переходы у них общие (Step 12.7).
   const hasActiveSection = Boolean(activeDepartment) || isTaskSectionActive;
 
+  // Сцена позади раскладки (Step 13). «Ваша задача» — не отдел и своей сцены не имеет: под ней
+  // остаётся мастер-сцена overview, то есть офис как общий контекст.
+  const activeSceneId: OfficeSceneId = activeDepartment ? activeDepartment.id : "overview";
+
   // Тот же порядок отделов (по officeZones y, затем x), что и в OfficeSemanticMap — общий для
   // хотспотов overview и для DepartmentNavigationRail, чтобы порядок отделов не расходился между
   // двумя состояниями (низкий риск, техническая деталь исполнения, см. WORKPLAN.md Step 6).
@@ -85,11 +89,29 @@ export function OfficeExperience({
         // grid-template-areas — порядок Tab не совпадает с визуальным порядком слева направо
         // (WORKPLAN.md Step 6 acceptance criterion 5).
         <div className={styles.shell10x90}>
-          {/* Step 7.3, docs/03 "Режим 10/90": общее фото офиса позади раскладки, затемнённое —
-              "офис остаётся контекстом", не исчезает целиком, когда отдел открыт. Не рендерится
-              в overview (см. docs/03 уточнение по OQ-P1) — монтируется только вместе с этой веткой,
-              то есть лениво по отношению к самому открытию отдела. */}
-          <OfficePhoto src={officeBackgroundPhoto} className={styles.backgroundPhoto} />
+          {/* Step 13: позади раскладки — сцена ИМЕННО ЭТОГО отдела, а не одно общее фото офиса
+              (пересмотр решения docs/03 "Режим 10/90" по OQ-A2-8). Переключение отдела меняет
+              источник, поэтому браузер грузит другой файл — это и создаёт ощущение перехода между
+              отделами, ради которого шаг пересмотрен (Amendment 8).
+              Ленивость сохраняется: ветка монтируется только при открытом разделе, а в <picture>
+              попадают производные единственной активной сцены — остальные четыре не запрашиваются.
+              «Ваша задача» — не отдел и своей сцены не имеет: под ней остаётся мастер-сцена
+              overview, то есть офис как общий контекст (Step 12.7). */}
+          {/* key={activeSceneId} обязателен, а не косметика: OfficeScenePhoto держит признак
+              неудачной загрузки (`hasFailed`) в локальном useState и сам его не сбрасывает. Пока
+              сцена была одна и та же (общий фон до Step 13), «залипание» было безвредным — грузить
+              при переключении было нечего. Со Step 13 источник меняется вместе с отделом, и без key
+              компонент не размонтируется: один оборванный запрос (моргнул Wi-Fi на одном отделе)
+              гасил бы фотослой на весь дальнейший обход офиса, а переключение отдела его не
+              восстанавливало — при том, что следующая сцена вполне загружаема. Найдено skeptic
+              Phase B на деградированном пути (AC1/AC7), воспроизведено блокировкой ОДНОГО файла.
+              Тот же приём и по той же причине уже применён к PainGainPanel ниже. */}
+          <OfficeScenePhoto
+            key={activeSceneId}
+            sources={officeSceneById[activeSceneId]}
+            sizes={OFFICE_SCENE_SIZES}
+            className={styles.backgroundPhoto}
+          />
           <div className={styles.mainArea}>
             {activeDepartment ? (
               <DepartmentExperience

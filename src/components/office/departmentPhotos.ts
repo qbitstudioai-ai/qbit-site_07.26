@@ -5,7 +5,6 @@ import supportThumbnail from "../../assets/office-photos/support-thumbnail.webp"
 import executiveThumbnail from "../../assets/office-photos/executive-thumbnail.webp";
 import hrThumbnail from "../../assets/office-photos/hr-thumbnail.webp";
 import logisticsThumbnail from "../../assets/office-photos/logistics-thumbnail.webp";
-import officeBackgroundPhotoSource from "../../assets/office-photos/office-background.webp";
 
 // Адаптивные производные сцен (Step 10). WebP+AVIF × ширины 768/1280/1536, порождаются
 // `npm run assets:images` (scripts/generate-office-images.mjs) из оригиналов references/**.
@@ -75,12 +74,12 @@ export const photoByDepartmentId: Record<DepartmentId, StaticImageData> = {
   logistics: logisticsThumbnail,
 };
 
-// Общий фон офиса позади department-active (docs/03-office-map.md "Режим 10/90") — не рендерится в
-// overview этим шагом (см. docs/03 уточнение по OQ-P1, Step 7.3). Со Step 10 — производная
-// мастер-сцены overview @1536 (тот же оригинал, что overview-1536.webp); имя сохранено ради
-// неизменности импорта до подключения адаптивной overview-сцены в Step 12.
-export const officeBackgroundPhoto: StaticImageData = officeBackgroundPhotoSource;
-
+// Общего фона офиса позади department-active (`officeBackgroundPhoto` / `office-background.webp`,
+// Step 7.3) здесь больше нет: Step 13 заменил его на сцену активного отдела из officeSceneById ниже,
+// и последний потребитель исчез. Экспорт удалён вместе с импортом, чтобы 244 КБ не оставались в
+// бандле ради кода, который никто не вызывает. Сам файл продолжает порождаться
+// scripts/generate-office-images.mjs (legacyBgName) — генератор этот шаг не трогает.
+//
 // ── Адаптивные сцены офиса (Step 10) ─────────────────────────────────────────────────────────────
 // Мастер-сцена overview + 5 сцен отделов. Экспортируются как источники + метаданные для ручного
 // <picture>/srcset (OQ-A2-4). НЕ подключены к рендеру на этом шаге — overview остаётся карточками

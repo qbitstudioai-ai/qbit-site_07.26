@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PainPoint } from "@/content/types";
+import { TypedText } from "./TypedText";
 import styles from "./PainGainPanel.module.css";
 
 interface PainGainPanelProps {
@@ -32,6 +33,15 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
                 aria-pressed={isSelected}
                 onClick={() => setSelectedIndex(index)}
               >
+                {/* Слот постоянной ширины: занимает место и когда пуст, поэтому появление глифа
+                    не смещает текст и не меняет перенос строк (Amendment 12 — именно из-за таких
+                    сдвигов пришлось отказаться от жирного начертания у выбранного пункта).
+                    aria-hidden обязателен: без него глиф попал бы в вычисляемое имя кнопки, и
+                    выбранный пункт назывался бы иначе, чем невыбранный, — имя контрола менялось бы
+                    от состояния. Смысл выбранности несёт aria-pressed. */}
+                <span className={styles.painMarker} aria-hidden="true">
+                  {isSelected ? "▸" : ""}
+                </span>
                 {point.pain}
               </button>
             </li>
@@ -39,9 +49,14 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
         })}
       </ul>
       {/* aria-live озвучивает смену выгоды при выборе другого пункта боли (не aria-describedby на
-          кнопках — текст описывает результат уже выбранного пункта, а не сами кнопки). */}
+          кнопках — текст описывает результат уже выбранного пункта, а не сами кнопки).
+          Amendment 12: блок переехал из-под списка вправо и печатается посимвольно. aria-live здесь
+          остаётся корректным именно потому, что TypedText держит в DOM полный текст с первого кадра
+          (см. док-комментарий там) — иначе объявление шло бы обрывками.
+          key={selected.pain} перезапускает печать при смене пункта: без него React переиспользовал бы
+          состояние и новый текст мог бы доехать уже «напечатанным». */}
       <p className={styles.gain} aria-live="polite">
-        {selected.gain}
+        <TypedText key={selected.pain} text={selected.gain} />
       </p>
     </div>
   );

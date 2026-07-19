@@ -32,7 +32,15 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
 
     const railBox = await page.getByRole("navigation", { name: "Панель отделов" }).boundingBox();
-    const mainBox = await page.getByRole("region", { name: sales.overviewLabel }).boundingBox();
+    // Со Step 13 (Amendment 8) меряется ИМЕННО КОЛОНКА СЕТКИ (.mainArea — родитель панели отдела), а
+    // не сама панель. Раньше это было одно и то же: панель растягивалась на всю колонку. Теперь
+    // панель — компактная колонка карточек ≤46% ширины, а остальное занимает открытая сцена отдела,
+    // поэтому измерение по панели проверяло бы не раскладку 10/90, а ширину карточек.
+    // Сам инвариант 10/90 не изменился и проверяется здесь по-прежнему.
+    const mainBox = await page
+      .getByRole("region", { name: sales.overviewLabel })
+      .locator("..")
+      .boundingBox();
     expect(railBox).not.toBeNull();
     expect(mainBox).not.toBeNull();
 
@@ -96,12 +104,18 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
 
     const panel = page.getByTestId("pain-gain-panel");
-    await expect(panel.getByText(sales.painPoints[0].gain)).toBeVisible();
+    // Amendment 12: пояснение состоит из двух слоёв (видимые глифы + доступная копия), поэтому
+    // getByText нашёл бы два узла. Целимся в видимый слой и сверяем текст целиком — это строже
+    // прежнего «узел с таким текстом виден».
+    const gainText = panel.locator("p[aria-live] [data-typed-visual]");
+    await expect(gainText).toBeVisible();
+    await expect(gainText).toHaveText(sales.painPoints[0].gain);
 
     const thirdPain = sales.painPoints[2];
     await panel.getByRole("button", { name: thirdPain.pain }).click();
-    await expect(panel.getByText(thirdPain.gain)).toBeVisible();
-    await expect(panel.getByText(sales.painPoints[0].gain)).toHaveCount(0);
+    await expect(gainText).toHaveText(thirdPain.gain);
+    // И прежнее пояснение действительно ушло, а не осталось рядом.
+    await expect(gainText).not.toHaveText(sales.painPoints[0].gain);
   });
 
   test("switching departments via the rail resets the pain/gain selection back to the first pain point (Step 7.3, OQ-P2/OQ-P3)", async ({
@@ -113,14 +127,16 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
 
     const panel = page.getByTestId("pain-gain-panel");
+    // Видимый слой пояснения (Amendment 12) — см. пояснение в тесте выше.
+    const gainText = panel.locator("p[aria-live] [data-typed-visual]");
     await panel.getByRole("button", { name: sales.painPoints[2].pain }).click();
-    await expect(panel.getByText(sales.painPoints[2].gain)).toBeVisible();
+    await expect(gainText).toHaveText(sales.painPoints[2].gain);
 
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
 
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
-    await expect(panel.getByText(hr.painPoints[0].gain)).toBeVisible();
+    await expect(gainText).toHaveText(hr.painPoints[0].gain);
   });
 
   test("the active department is marked in the rail not only by color: aria-current is present in the live DOM", async ({
