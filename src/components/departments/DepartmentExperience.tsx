@@ -11,6 +11,8 @@ interface DepartmentExperienceProps {
   department: Department;
   machineView: OfficeMachineView;
   departments: Department[];
+  /** Единый контакт сайта — тот же, что у основного CTA в hero (Amendment 10). */
+  contactHref: string;
   onSelectDepartment: (departmentId: DepartmentId) => void;
   onClose: () => void;
 }
@@ -22,6 +24,7 @@ export function DepartmentExperience({
   department,
   machineView,
   departments,
+  contactHref,
   onSelectDepartment,
   onClose,
 }: DepartmentExperienceProps) {
@@ -58,7 +61,7 @@ export function DepartmentExperience({
       <PainGainPanel key={`desktop-${department.id}`} painPoints={department.painPoints} />
       <MobilePainGainAccordion key={`mobile-${department.id}`} painPoints={department.painPoints} />
       <div className={styles.actions}>
-        <DepartmentCTA label={department.ctaLabel} />
+        <DepartmentCTA label={department.ctaLabel} href={contactHref} />
         <button type="button" className={styles.close} onClick={onClose}>
           Закрыть
         </button>

@@ -63,15 +63,38 @@ export const departmentsSchema = z
     }
   });
 
+export const taskSectionCopySchema = z.object({
+  railLabel: nonEmptyString,
+  overviewCtaLabel: nonEmptyString,
+  headline: nonEmptyString,
+  intro: nonEmptyString,
+  fieldLabel: nonEmptyString,
+  placeholder: nonEmptyString,
+  submitLabel: nonEmptyString,
+  sendingLabel: nonEmptyString,
+  successMessage: nonEmptyString,
+  errorMessage: nonEmptyString,
+  tooShortMessage: nonEmptyString,
+});
+
 export const homepageCopySchema = z.object({
   headline: nonEmptyString,
   subheadline: nonEmptyString,
   primaryCta: nonEmptyString,
+  // ЕДИНЫЙ адрес контакта (Telegram) для всех CTA сайта: основной CTA в hero и CTA внутри каждого
+  // отдела ("Разобрать работу поддержки" и т.д.). Одно поле, а не по адресу на кнопку — контакт у
+  // компании один, и дублирование означало бы, что при смене его забудут в половине мест.
+  // Имя нейтральное (не primaryCtaHref) именно потому, что потребителей несколько.
+  // Хранится в данных, а не в компоненте, по правилу CLAUDE.md "Keep content separate from
+  // components": смена контакта не должна требовать правки React. Валидируется как URL — опечатка
+  // должна падать на валидации контента, а не превращаться в битую ссылку у посетителя.
+  contactHref: z.string().url(),
   secondaryCta: nonEmptyString,
   interactionHint: nonEmptyString,
   valuePoints: nonEmptyStringArray,
   tagline: nonEmptyString,
   returnToOfficeLabel: nonEmptyString,
+  taskSection: taskSectionCopySchema,
 });
 
 export const officeZoneSchema = z.object({

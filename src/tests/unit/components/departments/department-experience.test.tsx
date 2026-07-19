@@ -13,6 +13,7 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         department={department}
         machineView="department-active"
         departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
         onClose={() => {}}
       />,
@@ -28,6 +29,7 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         department={department}
         machineView="department-active"
         departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
         onClose={() => {}}
       />,
@@ -49,6 +51,7 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         department={department}
         machineView="department-active"
         departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
         onClose={() => {}}
       />,
@@ -66,6 +69,7 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         department={department}
         machineView="department-active"
         departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
         onClose={() => {}}
       />,
@@ -77,18 +81,26 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
     expect(accordion.queryByText(department.painPoints[0].gain)).not.toBeInTheDocument();
   });
 
-  it("renders a visible CTA button and an explicit close button that calls onClose", () => {
+  // Amendment 10: CTA отдела — внешняя ссылка на Telegram-контакт, а не кнопка-заглушка.
+  it("renders the department CTA as an external contact link, plus a close button that calls onClose", () => {
     const onClose = vi.fn();
     render(
       <DepartmentExperience
         department={department}
         machineView="department-active"
         departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
         onClose={onClose}
       />,
     );
-    expect(screen.getByRole("button", { name: department.ctaLabel })).toBeInTheDocument();
+    const cta = screen.getByRole("link", { name: department.ctaLabel });
+    expect(cta).toHaveAttribute("href", "https://t.me/Promt_Pavel");
+    expect(cta).toHaveAttribute("target", "_blank");
+    // rel обязателен при target="_blank": без noopener открытая вкладка получает window.opener.
+    expect(cta).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    expect(cta).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
+
     fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -99,6 +111,7 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         department={department}
         machineView="department-active"
         departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
         onClose={() => {}}
       />,
@@ -118,6 +131,7 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         department={department}
         machineView="department-active"
         departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={onSelectDepartment}
         onClose={() => {}}
       />,

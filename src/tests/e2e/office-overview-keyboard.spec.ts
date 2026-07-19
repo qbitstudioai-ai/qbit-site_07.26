@@ -13,7 +13,7 @@ function expectedTabOrderLabels() {
 
 async function activateCta(page: import("@playwright/test").Page) {
   const copy = getHomepageCopy();
-  await page.getByRole("button", { name: copy.primaryCta }).click();
+  await page.getByRole("link", { name: copy.secondaryCta }).click();
 }
 
 test("hidden hotspots are not reachable by Tab before ACTIVATE_CTA; focus lands on the first hotspot immediately after reveal (Step 7.2), then Tab visits the remaining 4 in the expected order with visible focus", async ({
@@ -31,7 +31,7 @@ test("hidden hotspots are not reachable by Tab before ACTIVATE_CTA; focus lands 
   // (см. WORKPLAN.md Step 7.2, решение 2 — сам факт переноса focus не зависит от модальности
   // ввода, но видимость ring — зависит, это поведение браузера, не этого кода).
   const copy = getHomepageCopy();
-  await page.getByRole("button", { name: copy.primaryCta }).focus();
+  await page.getByRole("link", { name: copy.secondaryCta }).focus();
   await page.keyboard.press("Enter");
 
   const nav = page.getByRole("navigation", { name: "Отделы компании" });

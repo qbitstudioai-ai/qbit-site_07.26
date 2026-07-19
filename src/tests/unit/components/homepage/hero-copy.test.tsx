@@ -22,19 +22,28 @@ describe("HeroCopy", () => {
     }
   });
 
-  it("renders primaryCta as a button and secondaryCta as a link to #office-map", () => {
+  // Amendment 9: основной CTA ведёт наружу (Telegram-контакт), офис открывает только вторичный.
+  it("renders primaryCta as an external link and secondaryCta as a link to #office-map", () => {
     render(<HeroCopy copy={copy} onActivate={() => {}} isHiddenAfterReveal={false} />);
-    expect(screen.getByRole("button", { name: copy.primaryCta })).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: copy.secondaryCta });
-    expect(link).toHaveAttribute("href", "#office-map");
+
+    const primary = screen.getByRole("link", { name: copy.primaryCta });
+    expect(primary).toHaveAttribute("href", copy.contactHref);
+    expect(primary).toHaveAttribute("target", "_blank");
+    // rel обязателен при target="_blank": без noopener открытая вкладка получает window.opener и
+    // может подменить исходную страницу.
+    expect(primary).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    expect(primary).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
+
+    const secondary = screen.getByRole("link", { name: copy.secondaryCta });
+    expect(secondary).toHaveAttribute("href", "#office-map");
   });
 
-  it("calls onActivate when primaryCta is clicked", () => {
+  it("does NOT open the office when primaryCta is clicked — it leaves the site instead", () => {
     const onActivate = vi.fn();
     render(<HeroCopy copy={copy} onActivate={onActivate} isHiddenAfterReveal={false} />);
 
-    fireEvent.click(screen.getByRole("button", { name: copy.primaryCta }));
-    expect(onActivate).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("link", { name: copy.primaryCta }));
+    expect(onActivate).not.toHaveBeenCalled();
   });
 
   it("calls onActivate and prevents the native anchor jump when secondaryCta is clicked", () => {

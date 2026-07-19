@@ -9,7 +9,7 @@ import { getHomepageCopy } from "../../content/homepage-copy";
 // 767/768px рендерится разный overview (карта офиса vs карусель), поэтому доступность их обоих
 // проверяется отдельно.
 async function activateCta(page: Page) {
-  await page.getByRole("button", { name: getHomepageCopy().primaryCta }).click();
+  await page.getByRole("link", { name: getHomepageCopy().secondaryCta }).click();
 }
 
 // axe присваивает нарушению impact minor|moderate|serious|critical. Порог acceptance — serious и

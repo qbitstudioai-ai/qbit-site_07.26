@@ -21,10 +21,10 @@ describe("HomePage", () => {
     expect(officeSection).toHaveAttribute("data-revealed", "false");
   });
 
-  it("flips data-revealed to true after clicking the primary CTA, with all 5 hotspots present", async () => {
+  it("flips data-revealed to true after clicking the office CTA, with all 5 hotspots present", async () => {
     const { container } = render(await HomePage({ searchParams: Promise.resolve({}) }));
     const copy = getHomepageCopy();
-    fireEvent.click(screen.getByRole("button", { name: copy.primaryCta }));
+    fireEvent.click(screen.getByRole("link", { name: copy.secondaryCta }));
 
     expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "true");
     // Scoped to the office map nav (Step 7 co-renders MobileDepartmentCarousel with the same
@@ -59,7 +59,7 @@ describe("HomePage", () => {
     try {
       render(await HomePage({ searchParams: Promise.resolve({}) }));
       const copy = getHomepageCopy();
-      fireEvent.click(screen.getByRole("button", { name: copy.primaryCta }));
+      fireEvent.click(screen.getByRole("link", { name: copy.secondaryCta }));
 
       const officeMapNav = screen.getByRole("navigation", { name: "Отделы компании" });
       const firstHotspot = within(officeMapNav).getAllByRole("button")[0];
@@ -79,7 +79,7 @@ describe("HomePage", () => {
     // depends on (data-revealed) rather than element presence, consistent with that pattern.
     const { container } = render(await HomePage({ searchParams: Promise.resolve({}) }));
     const copy = getHomepageCopy();
-    fireEvent.click(screen.getByRole("button", { name: copy.primaryCta }));
+    fireEvent.click(screen.getByRole("link", { name: copy.secondaryCta }));
     expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "true");
 
     fireEvent.click(screen.getByRole("button", { name: copy.returnToOfficeLabel }));

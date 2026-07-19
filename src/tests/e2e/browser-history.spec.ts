@@ -12,7 +12,7 @@ const sales = departments.find((d) => d.id === "sales")!;
 const hr = departments.find((d) => d.id === "hr")!;
 
 async function activateCta(page: Page) {
-  await page.getByRole("button", { name: getHomepageCopy().primaryCta }).click();
+  await page.getByRole("link", { name: getHomepageCopy().secondaryCta }).click();
 }
 
 test.describe("Step 9 — browser history behaviour (deliberate replaceState design, OQ-B)", () => {

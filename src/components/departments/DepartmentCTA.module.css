@@ -1,9 +1,15 @@
+/* Amendment 10: это <a> на внешний контакт, а не <button>. inline-flex + align-items дают ссылке
+   вертикальное центрирование текста, которого у неё нет по умолчанию, text-decoration: none убирает
+   наследуемое подчёркивание. Внешний вид не менялся. */
 .cta {
+  display: inline-flex;
+  align-items: center;
   padding: var(--space-2) var(--space-4);
   border-radius: 6px;
   border: 1px solid var(--color-graphite-300);
   background: var(--color-accent-warm);
   color: var(--color-surface);
+  text-decoration: none;
   cursor: pointer;
   font-weight: 600;
 }

@@ -3,7 +3,7 @@ import { getDepartments } from "../../content/departments";
 import { getHomepageCopy } from "../../content/homepage-copy";
 
 async function activateCta(page: Page) {
-  await page.getByRole("button", { name: getHomepageCopy().primaryCta }).click();
+  await page.getByRole("link", { name: getHomepageCopy().secondaryCta }).click();
 }
 
 const departments = getDepartments();
@@ -93,7 +93,7 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
     await page.route("**/*.webp", (route) => route.abort());
   }
 
-  test("with every photo failing, the department still opens, switches and closes", async ({
+  test("with the webp photo layer failing, the department still opens, switches and closes", async ({
     page,
   }) => {
     const pageErrors: string[] = [];
@@ -112,7 +112,7 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
 
     const panel = page.getByRole("region", { name: sales.overviewLabel });
     await expect(panel.getByText(sales.problem)).toBeVisible();
-    await expect(panel.getByRole("button", { name: sales.ctaLabel })).toBeVisible();
+    await expect(panel.getByRole("link", { name: sales.ctaLabel })).toBeVisible();
 
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
@@ -127,6 +127,11 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
     expect(pageErrors).toEqual([]);
   });
 
+  // Блокируется только *.webp — этого достаточно ИМЕННО ЗДЕСЬ: тест открывает /?department=sales,
+  // где ветка overview не рендерится, а весь фотослой (5 миниатюр рельса + общий фон) — webp.
+  // Сцена overview со Step 12 отдаётся через <picture> с AVIF-приоритетом и одной блокировкой webp
+  // не роняется; её фолбэк проверяется отдельно в overview-scene.spec.ts, где заблокированы оба
+  // формата.
   test("failed photos are replaced by placeholders, not left as broken images", async ({
     page,
   }) => {

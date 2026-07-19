@@ -5,7 +5,7 @@ import { getOfficeZones } from "../../content/office-zones";
 
 async function activateCta(page: import("@playwright/test").Page) {
   const copy = getHomepageCopy();
-  await page.getByRole("button", { name: copy.primaryCta }).click();
+  await page.getByRole("link", { name: copy.secondaryCta }).click();
 }
 
 const departments = getDepartments();
@@ -76,7 +76,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     }
 
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: sales.ctaLabel })).toBeFocused();
+    await expect(page.getByRole("link", { name: sales.ctaLabel })).toBeFocused();
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "Закрыть" })).toBeFocused();
