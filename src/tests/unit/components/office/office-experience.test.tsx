@@ -2,10 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
 import { getDepartments } from "@/content/departments";
+import { getHomepageCopy } from "@/content/homepage-copy";
 import { getOfficeZones } from "@/content/office-zones";
 
 describe("OfficeExperience", () => {
   const departments = getDepartments();
+  const copy = getHomepageCopy();
   const officeZones = getOfficeZones();
 
   it("marks itself data-revealed=false and applies the hidden-until-revealed class when isRevealed is false", () => {
@@ -13,12 +15,14 @@ describe("OfficeExperience", () => {
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
         returnToOfficeLabel="Выйти из офиса"
+        contactHref="https://t.me/Promt_Pavel"
+        taskCopy={copy.taskSection}
         onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={false}
         machineView="hero"
-        activeDepartmentId={null}
+        activeSectionId={null}
         onSelectDepartment={() => {}}
         onCloseDepartment={() => {}}
       />,
@@ -36,12 +40,14 @@ describe("OfficeExperience", () => {
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
         returnToOfficeLabel="Выйти из офиса"
+        contactHref="https://t.me/Promt_Pavel"
+        taskCopy={copy.taskSection}
         onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
         machineView="overview"
-        activeDepartmentId={null}
+        activeSectionId={null}
         onSelectDepartment={() => {}}
         onCloseDepartment={() => {}}
       />,
@@ -50,17 +56,19 @@ describe("OfficeExperience", () => {
     expect(section).toHaveAttribute("data-revealed", "true");
   });
 
-  it("does not render an active department panel when activeDepartmentId is null", () => {
+  it("does not render an active department panel when activeSectionId is null", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
         returnToOfficeLabel="Выйти из офиса"
+        contactHref="https://t.me/Promt_Pavel"
+        taskCopy={copy.taskSection}
         onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
         machineView="overview"
-        activeDepartmentId={null}
+        activeSectionId={null}
         onSelectDepartment={() => {}}
         onCloseDepartment={() => {}}
       />,
@@ -74,12 +82,14 @@ describe("OfficeExperience", () => {
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
         returnToOfficeLabel="Выйти из офиса"
+        contactHref="https://t.me/Promt_Pavel"
+        taskCopy={copy.taskSection}
         onReturnHome={onReturnHome}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
         machineView="overview"
-        activeDepartmentId={null}
+        activeSectionId={null}
         onSelectDepartment={() => {}}
         onCloseDepartment={() => {}}
       />,
@@ -95,12 +105,14 @@ describe("OfficeExperience", () => {
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
         returnToOfficeLabel="Выйти из офиса"
+        contactHref="https://t.me/Promt_Pavel"
+        taskCopy={copy.taskSection}
         onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
         machineView="department-active"
-        activeDepartmentId="sales"
+        activeSectionId="sales"
         onSelectDepartment={() => {}}
         onCloseDepartment={() => {}}
       />,
@@ -108,17 +120,19 @@ describe("OfficeExperience", () => {
     expect(screen.queryByRole("button", { name: "Выйти из офиса" })).not.toBeInTheDocument();
   });
 
-  it("renders DepartmentExperience and the 4-button DepartmentNavigationRail, and hides the office map (Step 6 10/90 shell)", () => {
+  it("renders DepartmentExperience and the rail (4 departments + task section), and hides the office map (Step 6 10/90 shell)", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
         returnToOfficeLabel="Выйти из офиса"
+        contactHref="https://t.me/Promt_Pavel"
+        taskCopy={copy.taskSection}
         onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
         machineView="department-active"
-        activeDepartmentId="sales"
+        activeSectionId="sales"
         onSelectDepartment={() => {}}
         onCloseDepartment={() => {}}
       />,
@@ -132,7 +146,8 @@ describe("OfficeExperience", () => {
     // остаётся видимым одновременно с активным отделом).
     expect(screen.queryByRole("navigation", { name: "Отделы компании" })).not.toBeInTheDocument();
     const rail = screen.getByRole("navigation", { name: "Панель отделов" });
-    expect(rail.querySelectorAll("button")).toHaveLength(4);
+    // 4 неактивных отдела + «Ваша задача» (Step 12.7).
+    expect(rail.querySelectorAll("button")).toHaveLength(5);
   });
 
   it("renders MobileDepartmentCarousel alongside OfficeSemanticMap in overview (Step 7 — both present in the DOM at once, CSS switches visibility per breakpoint, verified in e2e)", () => {
@@ -140,12 +155,14 @@ describe("OfficeExperience", () => {
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
         returnToOfficeLabel="Выйти из офиса"
+        contactHref="https://t.me/Promt_Pavel"
+        taskCopy={copy.taskSection}
         onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
         machineView="overview"
-        activeDepartmentId={null}
+        activeSectionId={null}
         onSelectDepartment={() => {}}
         onCloseDepartment={() => {}}
       />,
@@ -173,12 +190,14 @@ describe("OfficeExperience", () => {
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
         returnToOfficeLabel="Выйти из офиса"
+        contactHref="https://t.me/Promt_Pavel"
+        taskCopy={copy.taskSection}
         onReturnHome={() => {}}
         departments={departments}
         officeZones={officeZones}
         isRevealed={true}
         machineView="department-active"
-        activeDepartmentId="executive"
+        activeSectionId="executive"
         onSelectDepartment={() => {}}
         onCloseDepartment={() => {}}
       />,

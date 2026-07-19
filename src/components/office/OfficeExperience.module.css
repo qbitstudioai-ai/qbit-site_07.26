@@ -34,7 +34,6 @@
   border-radius: 6px;
   padding: var(--space-2) var(--space-3);
   min-height: 44px;
-  margin-bottom: var(--space-3);
   font-size: 0.875rem;
   color: var(--color-graphite-700);
   cursor: pointer;
@@ -126,4 +125,37 @@
    из дерева доступности и Tab-последовательности, что и требуется до раскрытия. */
 :global(.js) .hiddenUntilRevealed {
   display: none;
+}
+
+/* Step 12.7: вход в раздел «Ваша задача» с обзорного экрана. Стоит под сценой офиса и намеренно
+   выглядит как акцентное действие, а не как шестой отдел: отделы — зоны на сцене, это — прямой путь
+   написать о своей задаче. Тап-таргет ≥44px (CLAUDE.md Accessibility rules). */
+.taskEntryButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-3) var(--space-6);
+  border: 1px solid var(--color-graphite-300);
+  border-radius: 6px;
+  background: var(--color-accent-warm);
+  color: var(--color-surface);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.taskEntryButton:hover {
+  background: var(--color-accent-warm-strong);
+}
+
+/* Верхний ряд overview: возврат в hero слева, вход в «Вашу задачу» справа. Ряд заменяет прежнее
+   одиночное расположение .returnButton и держит обе кнопки на одной высоте. */
+.overviewActions {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
 }

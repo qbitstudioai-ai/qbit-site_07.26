@@ -4,10 +4,10 @@ import { useEffect, useReducer, useRef } from "react";
 import { Header } from "@/components/homepage/Header";
 import { HeroCopy } from "@/components/homepage/HeroCopy";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
-import type { Department, DepartmentId, HomepageCopy, OfficeZone } from "@/content/types";
+import type { Department, HomepageCopy, OfficeZone } from "@/content/types";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import styles from "./OfficeMachine.module.css";
-import { initOfficeMachineState, officeMachineReducer } from "./reducer";
+import { initOfficeMachineState, officeMachineReducer, type OfficeSectionId } from "./reducer";
 import { useDepartmentUrlSync } from "./url-sync";
 
 // Ориентировочная длительность (docs/07-motion-system.md "Уровень Transition") — книгоучёт для
@@ -34,7 +34,7 @@ interface OfficeMachineProps {
   departments: Department[];
   officeZones: OfficeZone[];
   initialRevealed: boolean;
-  initialDepartmentId: DepartmentId | null;
+  initialSectionId: OfficeSectionId | null;
 }
 
 export function OfficeMachine({
@@ -42,15 +42,15 @@ export function OfficeMachine({
   departments,
   officeZones,
   initialRevealed,
-  initialDepartmentId,
+  initialSectionId,
 }: OfficeMachineProps) {
   const [state, dispatch] = useReducer(
     officeMachineReducer,
-    { initialRevealed, initialDepartmentId },
+    { initialRevealed, initialSectionId },
     initOfficeMachineState,
   );
 
-  useDepartmentUrlSync(state.activeDepartmentId);
+  useDepartmentUrlSync(state.activeSectionId);
 
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -80,7 +80,7 @@ export function OfficeMachine({
 
   // Escape закрывает активный отдел из любого department-*-состояния (docs/11).
   useEffect(() => {
-    if (state.activeDepartmentId === null) return;
+    if (state.activeSectionId === null) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         dispatch({ type: "ESCAPE" });
@@ -88,10 +88,10 @@ export function OfficeMachine({
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [state.activeDepartmentId]);
+  }, [state.activeSectionId]);
 
-  const previousActiveIdRef = useRef<DepartmentId | null>(null);
-  const lastNonNullActiveIdRef = useRef<DepartmentId | null>(null);
+  const previousActiveIdRef = useRef<OfficeSectionId | null>(null);
+  const lastNonNullActiveIdRef = useRef<OfficeSectionId | null>(null);
   const previousViewRef = useRef(state.view);
 
   useEffect(() => {
@@ -100,15 +100,15 @@ export function OfficeMachine({
 
     // Focus переносится на заголовок открытого/переключённого отдела (docs/05 department-opening,
     // docs/11) — срабатывает и при открытии из overview, и при переключении между отделами.
-    if (state.activeDepartmentId && state.activeDepartmentId !== previousActiveIdRef.current) {
+    if (state.activeSectionId && state.activeSectionId !== previousActiveIdRef.current) {
       document
-        .getElementById(`department-heading-${state.activeDepartmentId}`)
+        .getElementById(`department-heading-${state.activeSectionId}`)
         ?.focus({ preventScroll: true });
     }
-    if (state.activeDepartmentId) {
-      lastNonNullActiveIdRef.current = state.activeDepartmentId;
+    if (state.activeSectionId) {
+      lastNonNullActiveIdRef.current = state.activeSectionId;
     }
-    previousActiveIdRef.current = state.activeDepartmentId;
+    previousActiveIdRef.current = state.activeSectionId;
 
     // Focus возвращается на кнопку-хотспот, которая открыла отдел, после завершения закрытия
     // (docs/11 "после закрытия focus возвращается"). На ≤767px OfficeSemanticMap скрыта
@@ -150,13 +150,14 @@ export function OfficeMachine({
     if (state.view === "hero" && previousView !== "hero") {
       document.getElementById("hero-heading")?.focus({ preventScroll: true });
     }
-  }, [state.view, state.activeDepartmentId]);
+  }, [state.view, state.activeSectionId]);
 
   const handleActivateCta = () => dispatch({ type: "ACTIVATE_CTA" });
   const handleReturnToHero = () => dispatch({ type: "RETURN_TO_HERO" });
 
-  const handleSelectDepartment = (departmentId: DepartmentId) => {
-    if (state.activeDepartmentId === null) {
+  // Со Step 12.7 выбирается не только отдел, но и раздел «Ваша задача» — отсюда OfficeSectionId.
+  const handleSelectDepartment = (departmentId: OfficeSectionId) => {
+    if (state.activeSectionId === null) {
       dispatch({ type: "SELECT_DEPARTMENT", departmentId });
     } else {
       dispatch({ type: "SWITCH_DEPARTMENT", departmentId });
@@ -177,11 +178,13 @@ export function OfficeMachine({
         <OfficeExperience
           interactionHint={copy.interactionHint}
           returnToOfficeLabel={copy.returnToOfficeLabel}
+          contactHref={copy.contactHref}
+          taskCopy={copy.taskSection}
           departments={departments}
           officeZones={officeZones}
           isRevealed={state.view !== "hero"}
           machineView={state.view}
-          activeDepartmentId={state.activeDepartmentId}
+          activeSectionId={state.activeSectionId}
           onSelectDepartment={handleSelectDepartment}
           onCloseDepartment={handleCloseDepartment}
           onReturnHome={handleReturnToHero}

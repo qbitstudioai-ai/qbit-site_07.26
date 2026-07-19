@@ -1,0 +1,90 @@
+/* Геометрия и тайминги переходов намеренно совпадают с DepartmentExperience.module.css: раздел
+   «Ваша задача» живёт в той же 10/90-раскладке и открывается/переключается теми же действиями
+   машины, поэтому обязан двигаться так же — иначе переход «отдел ↔ задача» читался бы как рывок. */
+.experience {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-graphite-300);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.active {
+  opacity: 1;
+}
+
+.opening {
+  animation: fade-in 0.8s ease;
+}
+
+.switching {
+  animation: fade-in 0.6s ease;
+}
+
+.closing {
+  animation: fade-out 0.7s ease forwards;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.headline {
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-graphite-900);
+}
+
+.headline:focus-visible {
+  outline: 3px solid var(--color-accent-warm);
+}
+
+.intro {
+  color: var(--color-graphite-700);
+  max-width: 60ch;
+}
+
+.actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.close {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-graphite-300);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-graphite-900);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 767px) {
+  .experience {
+    padding: var(--space-3);
+  }
+}

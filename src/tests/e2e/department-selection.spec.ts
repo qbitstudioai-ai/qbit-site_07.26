@@ -4,7 +4,7 @@ import { getDepartments } from "../../content/departments";
 
 async function activateCta(page: import("@playwright/test").Page) {
   const copy = getHomepageCopy();
-  await page.getByRole("button", { name: copy.primaryCta }).click();
+  await page.getByRole("link", { name: copy.secondaryCta }).click();
 }
 
 const departments = getDepartments();
@@ -36,7 +36,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
       await expect(panel.getByRole("button", { name: point.pain }).first()).toBeVisible();
     }
     await expect(panel.getByText(sales.painPoints[0].gain).first()).toBeVisible();
-    await expect(panel.getByRole("button", { name: sales.ctaLabel })).toBeVisible();
+    await expect(panel.getByRole("link", { name: sales.ctaLabel })).toBeVisible();
     await expect(panel.getByRole("button", { name: "Закрыть" })).toBeVisible();
 
     expect(new URL(page.url()).searchParams.get("department")).toBe("sales");
@@ -95,7 +95,8 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
 
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await expect(rail.getByRole("button", { name: sales.overviewLabel })).toHaveCount(0);
-    await expect(rail.getByRole("button")).toHaveCount(4);
+    // 4 неактивных отдела + пункт «Ваша задача» (Step 12.7).
+    await expect(rail.getByRole("button")).toHaveCount(5);
     const currentMarker = rail.locator('[aria-current="true"]');
     await expect(currentMarker).toHaveText(new RegExp(sales.overviewLabel));
   });

@@ -23,7 +23,7 @@ const otherDepartmentsInRailOrder = sortedDepartments.filter((d) => d.id !== sal
 
 async function activateCta(page: import("@playwright/test").Page) {
   const copy = getHomepageCopy();
-  await page.getByRole("button", { name: copy.primaryCta }).tap();
+  await page.getByRole("link", { name: copy.secondaryCta }).tap();
 }
 
 async function openSalesFromMap(page: import("@playwright/test").Page) {
@@ -247,7 +247,7 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     }
 
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: sales.ctaLabel })).toBeFocused();
+    await expect(page.getByRole("link", { name: sales.ctaLabel })).toBeFocused();
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "Закрыть" })).toBeFocused();
@@ -338,7 +338,7 @@ test.describe("tablet tap targets and no-document-scroll at characteristic sizes
         expect(box!.height).toBeGreaterThanOrEqual(44);
       }
 
-      const ctaBox = await page.getByRole("button", { name: sales.ctaLabel }).boundingBox();
+      const ctaBox = await page.getByRole("link", { name: sales.ctaLabel }).boundingBox();
       expect(ctaBox).not.toBeNull();
       expect(ctaBox!.width).toBeGreaterThanOrEqual(44);
       expect(ctaBox!.height).toBeGreaterThanOrEqual(44);

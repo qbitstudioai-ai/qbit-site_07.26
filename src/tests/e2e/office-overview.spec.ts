@@ -4,7 +4,7 @@ import { getDepartments } from "../../content/departments";
 
 async function activateCta(page: import("@playwright/test").Page) {
   const copy = getHomepageCopy();
-  await page.getByRole("button", { name: copy.primaryCta }).click();
+  await page.getByRole("link", { name: copy.secondaryCta }).click();
 }
 
 async function activateCtaViaSecondary(page: import("@playwright/test").Page) {
@@ -26,7 +26,7 @@ test.describe("office overview", () => {
     const copy = getHomepageCopy();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
     await expect(page.getByText(copy.subheadline)).toBeVisible();
-    await expect(page.getByRole("button", { name: copy.primaryCta })).toBeVisible();
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toBeVisible();
 
     // Скрытые хотспоты не должны попадать в дерево доступности вовсе (display:none), а не
     // просто визуально скрываться — см. Step 4 acceptance criterion 4.
@@ -35,7 +35,7 @@ test.describe("office overview", () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test("clicking the primary CTA reveals all 5 department hotspots", async ({ page }) => {
+  test("clicking the office CTA reveals all 5 department hotspots", async ({ page }) => {
     await page.goto("/");
     await activateCta(page);
 
@@ -80,7 +80,8 @@ test.describe("office overview", () => {
     // DepartmentNavigationRail (4 кнопки оставшихся отделов).
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
-    await expect(rail.getByRole("button")).toHaveCount(4);
+    // 4 неактивных отдела + пункт «Ваша задача» (Step 12.7).
+    await expect(rail.getByRole("button")).toHaveCount(5);
 
     const salesDepartment = getDepartments().find((d) => d.id === "sales")!;
     await expect(
@@ -130,7 +131,8 @@ test.describe("office overview", () => {
     await page.goto("/?department=sales");
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
-    await expect(rail.getByRole("button")).toHaveCount(4);
+    // 4 неактивных отдела + пункт «Ваша задача» (Step 12.7).
+    await expect(rail.getByRole("button")).toHaveCount(5);
     const salesDepartment = getDepartments().find((d) => d.id === "sales")!;
     await expect(
       page.getByRole("heading", { level: 2, name: salesDepartment.headline }),
@@ -192,7 +194,7 @@ test.describe("office overview", () => {
     expect(headingBox!.y + headingBox!.height).toBeLessThanOrEqual(500);
 
     const copy = getHomepageCopy();
-    const primaryCta = page.getByRole("button", { name: copy.primaryCta });
+    const primaryCta = page.getByRole("link", { name: copy.primaryCta });
     const primaryCtaBox = await primaryCta.boundingBox();
     expect(primaryCtaBox).not.toBeNull();
     expect(primaryCtaBox!.y + primaryCtaBox!.height).toBeLessThanOrEqual(500);
@@ -228,7 +230,7 @@ test.describe("office overview", () => {
     await activateCta(page);
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     // interactionHint остаётся в DOM (markup не удаляется, см. WORKPLAN.md Step 7.2, решение 3) —
     // toBeHidden(), а не toHaveCount(0), проверяет именно визуальное сокрытие через CSS.
@@ -238,7 +240,7 @@ test.describe("office overview", () => {
     await nav.getByRole("button").first().click();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
   });
@@ -253,7 +255,7 @@ test.describe("office overview", () => {
     await expect(nav.getByRole("button").first()).toBeFocused();
   });
 
-  test("Step 7.2: the secondary CTA hides the hero block from the a11y tree and also moves focus to the first hotspot, without any Tab press (AC2/AC5 — same guarantee as the primary CTA)", async ({
+  test("Step 7.2: the office CTA hides the hero block from the a11y tree and moves focus to the first hotspot, without any Tab press (AC2/AC5)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -262,7 +264,7 @@ test.describe("office overview", () => {
     await activateCtaViaSecondary(page);
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
 
@@ -330,7 +332,7 @@ test.describe("office overview", () => {
     await logo.click();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
-    await expect(page.getByRole("button", { name: copy.primaryCta })).toBeVisible();
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toBeVisible();
   });
 
   test("Step 7.6: the tagline text is centred on the viewport, not on the space left of the logo (AC8)", async ({
@@ -418,7 +420,7 @@ test.describe("office overview", () => {
     await returnButton.click();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
-    await expect(page.getByRole("button", { name: copy.primaryCta })).toBeVisible();
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
     const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);

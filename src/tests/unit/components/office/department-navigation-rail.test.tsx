@@ -6,16 +6,19 @@ import { getDepartments } from "@/content/departments";
 describe("DepartmentNavigationRail", () => {
   const departments = getDepartments();
 
-  it("renders exactly 4 clickable buttons for the non-active departments", () => {
+  // Step 12.7: к четырём неактивным отделам добавился шестой пункт рельса — «Ваша задача».
+  it("renders 4 buttons for the non-active departments plus the task section button", () => {
     render(
       <DepartmentNavigationRail
         departments={departments}
-        activeDepartmentId="sales"
+        activeSectionId="sales"
+        taskRailLabel="Ваша задача"
         onSelectDepartment={() => {}}
       />,
     );
     const nav = screen.getByRole("navigation", { name: "Панель отделов" });
-    expect(nav.querySelectorAll("button")).toHaveLength(4);
+    expect(nav.querySelectorAll("button")).toHaveLength(5);
+    expect(screen.getByRole("button", { name: "Ваша задача" })).toBeInTheDocument();
     for (const department of departments.filter((d) => d.id !== "sales")) {
       expect(screen.getByRole("button", { name: department.overviewLabel })).toBeInTheDocument();
     }
@@ -25,7 +28,8 @@ describe("DepartmentNavigationRail", () => {
     render(
       <DepartmentNavigationRail
         departments={departments}
-        activeDepartmentId="sales"
+        activeSectionId="sales"
+        taskRailLabel="Ваша задача"
         onSelectDepartment={() => {}}
       />,
     );
@@ -39,7 +43,8 @@ describe("DepartmentNavigationRail", () => {
     const { container } = render(
       <DepartmentNavigationRail
         departments={departments}
-        activeDepartmentId="sales"
+        activeSectionId="sales"
+        taskRailLabel="Ваша задача"
         onSelectDepartment={() => {}}
       />,
     );
@@ -52,7 +57,8 @@ describe("DepartmentNavigationRail", () => {
     render(
       <DepartmentNavigationRail
         departments={departments}
-        activeDepartmentId="sales"
+        activeSectionId="sales"
+        taskRailLabel="Ваша задача"
         onSelectDepartment={onSelectDepartment}
       />,
     );

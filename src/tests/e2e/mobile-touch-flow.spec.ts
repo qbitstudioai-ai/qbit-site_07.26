@@ -17,7 +17,7 @@ function sortedDepartments() {
 
 async function activateCta(page: import("@playwright/test").Page) {
   const copy = getHomepageCopy();
-  await page.getByRole("button", { name: copy.primaryCta }).tap();
+  await page.getByRole("link", { name: copy.secondaryCta }).tap();
 }
 
 async function activateCtaViaSecondary(page: import("@playwright/test").Page) {
@@ -52,7 +52,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await activateCta(page);
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     // interactionHint остаётся в DOM (markup не удаляется, см. WORKPLAN.md Step 7.2, решение 3) —
     // toBeHidden(), а не toHaveCount(0), проверяет именно визуальное сокрытие через CSS.
@@ -71,7 +71,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await activateCtaViaSecondary(page);
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
 
@@ -245,7 +245,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     expect(closeBox!.width).toBeGreaterThanOrEqual(44);
     expect(closeBox!.height).toBeGreaterThanOrEqual(44);
 
-    const ctaBox = await page.getByRole("button", { name: departments[0].ctaLabel }).boundingBox();
+    const ctaBox = await page.getByRole("link", { name: departments[0].ctaLabel }).boundingBox();
     expect(ctaBox).not.toBeNull();
     expect(ctaBox!.height).toBeGreaterThanOrEqual(44);
 
@@ -359,7 +359,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     }
 
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: departments[0].ctaLabel })).toBeFocused();
+    await expect(page.getByRole("link", { name: departments[0].ctaLabel })).toBeFocused();
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: "Закрыть" })).toBeFocused();
@@ -455,7 +455,7 @@ test.describe("mobile CTA reachability and no-horizontal-scroll at multiple char
       const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
       await carousel.getByRole("button", { name: departments[0].overviewLabel }).tap();
 
-      const ctaButton = page.getByRole("button", { name: departments[0].ctaLabel });
+      const ctaButton = page.getByRole("link", { name: departments[0].ctaLabel });
       // Панель отдела может скроллиться внутренне на низких высотах (docs/08) — "достижима" значит
       // доступна после прокрутки самой панели, не обязательно видна без скролла сразу.
       await ctaButton.scrollIntoViewIfNeeded();

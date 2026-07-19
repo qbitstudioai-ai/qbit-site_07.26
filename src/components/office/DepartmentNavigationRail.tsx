@@ -1,12 +1,15 @@
-import type { Department, DepartmentId } from "@/content/types";
+import type { Department } from "@/content/types";
+import { TASK_SECTION_ID, type OfficeSectionId } from "@/features/office-machine/reducer";
 import { photoByDepartmentId } from "./departmentPhotos";
 import { OfficePhoto } from "./OfficePhoto";
 import styles from "./DepartmentNavigationRail.module.css";
 
 interface DepartmentNavigationRailProps {
   departments: Department[];
-  activeDepartmentId: DepartmentId;
-  onSelectDepartment: (departmentId: DepartmentId) => void;
+  activeSectionId: OfficeSectionId | null;
+  /** Подпись шестого пункта — раздела «Ваша задача» (Step 12.7). */
+  taskRailLabel: string;
+  onSelectDepartment: (sectionId: OfficeSectionId) => void;
 }
 
 // Список содержит все 5 отделов (docs/03-office-map.md "пять миниатюр"), но только 4 не активных
@@ -18,14 +21,16 @@ interface DepartmentNavigationRailProps {
 // DECISIONS.md 2026-07-16 "Step 6: состав DepartmentNavigationRail".
 export function DepartmentNavigationRail({
   departments,
-  activeDepartmentId,
+  activeSectionId,
+  taskRailLabel,
   onSelectDepartment,
 }: DepartmentNavigationRailProps) {
+  const isTaskActive = activeSectionId === TASK_SECTION_ID;
   return (
     <nav aria-label="Панель отделов" className={styles.rail}>
       <ul className={styles.list}>
         {departments.map((department) => {
-          const isActive = department.id === activeDepartmentId;
+          const isActive = department.id === activeSectionId;
           return (
             <li key={department.id} className={styles.item}>
               {isActive ? (
@@ -59,6 +64,28 @@ export function DepartmentNavigationRail({
             </li>
           );
         })}
+        {/* Step 12.7: шестой пункт — «Ваша задача». Отделён от пяти отделов и визуально
+            (см. .taskItem), и по смыслу: это не отдел офиса, а прямой путь написать о своей задаче.
+            Ведёт себя как остальные пункты — активный рендерится не кнопкой, а маркером, поэтому
+            Tab-последовательность рельса остаётся «все пункты, кроме текущего». */}
+        <li className={`${styles.item} ${styles.taskItem}`}>
+          {isTaskActive ? (
+            <span className={styles.current} aria-current="true">
+              <span aria-hidden="true" className={styles.currentMark}>
+                ●
+              </span>
+              {taskRailLabel}
+            </span>
+          ) : (
+            <button
+              type="button"
+              className={styles.railButton}
+              onClick={() => onSelectDepartment(TASK_SECTION_ID)}
+            >
+              {taskRailLabel}
+            </button>
+          )}
+        </li>
       </ul>
     </nav>
   );

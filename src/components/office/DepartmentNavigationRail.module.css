@@ -69,3 +69,19 @@
 .thumbnail {
   object-fit: cover;
 }
+
+/* Step 12.7: «Ваша задача» — не шестой отдел, а другой тип действия, поэтому отделяется от списка
+   отделов линией и отступом. Без этого пункт читался бы как ещё один отдел офиса. */
+.taskItem {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-graphite-300);
+}
+
+/* У пяти отделов высоту тап-таргета задаёт миниатюра 32px внутри кнопки. У «Вашей задачи»
+   миниатюры нет, и без явного min-height пункт выходил 34.6px — ниже порога 44px (CLAUDE.md
+   Accessibility rules; поймано e2e tablet-touch-flow, AC7, а не замечено на глаз). */
+.taskItem .railButton,
+.taskItem .current {
+  min-height: 44px;
+}
