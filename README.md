@@ -26,24 +26,26 @@ README.md синхронно с каждым изменением статуса
 
 ## Статус шагов
 
-| #   | Шаг                                        | Статус    |
-| --- | ------------------------------------------ | --------- |
-| 1   | Repository and quality foundation          | Выполнено |
-| 2   | Typed content model                        | Выполнено |
-| 3   | Semantic office overview                   | Выполнено |
-| 4   | Homepage state machine                     | Выполнено |
-| 5   | Department selection state machine         | Выполнено |
-| 6   | Desktop 10/90 shell                        | Выполнено |
-| 7   | Mobile touch flow                          | Выполнено |
-| 7.2 | Overview full-screen (hide hero)           | Выполнено |
-| 7.3 | Department view redesign (pain/gain panel) | Выполнено |
-| 7.4 | Return-to-hero navigation + tagline        | Выполнено |
-| 7.5 | Tablet touch flow                          | Выполнено |
-| 7.6 | Header: clickable logo + tagline           | Выполнено |
-| 8   | Reduced motion and fallback                | Выполнено |
-| 9   | Browser acceptance tests                   | Выполнено |
-| 10  | Adaptive image asset pipeline              | Выполнено |
-| 11  | Art-direction design tokens                | Выполнено |
+| #    | Шаг                                        | Статус    |
+| ---- | ------------------------------------------ | --------- |
+| 1    | Repository and quality foundation          | Выполнено |
+| 2    | Typed content model                        | Выполнено |
+| 3    | Semantic office overview                   | Выполнено |
+| 4    | Homepage state machine                     | Выполнено |
+| 5    | Department selection state machine         | Выполнено |
+| 6    | Desktop 10/90 shell                        | Выполнено |
+| 7    | Mobile touch flow                          | Выполнено |
+| 7.2  | Overview full-screen (hide hero)           | Выполнено |
+| 7.3  | Department view redesign (pain/gain panel) | Выполнено |
+| 7.4  | Return-to-hero navigation + tagline        | Выполнено |
+| 7.5  | Tablet touch flow                          | Выполнено |
+| 7.6  | Header: clickable logo + tagline           | Выполнено |
+| 8    | Reduced motion and fallback                | Выполнено |
+| 9    | Browser acceptance tests                   | Выполнено |
+| 10   | Adaptive image asset pipeline              | Выполнено |
+| 11   | Art-direction design tokens                | Выполнено |
+| 12   | Overview как настоящая сцена офиса         | В работе  |
+| 12.7 | Раздел «Ваша задача» + отправка в Telegram | В работе  |
 
 Полные критерии и детали каждого шага — `WORKPLAN.md`. История исполнения и доказательства —
 `WORKLOG.md`. Архитектурные и технологические решения — `DECISIONS.md`.
@@ -60,6 +62,38 @@ npm run dev
 
 Прочие команды: `npm run build`, `npm run start`, `npm run lint`, `npm run typecheck`,
 `npm run format:check`, `npm run test`, `npm run test:e2e`.
+
+## Форма «Ваша задача» → Telegram
+
+Раздел «Ваша задача» отправляет сообщение в Telegram через серверный роут `POST /api/task`.
+Пока переменные окружения не заданы, форма **честно показывает ошибку** и ничего не отправляет —
+она не притворяется, что сообщение ушло.
+
+Что нужно сделать один раз:
+
+1. В Telegram написать [@BotFather](https://t.me/BotFather) → `/newbot` → получить **токен** вида
+   `123456789:AA...`.
+2. Написать своему новому боту любое сообщение (без этого он не сможет вам отвечать).
+3. Узнать **chat_id**: открыть `https://api.telegram.org/bot<ТОКЕН>/getUpdates` и найти в ответе
+   `"chat":{"id":...}`.
+4. Создать файл `.env.local` в корне проекта по образцу `.env.example`:
+
+   ```
+   TELEGRAM_BOT_TOKEN=123456789:AA...
+   TELEGRAM_CHAT_ID=123456789
+   ```
+
+5. Перезапустить `npm run dev`.
+
+Важное:
+
+- `.env.local` не попадает в git (см. `.gitignore`) — токен не должен оказаться в репозитории.
+- **Не добавляйте префикс `NEXT_PUBLIC_`** к этим переменным: он публикует значение в браузер, и
+  токен станет доступен кому угодно. Обе переменные читает только серверный код.
+- При смене токена достаточно поправить `.env.local` — код трогать не нужно.
+
+Проверить: открыть раздел «Ваша задача», отправить тестовое сообщение и убедиться, что оно пришло
+в Telegram.
 
 ## Источники истины
 
