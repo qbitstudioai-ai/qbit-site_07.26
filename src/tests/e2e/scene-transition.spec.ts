@@ -14,16 +14,29 @@ const hr = departments.find((d) => d.id === "hr")!;
 
 const SCENE_FILES = /(overview|sales|support|executive|hr|logistics)-(768|1280|1536)\./;
 
+declare global {
+  interface Window {
+    __sceneMinCoverage: number;
+    __sceneScales: number[];
+    __sceneDurations: number[];
+    __sceneRaf: number;
+  }
+}
+
 /** Сколько слоёв сцены сейчас в DOM и сколько из них реально видно декодированными. */
 const sceneLayers = (page: Page) =>
   page.evaluate(() => {
     const stack = document.querySelector("[data-scene-crossfade]");
-    // Слои считаются по ДЕТЯМ стека, а не по <img>: упавший слой рендерится плейсхолдером
+    // Слои считаются по ФОТО-ДЕТЯМ стека, а не по <img>: упавший слой рендерится плейсхолдером
     // <span data-photo-fallback> (контракт Step 8), и подсчёт по <img> его бы не увидел — состояние
     // «чужой кадр + упавший слой» отчиталось бы как один слой и прошло бы (skeptic Phase B, NB-b).
+    // Декоративный световой пробег (Amendment 15) — тоже ребёнок стека, но слоем сцены не является
+    // и в счёт не идёт: иначе «лишних слоёв нет» означало бы разное до и после Amendment 15.
     const images = [...document.querySelectorAll("[data-scene-crossfade] img")];
     return {
-      layers: stack ? stack.children.length : 0,
+      layers: stack
+        ? stack.querySelectorAll(":scope > picture, :scope > [data-photo-fallback]").length
+        : 0,
       visible: images.filter(
         (image) =>
           (image as HTMLImageElement).naturalWidth > 0 &&
@@ -40,11 +53,114 @@ const topLayerMotion = (page: Page) =>
       const style = getComputedStyle(element);
       return {
         name: style.animationName,
-        durationMs: Number(style.animationDuration.replace("s", "")) * 1000,
+        // Со времени Amendment 15 треков ДВА (движение + проявление), и это не деталь реализации:
+        // именно разные длительности отличают наезд камеры от одинарного crossfade.
+        durationsMs: style.animationDuration
+          .split(",")
+          .map((value) => Number(value.trim().replace("s", "")) * 1000),
         fill: style.animationFillMode,
         transform: style.transform,
       };
     });
+
+/**
+ * Дождаться, пока сцена ПОЛНОСТЬЮ встала: один слой, непрозрачный, без работающих анимаций.
+ *
+ * Без этого ожидания замер укрытости врёт, и это стоило одного ложного диагноза: первая редакция
+ * теста начинала запись сразу после того, как сцена стала видимой (opacity > 0.05), то есть прямо
+ * посреди её стартового появления при загрузке страницы. Минимум по кадрам получался 0.209 и
+ * выглядел как провал перехода, хотя переход ещё даже не начинался. Стартовое появление — не
+ * переход: закрывать собой ему нечего.
+ */
+async function waitForSettledScene(page: Page) {
+  await page.waitForFunction(
+    () => {
+      const images = [...document.querySelectorAll("[data-scene-crossfade] img")];
+      if (images.length !== 1) return false;
+      const image = images[0] as HTMLImageElement;
+      if (image.naturalWidth === 0) return false;
+      if (Number(getComputedStyle(image).opacity) < 0.999) return false;
+      return image.getAnimations().every((animation) => animation.playState !== "running");
+    },
+    null,
+    { timeout: 20000 },
+  );
+}
+
+/**
+ * Покадровая запись масштабов и длительностей анимации на слоях сцены за время действия.
+ *
+ * Нужна для проверки reduced motion: оба утверждения («приближения нет», «длительность схлопнута»)
+ * проверяемы только покадрово и только ОТРИЦАТЕЛЬНО — сам трек живёт 1 мс и может не попасть ни в
+ * одну выборку, тогда как нарушение (реальный зум, длинный трек) живёт десятки кадров и пропустить
+ * его невозможно.
+ */
+async function recordSceneMotion(page: Page, action: () => Promise<void>) {
+  await page.evaluate(() => {
+    window.__sceneScales = [];
+    window.__sceneDurations = [];
+    const tick = () => {
+      for (const image of document.querySelectorAll("[data-scene-crossfade] img")) {
+        const style = getComputedStyle(image);
+        // "none" — это отсутствие трансформации, то есть масштаб 1; DOMMatrix её не разбирает.
+        window.__sceneScales.push(
+          style.transform === "none" ? 1 : new DOMMatrixReadOnly(style.transform).a,
+        );
+        for (const value of style.animationDuration.split(",")) {
+          window.__sceneDurations.push(Number(value.trim().replace("s", "")) * 1000);
+        }
+      }
+      window.__sceneRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  });
+
+  await action();
+  await page.waitForTimeout(1800);
+
+  return page.evaluate(() => {
+    cancelAnimationFrame(window.__sceneRaf);
+    return { scales: window.__sceneScales, durations: window.__sceneDurations };
+  });
+}
+
+/**
+ * Минимальная «укрытость» кадра за весь переход: в каждом кадре берётся самый непрозрачный из
+ * ДЕКОДИРОВАННЫХ слоёв, и по всем кадрам берётся минимум. 1 означает, что экран ни разу не остался
+ * без полностью непрозрачной сцены.
+ *
+ * Это главный сторож Amendment 15. Прежняя редакция снимала уходящий слой по событию загрузки, а
+ * анимацию приходящего вела от монтирования, и на быстрой загрузке уходящий исчезал, пока приходящий
+ * был ещё прозрачным. Замерено до правки: при задержке 0 мс укрытость падала до 0.00, при 120 мс —
+ * до 0.48, при 250 мс — до 0.77. Тесты этого не видели, потому что единственный тест перехода ставил
+ * задержку 900 мс — то есть щупал единственный режим, в котором дефекта нет.
+ *
+ * Замер обязан начинаться с УЖЕ ВСТАВШЕЙ сцены (см. waitForSettledScene): иначе он захватывает
+ * стартовое появление и врёт.
+ */
+async function minSceneCoverage(page: Page, action: () => Promise<void>) {
+  await page.evaluate(() => {
+    window.__sceneMinCoverage = 1;
+    const tick = () => {
+      const images = [...document.querySelectorAll("[data-scene-crossfade] img")];
+      const decoded = images
+        .filter((image) => (image as HTMLImageElement).naturalWidth > 0)
+        .map((image) => Number(getComputedStyle(image).opacity));
+      const covered = decoded.length > 0 ? Math.max(...decoded) : 0;
+      window.__sceneMinCoverage = Math.min(window.__sceneMinCoverage, covered);
+      window.__sceneRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  });
+
+  await action();
+  await page.waitForTimeout(1800);
+
+  return page.evaluate(() => {
+    cancelAnimationFrame(window.__sceneRaf);
+    return window.__sceneMinCoverage;
+  });
+}
 
 async function openOffice(page: Page) {
   await page.getByRole("link", { name: getHomepageCopy().secondaryCta }).click();
@@ -56,30 +172,109 @@ test.describe("Step 16 — переход между сценами", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    // Задержка обязательна: со времени Amendment 15 показ начинается по готовности картинки К
+    // ОТРИСОВКЕ, а не по монтированию, поэтому на мгновенной загрузке анимация успела бы доиграть
+    // до первого замера и тест ловил бы уже покой.
+    await page.route(SCENE_FILES, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
     await page.goto(`/?department=${sales.id}`);
 
+    // Ждём НАЧАЛА показа, а не конца загрузки.
+    await expect
+      .poll(async () => (await topLayerMotion(page)).name, { timeout: 20000 })
+      .not.toBe("none");
+
     const motion = await topLayerMotion(page);
+    // Анимация доигрывает до конца (fill both удерживает конечное состояние).
+    expect(motion.fill).toContain("both");
 
-    // Анимация есть, и она доигрывает до конца (fill both удерживает конечное состояние).
-    expect(motion.name, "у сцены нет анимации — это подмена кадра, а не переход").not.toBe("none");
-    expect(motion.fill).toBe("both");
-
-    // Длительность в диапазоне docs/07 для overview→department (650–1000 мс). Диапазон, а не точное
+    // Движение — в диапазоне docs/07 для overview→department (650–1000 мс). Диапазон, а не точное
     // значение: docs/07 задаёт именно вилку, и прибивать её к одному числу значило бы придумать
     // требование, которого в документе нет.
+    const dollyMs = Math.max(...motion.durationsMs);
     expect(
-      motion.durationMs,
-      `длительность ${motion.durationMs}мс вне диапазона docs/07 650–1000мс`,
+      dollyMs,
+      `движение ${dollyMs}мс вне диапазона docs/07 650–1000мс`,
     ).toBeGreaterThanOrEqual(650);
+    expect(dollyMs, `движение ${dollyMs}мс вне диапазона docs/07 650–1000мс`).toBeLessThanOrEqual(
+      1000,
+    );
+
+    // Проявление ЗАМЕТНО короче движения. Это и есть разница между наездом камеры и обычным
+    // crossfade: кадр становится непрозрачным задолго до того, как перестаёт двигаться, поэтому
+    // большую часть перехода зритель видит уже чистую картинку. Равные длительности означали бы
+    // возврат к тому «дешёвому» фейду, из-за которого Amendment 15 и появился.
+    const dissolveMs = Math.min(...motion.durationsMs);
     expect(
-      motion.durationMs,
-      `длительность ${motion.durationMs}мс вне диапазона docs/07 650–1000мс`,
-    ).toBeLessThanOrEqual(1000);
+      dissolveMs,
+      `проявление ${dissolveMs}мс не короче движения ${dollyMs}мс — это одинарный фейд`,
+    ).toBeLessThan(dollyMs * 0.75);
 
     // И приближение ЗАКАНЧИВАЕТСЯ в масштабе 1: кадр не остаётся увеличенным навсегда.
-    await page.waitForTimeout(motion.durationMs + 200);
+    await page.waitForTimeout(dollyMs + 400);
     const settled = await topLayerMotion(page);
     expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(settled.transform);
+  });
+
+  // ГЛАВНЫЙ СТОРОЖ Amendment 15. Проверяется именно БЫСТРЫЙ путь, который прежде не проверял никто:
+  // задержка 0 мс — это картинка из кэша, то есть обычное состояние при повторных переключениях
+  // отделов. Замерено до правки: укрытость падала до 0.00 (экран оставался без сцены вовсе).
+  for (const delayMs of [0, 150, 300]) {
+    test(`переключение отдела не обнажает экран при задержке ${delayMs}мс (Amendment 15)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      if (delayMs > 0) {
+        await page.route(SCENE_FILES, async (route) => {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          await route.continue();
+        });
+      }
+
+      await page.goto(`/?department=${sales.id}`);
+      await waitForSettledScene(page);
+
+      const rail = page.getByRole("navigation", { name: "Панель отделов" });
+      const coverage = await minSceneCoverage(page, async () => {
+        await rail.getByRole("button", { name: hr.overviewLabel }).click();
+      });
+
+      expect(
+        coverage,
+        `минимальная укрытость кадра ${coverage} при задержке ${delayMs}мс — переход обнажает экран`,
+      ).toBeGreaterThan(0.99);
+    });
+  }
+
+  // Световой пробег — часть эффекта, а не украшение «на всякий случай»: без него переход снова
+  // читается как подмена картинки. Проверяется и то, что он ЖИВЁТ РОВНО ОДИН ПЕРЕХОД: первая
+  // редакция оставляла его в DOM навсегда (замерено: 2 ребёнка стека в покое вместо одного).
+  test("световой пробег проигрывается на переключении и не остаётся в DOM (Amendment 15)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.route(SCENE_FILES, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await route.continue();
+    });
+    await page.goto(`/?department=${sales.id}`);
+    await expect.poll(async () => (await sceneLayers(page)).visible, { timeout: 20000 }).toBe(1);
+
+    const gleam = page.locator("[data-scene-gleam]");
+    await page
+      .getByRole("navigation", { name: "Панель отделов" })
+      .getByRole("button", { name: hr.overviewLabel })
+      .click();
+
+    await expect(gleam).toHaveCount(1, { timeout: 20000 });
+    // Он декоративный: не перехватывает курсор и скрыт от screen reader.
+    await expect(gleam).toHaveAttribute("aria-hidden", "true");
+    expect(await gleam.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe("none");
+
+    // И снимается по окончании перехода.
+    await expect(gleam).toHaveCount(0, { timeout: 20000 });
   });
 
   // Главный вход этого шага (Step 13, skeptic Phase B): при переключении отдела прежняя сцена
@@ -177,22 +372,61 @@ test.describe("Step 16 — переход между сценами", () => {
   test("prefers-reduced-motion: приближения нет, функции целы (AC2)", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width: 1440, height: 900 });
+    await page.route(SCENE_FILES, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
     await page.goto(`/?department=${sales.id}`);
+    await waitForSettledScene(page);
 
-    const motion = await topLayerMotion(page);
+    // Проверяется САМО ТРЕБОВАНИЕ («приближения нет»), а не имя анимации: в reduced motion трек
+    // длится 1 мс и класс перехода снимается по его окончании, поэтому поймать анимацию опросом
+    // нельзя в принципе — тест на имя ловил бы уже покой и был бы зелёным при любой реализации.
+    // Вместо этого записывается КАЖДЫЙ кадр перехода: масштаб не должен отклоняться от 1 нигде.
+    // Это важно не косметически — глобальное правило reduced-motion схлопывает ДЛИТЕЛЬНОСТЬ, но не
+    // убирает сам transform, и без отдельной ветки пользователь получил бы не отсутствие движения,
+    // а его рывок.
+    const { scales, durations } = await recordSceneMotion(page, async () => {
+      await page
+        .getByRole("navigation", { name: "Панель отделов" })
+        .getByRole("button", { name: hr.overviewLabel })
+        .click();
+    });
 
-    // Приближение заменено коротким fade: масштабирующих кейфреймов нет вовсе. Это не косметика —
-    // глобальное правило reduced-motion схлопывает ДЛИТЕЛЬНОСТЬ, но не убирает сам transform, и без
-    // отдельной ветки пользователь получил бы не отсутствие движения, а его рывок.
-    expect(motion.name).toContain("scene-fade");
-    expect(motion.durationMs).toBeLessThan(50);
-    expect(["none", "matrix(1, 0, 0, 1, 0, 0)"]).toContain(motion.transform);
+    expect(scales.length, "не записано ни одного кадра — замер не состоялся").toBeGreaterThan(10);
+    const worst = scales.reduce((a, b) => (Math.abs(b - 1) > Math.abs(a - 1) ? b : a));
+    expect(
+      worst,
+      `в reduced motion наблюдался масштаб ${worst} — это движение, а не его отсутствие`,
+    ).toBeCloseTo(1, 3);
 
-    // Функции целы: переключение и закрытие работают.
-    await page
-      .getByRole("navigation", { name: "Панель отделов" })
-      .getByRole("button", { name: hr.overviewLabel })
-      .click();
+    // Длительность на слоях сцены схлопнута — вторая половина требования AC2 «короткий fade».
+    //
+    // Короткой её удерживают ДВА независимых механизма: глобальное `animation-duration: 0.001ms
+    // !important` в globals.css (селектор `*`) и собственная reduced-motion-ветка модуля
+    // (`scene-fade 1ms`). Я снимал глобальное правило и пересобирал — тест остался зелёным, и
+    // сначала счёл это признаком вырожденной проверки. Это была ошибка рассуждения: утверждение
+    // проверяет НАБЛЮДАЕМОЕ требование, а требование выполнено, пока держится хотя бы один из
+    // механизмов, — значит зелёный там и есть правильный ответ. Вырожденной была бы проверка,
+    // не способная упасть ни при каком дефекте; эта падает, если снять оба места, задать в модуле
+    // длинную длительность с `!important` или сузить глобальный селектор.
+    //
+    // Утверждение намеренно ОТРИЦАТЕЛЬНОЕ («ни в одном кадре не было длинного трека»), а не
+    // «поймали короткий»: в reduced motion трек живёт 1 мс и может не попасть ни в одну выборку.
+    // Положительная формулировка требовала бы поймать это окно и была бы флейки, отрицательная —
+    // надёжна, потому что длинный трек живёт десятки кадров и пропустить его невозможно.
+    const worstDuration = Math.max(...durations);
+    expect(
+      worstDuration,
+      `в reduced motion наблюдался трек длительностью ${worstDuration}мс — длительность не схлопнута`,
+    ).toBeLessThan(50);
+
+    // И световой пробег в reduced motion не показывается — движущийся блик противоречил бы самой
+    // просьбе «меньше движения». toBeHidden, а не toHaveCount(0): он гасится правилом display:none,
+    // то есть может присутствовать в разметке, но виден быть не должен ни при каком раскладе.
+    await expect(page.locator("[data-scene-gleam]")).toBeHidden();
+
+    // Функции целы: переключение доехало до конца и закрытие работает.
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);

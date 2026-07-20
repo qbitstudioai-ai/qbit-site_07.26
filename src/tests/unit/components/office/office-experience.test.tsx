@@ -3,6 +3,7 @@ import path from "node:path";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
+import { SCENE_DISSOLVE_MS, SCENE_DOLLY_MS } from "@/components/office/SceneCrossfade";
 import { getDepartments } from "@/content/departments";
 import { getHomepageCopy } from "@/content/homepage-copy";
 import { getOfficeZones } from "@/content/office-zones";
@@ -294,6 +295,33 @@ describe("OfficeExperience", () => {
         crossfadeSource,
         "ключ слоя не должен зависеть от роли — иначе уходящий кадр не удержать",
       ).not.toMatch(/key=\{`(outgoing|incoming)-/);
+    });
+
+    // Amendment 15: длительности перехода живут в CSS, а их значения продублированы константами в
+    // TS. В рантайме эти константы больше ничего не запускают — снятие слоёв идёт по событию
+    // окончания анимации, а не по таймеру, — но они остаются ЗАФИКСИРОВАННЫМ КОНТРАКТОМ эффекта.
+    // Сторож здесь проверяет то, что нигде больше не проверяется: проявление обязано быть короче
+    // движения. Сравняв их, эффект тихо вырождается обратно в одинарный crossfade — именно в тот,
+    // который пользователь назвал дешёвым; ни один e2e-тест такого не поймает, если длительности
+    // при этом останутся в вилке docs/07.
+    it("keeps the transition timings in CSS and TS in sync", () => {
+      const css = readFileSync(
+        path.resolve(process.cwd(), "src/components/office/SceneCrossfade.module.css"),
+        "utf-8",
+      );
+
+      const durationOf = (keyframes: string) => {
+        const match = css.match(new RegExp(`${keyframes}\\s+(\\d+)ms`));
+        expect(match, `в CSS не найдена длительность анимации ${keyframes}`).not.toBeNull();
+        return Number(match![1]);
+      };
+
+      expect(durationOf("scene-dolly")).toBe(SCENE_DOLLY_MS);
+      expect(durationOf("scene-dissolve")).toBe(SCENE_DISSOLVE_MS);
+      // Проявление обязано заканчиваться раньше движения — иначе это одинарный фейд, а не наезд.
+      expect(SCENE_DISSOLVE_MS).toBeLessThan(SCENE_DOLLY_MS);
+      // Уходящий план движется столько же, сколько приходящий: расхождение дало бы рывок на стыке.
+      expect(durationOf("scene-recede")).toBe(SCENE_DOLLY_MS);
     });
 
     it("keeps the overview master scene behind «Ваша задача» — it is not a department", () => {

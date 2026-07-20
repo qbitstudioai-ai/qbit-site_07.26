@@ -91,6 +91,24 @@ export function OfficeScenePhoto({ sources, sizes, className, onReady }: OfficeS
     onReady?.();
   };
 
+  // Amendment 15: «готова» = ГОТОВА К ОТРИСОВКЕ, а не «загрузилась». Событие load срабатывает, когда
+  // получены байты, но битмап ещё не декодирован; отрисовка первого кадра тогда приходится на тот же
+  // кадр, в котором стартует анимация приближения, и декодирование полноэкранного AVIF/WebP отъедает
+  // его целиком. Именно на этом стыке пользователь и видел рывок в начале перехода.
+  // decode() резолвится, когда кадр можно рисовать без работы в основном потоке, — переход стартует
+  // на подготовленной картинке.
+  // Отказ decode() (элемент сняли, сменился src) тоже считается готовностью: держать ради него
+  // предыдущую сцену на экране бессмысленно, а SceneCrossfade сигнал от неактуального слоя
+  // игнорирует по построению.
+  const signalWhenPaintable = (img: HTMLImageElement) => {
+    if (hasSignalledRef.current) return;
+    if (typeof img.decode !== "function") {
+      signalReady();
+      return;
+    }
+    img.decode().then(signalReady, signalReady);
+  };
+
   if (hasFailed) {
     return <PhotoFallback className={className} />;
   }
@@ -123,7 +141,7 @@ export function OfficeScenePhoto({ sources, sizes, className, onReady }: OfficeS
       return;
     }
     // Картинка уже была в кэше и загрузилась до навешивания onLoad — событие мы бы не увидели.
-    signalReady();
+    signalWhenPaintable(img);
   };
 
   return (
@@ -143,7 +161,7 @@ export function OfficeScenePhoto({ sources, sizes, className, onReady }: OfficeS
         // только по CTA. Низкий приоритет убирает конкуренцию с критическими ресурсами, но не
         // откладывает загрузку — к моменту нажатия CTA сцена уже на месте.
         fetchPriority="low"
-        onLoad={signalReady}
+        onLoad={(event) => signalWhenPaintable(event.currentTarget)}
         onError={() => {
           setHasFailed(true);
           signalReady();
