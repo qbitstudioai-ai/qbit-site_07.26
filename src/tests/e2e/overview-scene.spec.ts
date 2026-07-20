@@ -31,7 +31,9 @@ test.describe("Step 12 — overview renders the master office scene", () => {
     await page.goto("/");
     await openOverview(page);
 
-    const sceneImage = page.locator("picture > img").first();
+    // Верхний слой: на обзорном экране слой всегда один, но адресоваться к «текущей сцене»
+    // единообразно надёжнее — crossfade Step 16 живёт в ветке department-active.
+    const sceneImage = page.locator("picture > img").last();
     await expect(sceneImage).toBeVisible();
 
     // Картинка не просто в DOM — она реально декодирована браузером (битая дала бы naturalWidth 0).

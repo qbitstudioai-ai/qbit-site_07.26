@@ -7,10 +7,10 @@ import {
   type OfficeSectionId,
 } from "@/features/office-machine/reducer";
 import { TaskSectionExperience } from "@/components/task/TaskSectionExperience";
-import { officeSceneById, OFFICE_SCENE_SIZES, type OfficeSceneId } from "./departmentPhotos";
+import { DEPARTMENT_SCENE_SIZES, type OfficeSceneId } from "./departmentPhotos";
 import { DepartmentNavigationRail } from "./DepartmentNavigationRail";
 import { MobileDepartmentCarousel } from "./MobileDepartmentCarousel";
-import { OfficeScenePhoto } from "./OfficePhoto";
+import { SceneCrossfade } from "./SceneCrossfade";
 import { OfficeSemanticMap } from "./OfficeSemanticMap";
 import styles from "./OfficeExperience.module.css";
 
@@ -97,24 +97,26 @@ export function OfficeExperience({
               попадают производные единственной активной сцены — остальные четыре не запрашиваются.
               «Ваша задача» — не отдел и своей сцены не имеет: под ней остаётся мастер-сцена
               overview, то есть офис как общий контекст (Step 12.7). */}
-          {/* key={activeSceneId} обязателен, а не косметика: OfficeScenePhoto держит признак
-              неудачной загрузки (`hasFailed`) в локальном useState и сам его не сбрасывает. Пока
-              сцена была одна и та же (общий фон до Step 13), «залипание» было безвредным — грузить
-              при переключении было нечего. Со Step 13 источник меняется вместе с отделом, и без key
-              компонент не размонтируется: один оборванный запрос (моргнул Wi-Fi на одном отделе)
-              гасил бы фотослой на весь дальнейший обход офиса, а переключение отдела его не
-              восстанавливало — при том, что следующая сцена вполне загружаема. Найдено skeptic
-              Phase B на деградированном пути (AC1/AC7), воспроизведено блокировкой ОДНОГО файла.
-              Тот же приём и по той же причине уже применён к PainGainPanel ниже. */}
-          <OfficeScenePhoto
-            key={activeSceneId}
-            sources={officeSceneById[activeSceneId]}
-            sizes={OFFICE_SCENE_SIZES}
-            className={styles.backgroundPhoto}
+          {/* Step 16: два слоя сцены вместо одного (SceneCrossfade). Прежний одиночный
+              OfficeScenePhoto с key={activeSceneId} размонтировал старую сцену немедленно, и на
+              медленном канале переключение отдела проходило через пустоту — измеренное окно без
+              сцены 73–1261 мс (Step 13, skeptic Phase B). Crossfade держит предыдущую сцену до
+              готовности следующей, поэтому переход, ради которого этот шаг и делается, идёт между
+              двумя кадрами, а не через дыру. Сброс состояния «загрузка провалилась» при смене
+              сцены сохранён — key живёт внутри SceneCrossfade, на каждом из слоёв. */}
+          <SceneCrossfade
+            sceneId={activeSceneId}
+            sizes={DEPARTMENT_SCENE_SIZES}
+            photoClassName={styles.backgroundPhoto}
           />
           <div className={styles.mainArea}>
             {activeDepartment ? (
+              // key — перезапуск каскада Step 15.5 при переключении отдела. DepartmentExperience
+              // сам по себе при SWITCH_DEPARTMENT не размонтируется, поэтому без key ни CSS-анимации
+              // ступеней не стартовали бы заново, ни защёлка cascadeDone не сбрасывалась бы: каскад
+              // играл бы только при первом открытии офиса.
               <DepartmentExperience
+                key={activeDepartment.id}
                 department={activeDepartment}
                 machineView={machineView}
                 departments={sortedDepartments}

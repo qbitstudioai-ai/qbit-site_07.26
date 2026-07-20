@@ -30,9 +30,13 @@ async function openOffice(page: Page) {
   await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
 }
 
-/** Фон 10/90 — первый <picture> внутри шелла активного раздела. */
+// Step 16: «текущая сцена» — это ВЕРХНИЙ слой crossfade, а не первый <picture> в DOM.
+// SceneCrossfade во время перехода держит уходящую сцену ПЕРВОЙ, поэтому прежний `.first()`
+// возвращал файл ПРЕДЫДУЩЕГО отдела всё время удержания. Это не косметика: на полной параллельной
+// нагрузке тест ниже читал чужой слой и падал, а в удачной гонке — проходил, проверив не то
+// (skeptic Phase B Step 16, BLOCKING-1; воспроизведено детерминированно при задержке сцен 150/300/600 мс).
 function sceneImage(page: Page) {
-  return page.locator("picture > img").first();
+  return page.locator("[data-scene-crossfade] img").last();
 }
 
 async function currentSceneFile(page: Page): Promise<string> {

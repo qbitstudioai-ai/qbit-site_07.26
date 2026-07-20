@@ -261,16 +261,39 @@ describe("OfficeExperience", () => {
         "utf-8",
       );
 
-      // Индексация по активной сцене — то, что делает переключение отдела сменой файла.
-      expect(source).toMatch(/officeSceneById\[activeSceneId\]/);
-      // ...а сам activeSceneId выводится из активного отдела, а не зафиксирован константой.
+      // Со Step 16 фотослой рендерит SceneCrossfade (два слоя вместо одного), поэтому часть
+      // инвариантов переехала туда. Проверки НЕ сняты — они смотрят по новому адресу, иначе
+      // переезд молча снял бы сторожей вместе с кодом.
+      const crossfadeSource = readFileSync(
+        path.resolve(process.cwd(), "src/components/office/SceneCrossfade.tsx"),
+        "utf-8",
+      );
+
+      // Сцена привязана к АКТИВНОМУ отделу, а не зафиксирована: activeSceneId выводится здесь...
       expect(source).toMatch(/activeSceneId\s*:\s*OfficeSceneId\s*=\s*activeDepartment\s*\?/);
+      // ...и передаётся в фотослой.
+      expect(source).toMatch(/sceneId=\{activeSceneId\}/);
+      // ...а индексация по нему живёт в SceneCrossfade — именно она делает переключение отдела
+      // сменой файла.
+      expect(crossfadeSource).toMatch(/officeSceneById\[/);
+
       // И общий фон Step 7.3 больше не участвует: пока он здесь, «сцена отдела» была бы одним и тем
       // же фото на все пять отделов.
       expect(source).not.toMatch(/officeBackgroundPhoto/);
+
       // key по сцене — то, что не даёт признаку неудачной загрузки залипнуть между отделами
-      // (skeptic Phase B: без него один сбой гасил фотослой на весь обход офиса).
-      expect(source).toMatch(/key=\{activeSceneId\}/);
+      // (skeptic Phase B Step 13: без него один сбой гасил фотослой на весь обход офиса).
+      //
+      // Со Step 16 ключ обязан быть привязан ИМЕННО К СЦЕНЕ (`scene-<id>`), а не к роли слоя
+      // («уходящий»/«приходящий»). Это не стилистика: при ключе по роли уходящий слой оказывается
+      // НОВЫМ DOM-элементом и стартует пустым, то есть удерживать предыдущий кадр ему нечем —
+      // измерено 16 из 30 выборок без видимой сцены на медленном канале. Ключ по сцене сохраняет
+      // уже отрисованный <img>, и переход перестаёт идти через пустоту (0 из 30).
+      expect(crossfadeSource).toMatch(/key=\{`scene-\$\{id\}`\}/);
+      expect(
+        crossfadeSource,
+        "ключ слоя не должен зависеть от роли — иначе уходящий кадр не удержать",
+      ).not.toMatch(/key=\{`(outgoing|incoming)-/);
     });
 
     it("keeps the overview master scene behind «Ваша задача» — it is not a department", () => {

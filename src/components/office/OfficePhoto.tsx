@@ -1,7 +1,7 @@
 "use client";
 
 import Image, { type StaticImageData } from "next/image";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { OFFICE_SCENE_WIDTHS, type OfficeSceneSources } from "./departmentPhotos";
 import styles from "./OfficePhoto.module.css";
 
@@ -53,6 +53,14 @@ interface OfficeScenePhotoProps {
   /** `sizes` для srcset — сколько места сцена занимает во вьюпорте. */
   sizes: string;
   className?: string;
+  /**
+   * Step 16: сцена «готова к показу» — успешно декодирована ЛИБО провалилась. Вызывается ровно один
+   * раз за монтирование. Нужна SceneCrossfade, который держит предыдущую сцену до этого момента:
+   * без такого сигнала переход между отделами проходил бы через пустоту (Step 13, skeptic Phase B,
+   * NON-BLOCKING-1 — измеренное окно без сцены 73–1261 мс на медленном канале).
+   * Провал тоже считается готовностью: иначе при недоступной сцене прежняя висела бы вечно.
+   */
+  onReady?: () => void;
 }
 
 /**
@@ -72,8 +80,16 @@ interface OfficeScenePhotoProps {
  * (предупреждение из Step 10). Ширины из массива констант совпадают с реальными по построению
  * (scripts/generate-office-images.mjs).
  */
-export function OfficeScenePhoto({ sources, sizes, className }: OfficeScenePhotoProps) {
+export function OfficeScenePhoto({ sources, sizes, className, onReady }: OfficeScenePhotoProps) {
   const [hasFailed, setHasFailed] = useState(false);
+  // Ref, а не state: onReady обязан сработать ровно один раз за монтирование, но сам факт «уже
+  // сработал» на рендер не влияет. State здесь вызвал бы лишний ре-рендер на каждой смене сцены.
+  const hasSignalledRef = useRef(false);
+  const signalReady = () => {
+    if (hasSignalledRef.current) return;
+    hasSignalledRef.current = true;
+    onReady?.();
+  };
 
   if (hasFailed) {
     return <PhotoFallback className={className} />;
@@ -99,9 +115,15 @@ export function OfficeScenePhoto({ sources, sizes, className }: OfficeScenePhoto
   // unit-тестами, хотя в браузере всё в порядке. Тот же приём применяет next/image — по этой
   // причине OfficePhoto выше в подобной подстраховке не нуждается.
   const detectAlreadyFailed = (img: HTMLImageElement | null) => {
-    if (img && img.currentSrc && img.complete && img.naturalWidth === 0) {
+    if (!img || !img.currentSrc || !img.complete) return;
+    if (img.naturalWidth === 0) {
       setHasFailed(true);
+      // Провал — тоже готовность: держать прежнюю сцену вечно из-за недоступной новой нельзя.
+      signalReady();
+      return;
     }
+    // Картинка уже была в кэше и загрузилась до навешивания onLoad — событие мы бы не увидели.
+    signalReady();
   };
 
   return (
@@ -121,7 +143,11 @@ export function OfficeScenePhoto({ sources, sizes, className }: OfficeScenePhoto
         // только по CTA. Низкий приоритет убирает конкуренцию с критическими ресурсами, но не
         // откладывает загрузку — к моменту нажатия CTA сцена уже на месте.
         fetchPriority="low"
-        onError={() => setHasFailed(true)}
+        onLoad={signalReady}
+        onError={() => {
+          setHasFailed(true);
+          signalReady();
+        }}
       />
     </picture>
   );

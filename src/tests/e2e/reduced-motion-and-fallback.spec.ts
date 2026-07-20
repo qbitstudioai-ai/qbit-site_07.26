@@ -151,7 +151,8 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
 
     // А сцена отдела осталась живой и ДЕКОДИРОВАННОЙ — не битым <img> и не плейсхолдером.
     // Проверка по naturalWidth, а не по видимости: битая картинка тоже «видима».
-    const scene = page.locator("picture > img").first();
+    // Верхний слой crossfade — текущая сцена (Step 16, см. department-scene.spec.ts).
+    const scene = page.locator("picture > img").last();
     await expect
       .poll(async () => scene.evaluate((img: HTMLImageElement) => img.naturalWidth))
       .toBeGreaterThan(0);
