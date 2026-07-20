@@ -13,6 +13,7 @@ import { MobileDepartmentCarousel } from "./MobileDepartmentCarousel";
 import { SceneCrossfade } from "./SceneCrossfade";
 import { OfficeSemanticMap } from "./OfficeSemanticMap";
 import styles from "./OfficeExperience.module.css";
+import { TASK_ENTRY_BUTTON_ID } from "@/features/office-machine/focusTargets";
 
 interface OfficeExperienceProps {
   interactionHint: string;
@@ -159,6 +160,7 @@ export function OfficeExperience({
             </button>
             <button
               type="button"
+              id={TASK_ENTRY_BUTTON_ID}
               className={styles.taskEntryButton}
               onClick={() => onSelectDepartment(TASK_SECTION_ID)}
             >

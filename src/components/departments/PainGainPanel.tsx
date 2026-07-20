@@ -31,6 +31,9 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
   // Отличает первый показ отдела от осознанного выбора другой боли. Сравнивать selectedIndex с 0
   // нельзя: пользователь может выбрать первый пункт повторно, и это уже «смена боли», а не открытие.
   const [hasChosen, setHasChosen] = useState(false);
+  // Номер пункта, чей текст ответа уже проявлен. Метка привязана к ВЫБОРУ, а не к отделу: см.
+  // разбор у самого <span> ниже.
+  const [shownIndex, setShownIndex] = useState<number | null>(null);
   const selected = painPoints[selectedIndex];
 
   return (
@@ -105,9 +108,29 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
           невидимым блоком и к моменту появления оказался бы уже набранным. */}
       <p
         className={hasChosen ? styles.gain : `${styles.gain} ${styles.gainInitial}`}
+        // Стабильный, не хешируемый CSS Modules хук для e2e (тот же приём, что data-photo-fallback).
+        data-gain-panel="true"
         aria-live="polite"
       >
-        <span key={selectedIndex} className={hasChosen ? styles.gainTextReveal : undefined}>
+        {/* Защёлка НА ТЕКУЩИЙ ВЫБОР (Step 17, решение пользователя 2026-07-20).
+
+            Дефект, который она закрывает, измерен skeptic-ревью: `.panel` переключается
+            медиазапросом через `display` (grid выше 768px, none ниже), а повторный показ элемента
+            ПЕРЕЗАПУСКАЕТ CSS-анимацию вместе с `backwards`-fill. После ресайза через 768px текст
+            ответа исчезал на 1.2 с — пропадал ответ, который пользователь только что прочитал.
+            Триггеры бытовые: поворот планшета, изменение зума, открытие devtools.
+
+            Защёлка отдела (`data-cascade-done`) здесь НЕ подходит: под ней анимация отключилась бы
+            навсегда, и смена боли перестала бы показывать текст с задержкой в 1 секунду — а это
+            прямое требование пользователя. Поэтому метка привязана к номеру выбранного пункта: она
+            сбрасывается на каждом новом выборе, то есть задержка сохраняется, но однажды показанный
+            текст ресайзом уже не гасится. */}
+        <span
+          key={selectedIndex}
+          data-gain-shown={shownIndex === selectedIndex}
+          onAnimationEnd={() => setShownIndex(selectedIndex)}
+          className={hasChosen ? styles.gainTextReveal : undefined}
+        >
           <TypedText
             text={selected.gain}
             startDelayMs={hasChosen ? RESELECT_DELAY_MS : INITIAL_DELAY_MS}

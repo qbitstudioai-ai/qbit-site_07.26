@@ -1,5 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
+/**
+ * E2E идёт против PRODUCTION-сборки на ВЫДЕЛЕННОМ порту 3200 (Step 17).
+ *
+ * Порт 3100 отдан `npm run dev`, и до Step 17 приёмка использовала его же с
+ * `reuseExistingServer: !CI`. Это давало ложно-зелёный гейт: если у разработчика поднят dev-сервер —
+ * а он поднят почти всегда, — `npm run test:e2e` подключался к нему и отчитывался об успехе, ни разу
+ * не собрав production. Разница не косметическая: декодирование картинок, кэш и реальные веса
+ * производных в dev ведут себя иначе, и часть находок Amendment 15 на dev-сервере не воспроизводится
+ * вовсе. Риск был записан без владельца ещё в Amendment 1 («порт 3100 может оказаться занят
+ * посторонним процессом») — здесь он закрывается: у e2e свой порт и `reuseExistingServer: false`,
+ * поэтому подключиться к чужому серверу невозможно в принципе.
+ */
 export default defineConfig({
   testDir: "./src/tests/e2e",
   fullyParallel: true,
@@ -7,8 +19,20 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: "html",
   use: {
-    baseURL: "http://localhost:3100",
+    baseURL: "http://localhost:3200",
     trace: "on-first-retry",
+
+    /**
+     * Навигация под полной параллельностью на ТОЛЬКО ЧТО поднятом сервере упирается не в приложение,
+     * а в конкуренцию: шесть воркеров бьют в него одновременно, и первые `page.goto` не укладываются
+     * в дефолтные 30 с. Измерено на milestone review: до 4 падений из 196 в первом прогоне против
+     * холодного сервера, при этом те же спеки серийно дают 30/30 и 8/8. Сигнатура —
+     * `page.goto: Test timeout of 30000ms exceeded`, и от настоящей регрессии она неотличима.
+     *
+     * Поднят именно навигационный таймаут, а не общий `timeout` теста: проблема ровно в первой
+     * загрузке, и растягивать из-за неё бюджет ассертов значило бы прятать реальные зависания.
+     */
+    navigationTimeout: 60_000,
   },
   projects: [
     {
@@ -17,9 +41,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run build && npm run start",
-    url: "http://localhost:3100",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    command: "npm run build && npm run start:e2e",
+    url: "http://localhost:3200",
+    // Никогда не переиспользовать чужой сервер: см. док-комментарий выше — именно это давало
+    // ложно-зелёный гейт против dev-сборки.
+    reuseExistingServer: false,
+    timeout: 180_000,
   },
 });

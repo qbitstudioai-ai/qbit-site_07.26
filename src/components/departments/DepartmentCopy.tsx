@@ -1,5 +1,6 @@
 import type { Department } from "@/content/types";
 import styles from "./DepartmentCopy.module.css";
+import { sectionHeadingId } from "@/features/office-machine/focusTargets";
 
 interface DepartmentCopyProps {
   department: Department;
@@ -14,7 +15,7 @@ interface DepartmentCopyProps {
 export function DepartmentCopy({ department, className }: DepartmentCopyProps) {
   return (
     <div className={className ? `${styles.copy} ${className}` : styles.copy}>
-      <h2 id={`department-heading-${department.id}`} tabIndex={-1} className={styles.heading}>
+      <h2 id={sectionHeadingId(department.id)} tabIndex={-1} className={styles.heading}>
         {department.headline}
       </h2>
       <p className={styles.problem}>{department.problem}</p>

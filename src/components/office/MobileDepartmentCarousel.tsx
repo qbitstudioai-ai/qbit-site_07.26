@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Department, DepartmentId } from "@/content/types";
 import { CarouselNavControls } from "./CarouselNavControls";
 import styles from "./MobileDepartmentCarousel.module.css";
+import { MOBILE_CAROUSEL_CARD_ID } from "@/features/office-machine/focusTargets";
 
 interface MobileDepartmentCarouselProps {
   departments: Department[];
@@ -39,7 +40,7 @@ export function MobileDepartmentCarousel({
           первый отдел при возврате в overview. */}
       <button
         type="button"
-        id="mobile-department-carousel-card"
+        id={MOBILE_CAROUSEL_CARD_ID}
         className={styles.card}
         aria-label={currentDepartment.overviewLabel}
         aria-describedby={PROBLEM_ID}

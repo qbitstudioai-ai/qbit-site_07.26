@@ -1,5 +1,6 @@
 import type { Department, DepartmentId, OfficeZone } from "@/content/types";
 import styles from "./DepartmentHotspot.module.css";
+import { hotspotId } from "@/features/office-machine/focusTargets";
 
 interface DepartmentHotspotProps {
   zone: OfficeZone;
@@ -13,7 +14,7 @@ export function DepartmentHotspot({ zone, department, onSelect }: DepartmentHots
   return (
     <button
       type="button"
-      id={`hotspot-${department.id}`}
+      id={hotspotId(department.id)}
       className={styles.hotspot}
       style={{
         left: `${zone.x}%`,

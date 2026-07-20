@@ -2,6 +2,7 @@ import type { TaskSectionCopy } from "@/content/types";
 import { TASK_SECTION_ID, type OfficeMachineView } from "@/features/office-machine/reducer";
 import { TaskForm } from "./TaskForm";
 import styles from "./TaskSectionExperience.module.css";
+import { sectionHeadingId } from "@/features/office-machine/focusTargets";
 
 interface TaskSectionExperienceProps {
   copy: TaskSectionCopy;
@@ -34,7 +35,7 @@ export function TaskSectionExperience({
       {/* id по той же схеме, что у отделов (`department-heading-<id>`): OfficeMachine переносит на
           него фокус при открытии и переключении раздела. Разъехавшаяся схема id молча сломала бы
           перенос фокуса — заголовок просто не нашёлся бы. */}
-      <h2 id={`department-heading-${TASK_SECTION_ID}`} tabIndex={-1} className={styles.headline}>
+      <h2 id={sectionHeadingId(TASK_SECTION_ID)} tabIndex={-1} className={styles.headline}>
         {copy.headline}
       </h2>
       <p className={styles.intro}>{copy.intro}</p>

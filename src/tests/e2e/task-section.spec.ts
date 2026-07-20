@@ -35,6 +35,43 @@ test.describe("Step 12.7 — раздел «Ваша задача»", () => {
     await expect(page.getByRole("heading", { level: 2, name: task.headline })).toHaveCount(0);
   });
 
+  // Step 17: возврат фокуса после закрытия «Вашей задачи». До правки этого НЕ проверял никто —
+  // тест выше утверждал, что раздел закрылся, но не куда делся фокус. Измерено на milestone review:
+  // на desktop и tablet фокус уходил на <body> (машина искала `hotspot-task`, которого не
+  // существует), а на мобильном попадал на карусель, то есть «работал» по совпадению.
+  // Нарушение docs/11 прожило до конца этапа именно из-за этого пробела.
+  for (const { name, width, height } of [
+    { name: "desktop", width: 1440, height: 900 },
+    { name: "tablet", width: 1024, height: 768 },
+    { name: "mobile", width: 375, height: 812 },
+  ]) {
+    test(`${name}: закрытие «Вашей задачи» возвращает фокус на открывший контрол (Step 17)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height });
+      await page.goto("/");
+      await page.getByRole("link", { name: getHomepageCopy().secondaryCta }).click();
+
+      const entry = page.locator("#task-entry-button");
+      await entry.click();
+      await expect(page.getByRole("heading", { level: 2, name: task.headline })).toBeVisible();
+
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("heading", { level: 2, name: task.headline })).toHaveCount(0);
+
+      // Фокус обязан вернуться на контрол, который раздел открыл, а не на <body>.
+      const focused = await page.evaluate(() => ({
+        tag: document.activeElement?.tagName ?? "",
+        id: document.activeElement?.id ?? "",
+      }));
+      expect(
+        focused.tag,
+        `фокус ушёл на ${focused.tag} — пользователь потерял место (docs/11)`,
+      ).not.toBe("BODY");
+      expect(focused.id).toBe("task-entry-button");
+    });
+  }
+
   test("доступен из рельса при открытом отделе, и наоборот", async ({ page }) => {
     await page.goto("/?department=sales");
     const rail = page.getByRole("navigation", { name: "Панель отделов" });

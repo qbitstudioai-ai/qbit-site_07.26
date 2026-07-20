@@ -369,18 +369,23 @@ test.describe("Step 15.5 — каскад появления блоков экр
     expect(delays.gain).toBe("2s");
     expect(delays.actions).toBe("3s");
 
-    await expect.poll(async () => (await OPACITY_OF(page)).actions, { timeout: 8000 }).toBe(1);
+    // Ожидание привязано к ПОЯСНЕНИЮ — последней анимируемой ступени (Amendment 17: кнопки видимы
+    // с первого кадра, поэтому сигналом конца каскада служить не могут).
+    await expect.poll(async () => (await OPACITY_OF(page)).gain, { timeout: 8000 }).toBe(1);
     const at = await readCascade(page);
 
-    // Все четыре ступени состоялись.
-    for (const stage of ["copy", "pains", "gain", "actions"]) {
+    // Три ступени каскада состоялись.
+    for (const stage of ["copy", "pains", "gain"]) {
       expect(at[stage], `ступень «${stage}» так и не дошла до opacity 1`).toBeGreaterThanOrEqual(0);
     }
 
     // И состоялись ИМЕННО В ЭТОМ ПОРЯДКЕ — это и есть каскад, а не одновременное появление.
     expect(at.copy, "заголовок должен опережать боли").toBeLessThan(at.pains);
     expect(at.pains, "боли должны опережать пояснение").toBeLessThan(at.gain);
-    expect(at.gain, "пояснение должно опережать кнопки").toBeLessThan(at.actions);
+
+    // Кнопки в каскад НЕ входят и видимы с первого кадра (Amendment 17). Задержка 3s у них остаётся
+    // (проверена выше) как якорь времени для защёлки, но прозрачность не анимируется.
+    expect((await OPACITY_OF(page)).actions, "кнопки обязаны быть видимы сразу").toBe(1);
   });
 
   test("выбор другой боли не перезапускает каскад: остальные блоки остаются видимыми", async ({
@@ -424,8 +429,11 @@ test.describe("Step 15.5 — каскад появления блоков экр
     await page.setViewportSize({ width: 1440, height: 900 });
     const department = await openDepartment(page, "sales");
 
-    // Проверяется именно НЕЗАВЕРШЁННЫЙ каскад — иначе тест ничего не охраняет.
-    expect((await OPACITY_OF(page)).actions).toBeLessThan(1);
+    // Проверяется именно НЕЗАВЕРШЁННЫЙ каскад — иначе тест ничего не охраняет. Признаком служит
+    // пояснение: со Step 17 кнопки видимы с первого кадра и признаком незавершённости быть не могут.
+    expect((await OPACITY_OF(page)).gain).toBeLessThan(1);
+    // И одновременно кнопки уже видимы — инвариант Amendment 17.
+    expect((await OPACITY_OF(page)).actions).toBe(1);
 
     // Клавиатурная достижимость: пять болей, затем CTA, затем «Закрыть». Это и есть смысл отказа от
     // условного рендера — контролы в Tab-порядке с первого кадра, а не после анимации.
@@ -485,9 +493,10 @@ test.describe("Step 15.5 — каскад появления блоков экр
     await page.setViewportSize({ width: 1440, height: 900 });
     await openDepartment(page, "sales");
 
-    // Каскад ещё идёт: видна только первая ступень.
+    // Каскад ещё идёт: пояснение не проявлено. Кнопки со Step 17 видимы с первого кадра, поэтому
+    // маркером незавершённости служит пояснение, а не они.
     await page.waitForTimeout(400);
-    expect((await OPACITY_OF(page)).actions).toBeLessThan(1);
+    expect((await OPACITY_OF(page)).gain).toBeLessThan(1);
 
     // Tab на контрол защёлкивает каскад досрочно.
     await page.keyboard.press("Tab");
@@ -497,7 +506,11 @@ test.describe("Step 15.5 — каскад появления блоков экр
     expect(latched.pains, "боли после защёлки").toBe(1);
     expect(latched.actions, "кнопки после защёлки").toBe(1);
 
-    // Окно пояснения в защёлку намеренно не входит (см. PainGainPanel.module.css): оно приходит по
+    // ВНИМАНИЕ: со Step 17 `.gainInitial` ВКЛЮЧЁН в защёлку (см. PainGainPanel.module.css), поэтому
+    // проверка ниже больше не сторожит «пояснение залипло невидимым» — такой сценарий стал
+    // недостижим. Она оставлена как проверка того, что пояснение всё-таки доезжает до видимости
+    // после досрочной защёлки. Прежняя формулировка про «намеренно не входит» была верна до
+    // Step 17 и снята, чтобы не вводила в заблуждение: оно приходит по
     // своей ступени и НЕ залипает в невидимом состоянии.
     await expect.poll(async () => (await OPACITY_OF(page)).gain, { timeout: 4000 }).toBe(1);
 
@@ -519,7 +532,9 @@ test.describe("Step 15.5 — каскад появления блоков экр
   test("переключение отдела через рельс проигрывает каскад заново", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openDepartment(page, "sales");
-    await expect.poll(async () => (await OPACITY_OF(page)).actions, { timeout: 6000 }).toBe(1);
+    // Дожидаемся конца ПЕРВОГО каскада перед переключением — иначе тест мерил бы наложение двух.
+    // Сигналом служит пояснение: кнопки со Step 17 видимы сразу и условие выполнялось бы мгновенно.
+    await expect.poll(async () => (await OPACITY_OF(page)).gain, { timeout: 6000 }).toBe(1);
 
     const hr = departments.find((d) => d.id === "hr")!;
     await page
@@ -529,18 +544,17 @@ test.describe("Step 15.5 — каскад появления блоков экр
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
     await recordCascade(page);
 
-    // Каскад стартовал заново и проигрывается в том же порядке — проверяется рекордером, а не
-    // выборкой по часам (та же причина, что в тесте выше).
-    await expect.poll(async () => (await OPACITY_OF(page)).actions, { timeout: 8000 }).toBe(1);
+    // Ожидание привязано к ПОЯСНЕНИЮ — последней анимируемой ступени. Прежде здесь стояли кнопки,
+    // но со Step 17 они видимы с первого кадра (решение пользователя 2026-07-20), поэтому как
+    // сигнал «каскад закончился» они больше не годятся: условие выполнялось бы мгновенно, и
+    // рекордер читался бы пустым.
+    await expect.poll(async () => (await OPACITY_OF(page)).gain, { timeout: 8000 }).toBe(1);
     const at = await readCascade(page);
     expect(at.copy, "заголовок нового отдела должен опережать боли").toBeLessThan(at.pains);
     expect(
       at.pains,
       "боли обязаны появиться заново, а не остаться от прошлого отдела",
-    ).toBeLessThan(at.actions);
-    expect(at.gain, "пояснение должно опережать кнопки и при переключении").toBeLessThan(
-      at.actions,
-    );
+    ).toBeLessThan(at.gain);
   });
 
   // Мобильный эквивалент каскада был в scope, но без сторожа (skeptic, NB-2). Блоков здесь три:
@@ -562,12 +576,17 @@ test.describe("Step 15.5 — каскад появления блоков экр
         };
       });
 
-    // Аккордеон и кнопки ещё не проявлены, пока каскад идёт: снимок берётся сразу, без ожидания.
+    // Со Step 17 кнопки видны с ПЕРВОГО кадра и на мобильном тоже (решение пользователя
+    // 2026-07-20): невидимая, но кликабельная мишень была дефектом, а оба технических лекарства
+    // отвергнуты замером — см. разбор в stagedReveal.module.css. Аккордеон при этом по-прежнему
+    // приходит ступенью.
     const early = await mobileOpacity();
-    expect(early.actions, "кнопки — последняя ступень, сразу их быть не должно").toBeLessThan(1);
+    expect(early.actions, "кнопки обязаны быть видимы сразу, а не в конце каскада").toBe(1);
+    expect(early.accordion, "аккордеон — ступень каскада, сразу его быть не должно").toBeLessThan(
+      1,
+    );
 
     await expect.poll(async () => (await mobileOpacity()).accordion, { timeout: 4000 }).toBe(1);
-    await expect.poll(async () => (await mobileOpacity()).actions, { timeout: 4000 }).toBe(1);
 
     const scroll = await page.evaluate(() => ({
       sh: document.documentElement.scrollHeight,
@@ -591,4 +610,111 @@ test.describe("Step 15.5 — каскад появления блоков экр
     expect(state.gain).toBe(1);
     expect(state.actions).toBe(1);
   });
+});
+
+test.describe("Step 17 — швы каскада, найденные milestone review", () => {
+  // AC2 Step 17 (решение пользователя 2026-07-20): кнопки видны с первого кадра, каскад остаётся у
+  // трёх остальных блоков.
+  //
+  // Прежде блок держал opacity 0 всю задержку при сохранённом попадании указателем — измерено,
+  // реальный клик по пустому месту открывал Telegram. Оба технических лекарства отвергнуты замером:
+  //   • `pointer-events: none` — роняет 4 теста Step 15/Step 16 по существу (их приёмка требует,
+  //     чтобы критический контент оставался доступен во время анимации);
+  //   • приглушённый старт вместо невидимого — роняет axe: контраст 1.29:1 при opacity 0.4 и 3.6:1
+  //     даже при 0.85 против нормы 4.5:1, потому что CTA проходит контраст с малым запасом и ЛЮБАЯ
+  //     прозрачность выводит её за WCAG AA.
+  //
+  // Проверяются ОБА условия сразу, покадрово: мишень никогда не бывает невидимой И никогда не
+  // перестаёт принимать указатель. Второе — сторож против повторного внесения `pointer-events: none`,
+  // правки, которая выглядит очевидной и ломает приёмку двух шагов.
+  test("блок кнопок виден и кликабелен в течение всего каскада", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openDepartment(page, "sales");
+
+    let worstOpacity = 1;
+    for (let i = 0; i < 40; i++) {
+      const sample = await page.evaluate(() => {
+        // Область ОБЯЗАТЕЛЬНО ограничена панелью отдела: в документе есть ещё CTA hero с тем же
+        // href, она к каскаду отношения не имеет — без ограничения замер брал её и был бы зелёным
+        // при любой реализации.
+        const cta = document.querySelector(
+          "[data-cascade-done] a[href^='https://t.me']",
+        ) as HTMLElement | null;
+        if (!cta) return null;
+        let opacity = 1;
+        let node: HTMLElement | null = cta;
+        while (node) {
+          opacity *= Number(getComputedStyle(node).opacity);
+          node = node.parentElement;
+        }
+        const rect = cta.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        return { opacity, clickable: cta === hit || cta.contains(hit) };
+      });
+      expect(sample, "CTA не найдена").not.toBeNull();
+      worstOpacity = Math.min(worstOpacity, sample!.opacity);
+      expect(
+        sample!.clickable,
+        "CTA перестала принимать указатель — регресс Step 15/Step 16 AC3",
+      ).toBe(true);
+      await page.waitForTimeout(90);
+    }
+
+    expect(
+      worstOpacity,
+      `CTA была практически невидимой (${worstOpacity}) — по ней можно кликнуть вслепую`,
+    ).toBeGreaterThan(0.95);
+  });
+
+  // Находка motion Major 3: `.panel` переключается медиазапросом через `display`, а повторный показ
+  // ПЕРЕЗАПУСКАЕТ анимацию с backwards-fill. Проверяются ОБА состояния панели: до выбора боли
+  // (рамка, `.gainInitial`) и после выбора (текст ответа, `.gainTextReveal`). Первая редакция этого
+  // теста меряла только рамку и не выбирала боль — то есть не видела дефект в основном рабочем
+  // состоянии панели, где skeptic его и замерил (текст исчезал на 1.2 с).
+  for (const withChoice of [false, true]) {
+    test(`ресайз через 768px не гасит окно результата (${withChoice ? "боль выбрана" : "до выбора"})`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await openDepartment(page, "sales");
+
+      await page.waitForFunction(
+        () => document.querySelector('[data-cascade-done="true"]') !== null,
+        null,
+        { timeout: 20000 },
+      );
+      await page.waitForTimeout(3600);
+
+      if (withChoice) {
+        await painListOf(page).getByRole("button").nth(1).click();
+        // Дать тексту проявиться полностью до ресайза.
+        await page.waitForTimeout(2200);
+      }
+
+      await page.setViewportSize({ width: 380, height: 780 });
+      await page.waitForTimeout(200);
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.waitForTimeout(150);
+
+      // Меряется САМ анимируемый элемент: рамка <p> до выбора, внутренний <span> после.
+      const opacity = await page.evaluate((chosen) => {
+        const panel = document.querySelector("[data-gain-panel]") as HTMLElement | null;
+        if (!panel) return -1;
+        const target = chosen ? (panel.querySelector("span") as HTMLElement | null) : panel;
+        if (!target) return -1;
+        let value = 1;
+        let node: HTMLElement | null = target;
+        while (node) {
+          value *= Number(getComputedStyle(node).opacity);
+          node = node.parentElement;
+        }
+        return value;
+      }, withChoice);
+
+      expect(
+        opacity,
+        `окно результата погасло до ${opacity} после ресайза — пользователь потерял прочитанный ответ`,
+      ).toBeGreaterThan(0.95);
+    });
+  }
 });

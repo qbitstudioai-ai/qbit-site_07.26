@@ -8,6 +8,12 @@ import type { Department, HomepageCopy, OfficeZone } from "@/content/types";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import styles from "./OfficeMachine.module.css";
 import { initOfficeMachineState, officeMachineReducer, type OfficeSectionId } from "./reducer";
+import {
+  closeReturnCandidateIds,
+  MOBILE_CAROUSEL_CARD_ID,
+  OVERVIEW_MAP_FIRST_CONTROL,
+  sectionHeadingId,
+} from "./focusTargets";
 import { useDepartmentUrlSync } from "./url-sync";
 
 // Ориентировочная длительность (docs/07-motion-system.md "Уровень Transition") — книгоучёт для
@@ -102,7 +108,7 @@ export function OfficeMachine({
     // docs/11) — срабатывает и при открытии из overview, и при переключении между отделами.
     if (state.activeSectionId && state.activeSectionId !== previousActiveIdRef.current) {
       document
-        .getElementById(`department-heading-${state.activeSectionId}`)
+        .getElementById(sectionHeadingId(state.activeSectionId))
         ?.focus({ preventScroll: true });
     }
     if (state.activeSectionId) {
@@ -110,11 +116,11 @@ export function OfficeMachine({
     }
     previousActiveIdRef.current = state.activeSectionId;
 
-    // Focus возвращается на кнопку-хотспот, которая открыла отдел, после завершения закрытия
-    // (docs/11 "после закрытия focus возвращается"). Пробуем по очереди: (1) hotspot-<id>;
-    // (2) стабильный mobile-department-carousel-card (карусель после сброса на первый отдел всегда
-    // рендерит этот id). offsetParent !== null — дешёвая проверка видимости, без CSS-breakpoint
-    // проверки/matchMedia (WORKPLAN.md Step 7, AC 6).
+    // Focus возвращается на контрол, который раздел ОТКРЫЛ, после завершения закрытия
+    // (docs/11 "после закрытия focus возвращается"). Список кандидатов и их порядок живут в
+    // focusTargets.ts вместе со схемой id — см. там же разбор дефекта, из-за которого этот код
+    // отправлял фокус на <body> при закрытии «Вашей задачи». offsetParent !== null — дешёвая
+    // проверка видимости, без CSS-breakpoint проверки/matchMedia (WORKPLAN.md Step 7, AC 6).
     //
     // Step 15 / Amendment 13 изменил не этот код, а факт, на который он опирался. Прежняя редакция
     // комментария объясняла порядок кандидатов тем, что «на ≤767px OfficeSemanticMap скрыта
@@ -125,8 +131,7 @@ export function OfficeMachine({
     if (state.view === "overview" && previousView === "department-closing") {
       const returnId = lastNonNullActiveIdRef.current;
       if (returnId) {
-        const candidateIds = [`hotspot-${returnId}`, "mobile-department-carousel-card"];
-        const target = candidateIds
+        const target = closeReturnCandidateIds(returnId)
           .map((id) => document.getElementById(id))
           .find((el): el is HTMLElement => el !== null && el.offsetParent !== null);
         target?.focus({ preventScroll: true });
@@ -141,8 +146,8 @@ export function OfficeMachine({
     // конец экрана, откуда до сцены пришлось бы возвращаться Shift+Tab.
     if (state.view === "overview" && previousView === "hero") {
       const candidates = [
-        document.querySelector<HTMLElement>('[aria-label="Отделы компании"] button'),
-        document.getElementById("mobile-department-carousel-card"),
+        document.querySelector<HTMLElement>(OVERVIEW_MAP_FIRST_CONTROL),
+        document.getElementById(MOBILE_CAROUSEL_CARD_ID),
       ];
       const target = candidates.find(
         (el): el is HTMLElement => el !== null && el.offsetParent !== null,

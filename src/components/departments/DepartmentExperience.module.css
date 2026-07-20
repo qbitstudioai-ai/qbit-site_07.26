@@ -91,8 +91,10 @@
   animation-delay: 0s;
 }
 
+/* Кнопки видны с первого кадра; анимация оставлена только как якорь времени для защёлки —
+   разбор в stagedReveal.module.css. */
 .stageActions {
-  composes: staged from "./stagedReveal.module.css";
+  composes: stagedHold from "./stagedReveal.module.css";
   animation-delay: 3s;
 }
 
