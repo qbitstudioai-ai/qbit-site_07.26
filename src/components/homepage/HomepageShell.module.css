@@ -1,6 +1,23 @@
+/* Step 15: safe-area компенсируется ЗДЕСЬ, а не в панели офиса. `viewport-fit=cover` (layout.tsx)
+   включён для всего документа, поэтому под вырез и скруглённые углы попадает всё дерево, а не
+   только офис: `Header` с кнопкой возврата и `HeroCopy` с обоими CTA — тоже потомки .shell и лежат
+   ВНЕ .office. Первая редакция этого шага защищала только .office и только три инсета из четырёх —
+   то есть создавала экспозицию шире, чем компенсировала (найдено skeptic Phase B, BLOCKING-2).
+   .shell — единственная точка, которая покрывает всех потомков разом.
+
+   `safe-area-inset-top` включён: именно он ненулевой в портрете на устройстве с вырезом, и без него
+   шапка уезжала бы под статус-бар.
+
+   Отступы не ломают высоту: `box-sizing: border-box` (globals.css) вычитает их из 100dvh, а не
+   добавляет сверху, поэтому `overflow: hidden` и инвариант «нет скролла документа» сохраняются.
+   Фолбэк `0px` обязателен: без него браузер, не знающий переменную, отбросил бы объявление. */
 .shell {
   display: flex;
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
 }

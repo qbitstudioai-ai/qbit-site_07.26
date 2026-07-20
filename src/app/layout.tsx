@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,6 +7,19 @@ export const metadata: Metadata = {
   icons: {
     icon: "/logo.svg",
   },
+};
+
+// Step 15: `viewportFit: "cover"` — обязательная половина работы с safe-area. Без него
+// `env(safe-area-inset-*)` в CSS всегда равен 0px даже на устройстве с вырезом, то есть
+// safe-area-отступы в OfficeExperience.module.css были бы мёртвым кодом. Вторая половина — сами
+// отступы: `cover` без них увёл бы контент ПОД вырез и скруглённые углы, что хуже исходного
+// состояния. Оба изменения вводятся одним шагом и работают только вместе.
+// Значения width/initialScale — те же, что Next.js ставит по умолчанию; они выписаны явно, потому
+// что объявление собственного `viewport` полностью заменяет умолчание, а не дополняет его.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

@@ -26,21 +26,39 @@ async function activateCtaViaSecondary(page: import("@playwright/test").Page) {
 }
 
 test.describe("mobile touch flow (≤767px, Step 7)", () => {
-  test("overview renders the carousel (one card), not the spatial office map (not in the a11y tree)", async ({
+  // Step 15 / Amendment 13 переписал это ожидание, и это смена ПОВЕДЕНИЯ, а не ослабление проверки.
+  // Прежняя редакция утверждала «карта скрыта через display:none, реально убрана из дерева
+  // доступности» — верное описание Step 7 (OQ-M5), но оно оставляло мобильный путь вовсе без «обзора
+  // офиса», который обещают docs/03 «Mobile» и docs/08 п.3. Теперь на ≤767px видимы ОБА: сцена с
+  // пятью тапаемыми зонами сверху и карусель под ней. Проверка стала строже, а не слабее: раньше
+  // достаточно было отсутствия карты, теперь требуется её наличие ВМЕСТЕ с работающей каруселью.
+  test("overview renders BOTH the office scene with five tappable zones and the carousel (Amendment 13)", async ({
     page,
   }) => {
     await page.goto("/");
     await activateCta(page);
 
-    // На ≤767px OfficeSemanticMap скрыта через display:none — реально убрана из дерева
-    // доступности (не просто визуально), см. OfficeSemanticMap.module.css.
-    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
-
     const departments = sortedDepartments();
+
+    const map = page.getByRole("navigation", { name: "Отделы компании" });
+    await expect(map).toBeVisible();
+    await expect(map.getByRole("button")).toHaveCount(5);
+    for (const department of departments) {
+      await expect(map.getByRole("button", { name: department.overviewLabel })).toBeVisible();
+    }
+
     const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
     await expect(
       carousel.getByRole("button", { name: departments[0].overviewLabel }),
     ).toBeVisible();
+
+    // Зона на сцене открывает отдел так же, как карточка карусели, — иначе «интерактивные зоны»
+    // были бы картинкой, а не путём.
+    await map.getByRole("button", { name: departments[3].overviewLabel }).tap();
+    await expect(
+      page.getByRole("heading", { level: 2, name: departments[3].headline }),
+    ).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("department")).toBe(departments[3].id);
   });
 
   test("Step 7.2: ACTIVATE_CTA hides hero and the interaction hint, and moves focus straight to the carousel card, without any Tab press", async ({
@@ -58,11 +76,17 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     // toBeHidden(), а не toHaveCount(0), проверяет именно визуальное сокрытие через CSS.
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
 
+    // Amendment 13: цель focus сместилась с карточки карусели на первую зону сцены, потому что
+    // карта теперь видима и идёт РАНЬШЕ карусели в DOM. Сам механизм не менялся — OfficeMachine.tsx
+    // как и прежде берёт первого ВИДИМОГО кандидата из [первая кнопка карты, карточка карусели];
+    // изменился лишь ответ на вопрос «видима ли карта на мобильном». Фокус на элементе, стоящем
+    // позже в порядке чтения, заставил бы пользователя Shift+Tab-ать назад к сцене, поэтому это
+    // правильная цель, а не побочный эффект.
     const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
-    expect(focusedId).toBe("mobile-department-carousel-card");
+    expect(focusedId).toBe(`hotspot-${sortedDepartments()[0].id}`);
   });
 
-  test("Step 7.2: the secondary CTA also hides hero on mobile and moves focus to the carousel card (AC2/AC5 — same guarantee as the primary CTA)", async ({
+  test("Step 7.2: the secondary CTA also hides hero on mobile and moves focus to the first scene zone (AC2/AC5 — same guarantee as the primary CTA)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -75,8 +99,9 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
 
+    // Та же цель, что у основного CTA выше (Amendment 13) — гарантия обоих входов одинакова.
     const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
-    expect(focusedId).toBe("mobile-department-carousel-card");
+    expect(focusedId).toBe(`hotspot-${sortedDepartments()[0].id}`);
   });
 
   test("Next/Previous browse the carousel locally: URL and machine state stay in overview (no SELECT_DEPARTMENT)", async ({
@@ -186,7 +211,14 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     ).toBeVisible();
   });
 
-  test("closing a non-first department restores focus to a visible element, not silently to <body> (AC 6 — mobile-specific focus-restoration fallback in OfficeMachine.tsx)", async ({
+  // Amendment 13 сместил и результат этой проверки: раньше на мобильном хотспоты были скрыты, и
+  // focus уходил во второго кандидата — стабильную карточку карусели. Теперь первый кандидат
+  // (`hotspot-<id>` закрытого отдела) видим, и focus возвращается именно на него — то есть ровно
+  // туда, куда велит docs/11 («после закрытия focus возвращается»). Карусельный fallback из
+  // OfficeMachine.tsx при этом остаётся живым кодом: он срабатывает, когда карта не отрисована
+  // (например, фотослой и разметка карты недоступны), и продолжает проверяться самим фактом, что
+  // цепочка кандидатов перебирается по видимости.
+  test("closing a non-first department restores focus to the zone of that department, not silently to <body> (AC 6)", async ({
     page,
   }) => {
     await page.goto("/");
@@ -201,7 +233,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
 
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
     const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
-    expect(focusedId).toBe("mobile-department-carousel-card");
+    expect(focusedId).toBe(`hotspot-${departments[2].id}`);
   });
 
   test("direct ?department=<id> on a mobile viewport opens that department immediately, for all 5 ids", async ({

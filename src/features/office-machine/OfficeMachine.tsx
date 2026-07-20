@@ -111,12 +111,17 @@ export function OfficeMachine({
     previousActiveIdRef.current = state.activeSectionId;
 
     // Focus возвращается на кнопку-хотспот, которая открыла отдел, после завершения закрытия
-    // (docs/11 "после закрытия focus возвращается"). На ≤767px OfficeSemanticMap скрыта
-    // (display:none) — .focus() на скрытом элементе no-op, поэтому пробуем по очереди: (1)
-    // hotspot-<id> (сработает на Desktop/Tablet, где карта видима); (2) стабильный
-    // mobile-department-carousel-card (сработает на mobile — карусель после сброса на первый отдел
-    // всегда рендерит этот id). offsetParent !== null — дешёвая проверка видимости, без CSS-brekpoint
+    // (docs/11 "после закрытия focus возвращается"). Пробуем по очереди: (1) hotspot-<id>;
+    // (2) стабильный mobile-department-carousel-card (карусель после сброса на первый отдел всегда
+    // рендерит этот id). offsetParent !== null — дешёвая проверка видимости, без CSS-breakpoint
     // проверки/matchMedia (WORKPLAN.md Step 7, AC 6).
+    //
+    // Step 15 / Amendment 13 изменил не этот код, а факт, на который он опирался. Прежняя редакция
+    // комментария объясняла порядок кандидатов тем, что «на ≤767px OfficeSemanticMap скрыта
+    // (display:none)» — с Amendment 13 карта на мобильном видима, поэтому первый кандидат срабатывает
+    // на ВСЕХ ширинах, и focus возвращается на зону закрытого отдела везде одинаково. Карусельный
+    // кандидат остаётся живым фолбэком для случая, когда карта не отрисована, но сегодня ни один
+    // e2e до него не доходит (честно записано в WORKLOG Step 15).
     if (state.view === "overview" && previousView === "department-closing") {
       const returnId = lastNonNullActiveIdRef.current;
       if (returnId) {
@@ -130,7 +135,10 @@ export function OfficeMachine({
 
     // Step 7.2: hero скрывается сразу после ACTIVATE_CTA — без переноса focus он терялся бы на
     // <body> (docs/11 "Focus"). Тот же принцип "перебрать кандидатов, взять первый видимый", что и
-    // close-fallback выше: первая кнопка карты (Desktop/Tablet) либо карточка карусели (Mobile).
+    // close-fallback выше. Порядок кандидатов совпадает с порядком чтения: карта идёт раньше
+    // карусели в DOM, поэтому со Step 15 / Amendment 13 (карта видима и на мобильном) focus
+    // попадает на первую зону сцены на всех ширинах. Обратный порядок отправил бы пользователя в
+    // конец экрана, откуда до сцены пришлось бы возвращаться Shift+Tab.
     if (state.view === "overview" && previousView === "hero") {
       const candidates = [
         document.querySelector<HTMLElement>('[aria-label="Отделы компании"] button'),

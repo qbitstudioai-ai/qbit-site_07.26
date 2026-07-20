@@ -151,12 +151,15 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     const map = page.getByRole("navigation", { name: "Отделы компании" });
     const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
 
-    // 767px — Mobile: карусель, карта скрыта.
+    // 767px — Mobile: со Step 15 / Amendment 13 это единственная ширина, где видимы ОБА обзора —
+    // сцена с зонами и карусель под ней (мобильный путь docs/03 «обзор, карусель…»). Прежняя
+    // редакция требовала здесь `map` toBeHidden(); утверждение изменено вслед за поведением, а не
+    // ослаблено — карусель по-прежнему обязана быть видимой ровно на этой стороне порога.
     await page.setViewportSize({ width: 767, height: 800 });
     await page.goto("/");
     await activateCta(page);
     await expect(carousel).toBeVisible();
-    await expect(map).toBeHidden();
+    await expect(map).toBeVisible();
 
     // 768px — Tablet: карта, карусель скрыта.
     await page.setViewportSize({ width: 768, height: 800 });

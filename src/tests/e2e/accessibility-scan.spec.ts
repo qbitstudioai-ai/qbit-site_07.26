@@ -35,8 +35,15 @@ function summarize(violations: Awaited<ReturnType<typeof scanSeriousViolations>>
     .join("\n");
 }
 
+// Step 15 (AC4) добавил tablet 1024px. До этого шага скан покрывал только две стороны порога
+// 767/768 и оставлял непроверенным весь диапазон 768–1279 — а он не «промежуточный»: там своя
+// ширина рельса (20% против 14%, Step 7.5), своё безусловное раскрытие `.problem` без hover
+// (DepartmentHotspot.module.css) и своя ширина колонки контента (88%, Step 15). Пробел был записан
+// ещё в WORKLOG Step 9 («axe не покрывает tablet-ширину») и как Minor-1 milestone review Этапа 1;
+// закрывается здесь.
 const viewports = [
   { name: "desktop", width: 1280, height: 800 },
+  { name: "tablet", width: 1024, height: 768 },
   { name: "mobile", width: 375, height: 812 },
 ];
 
