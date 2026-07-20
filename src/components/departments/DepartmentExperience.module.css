@@ -81,6 +81,43 @@
   }
 }
 
+/* Ступени каскада Step 15.5. Сама анимация и обоснование её устройства — в stagedReveal.module.css
+   (единственная копия; прежняя редакция дублировала это объяснение здесь почти дословно, и две копии
+   неминуемо разъехались бы). Блоки 2 и 3 (список болей и окно пояснения) лежат внутри PainGainPanel и
+   получают свои задержки там же — каждая задержка описана рядом с элементом, к которому относится,
+   а не собрана в один список, оторванный от разметки. Общий шаг — 1 с (требование пользователя). */
+.stageCopy {
+  composes: staged from "./stagedReveal.module.css";
+  animation-delay: 0s;
+}
+
+.stageActions {
+  composes: staged from "./stagedReveal.module.css";
+  animation-delay: 3s;
+}
+
+/* Mobile ≤767px: блоков три, а не четыре — PainGainPanel скрыт, вместо него MobilePainGainAccordion
+   (заголовок → аккордеон → кнопки). Ступень кнопок поэтому 2 с, а не 3: иначе после аккордеона
+   висела бы секунда пустоты на месте блока, которого на этой ширине не существует. */
+@media (max-width: 767px) {
+  .stageActions {
+    animation-delay: 2s;
+  }
+}
+
+/* Завершение каскада — ОДНОСТОРОННЯЯ ЗАЩЁЛКА через data-атрибут, а не обратимое CSS-условие.
+   Это исправление измеренного дефекта (skeptic Phase B, BLOCKING-1), а не стилистика. Прежняя
+   редакция писала `:has(button:focus-visible) { animation: none }`. Когда условие переставало
+   выполняться, `animation` возвращалась — а возврат анимации по спецификации это СТАРТ НОВОЙ, вместе
+   с `backwards`-fill, который снова держит opacity 0 всю задержку. Замерено: после полностью
+   отыгранного каскада обычный Tab к рельсу гасил CTA и «Закрыть» ещё на 3 секунды, и так
+   неограниченно. `data-cascade-done` ставится один раз (DepartmentExperience.tsx) и не снимается,
+   поэтому обратного хода нет по построению. */
+.experience[data-cascade-done="true"] .stageCopy,
+.experience[data-cascade-done="true"] .stageActions {
+  animation: none;
+}
+
 .actions {
   display: flex;
   flex-shrink: 0;

@@ -9,6 +9,14 @@ interface TypedTextProps {
   text: string;
   /** Задержка между символами, мс. */
   stepMs?: number;
+  /**
+   * Пауза перед началом печати, мс (Step 15.5). Нужна потому, что окно пояснения появляется не
+   * сразу, а ступенью каскада: без паузы текст набирался бы под ещё невидимым блоком и к моменту
+   * его появления оказался бы уже готовым — печати пользователь не увидел бы вовсе.
+   * Значение обязано совпадать с `animation-delay` соответствующей ступени в
+   * PainGainPanel.module.css; оба берутся из констант в PainGainPanel.tsx.
+   */
+  startDelayMs?: number;
 }
 
 const DEFAULT_STEP_MS = 14;
@@ -54,7 +62,7 @@ function typedCountReducer(typedCount: number, action: TypingAction): number {
   return Math.min(typedCount + 1, action.total);
 }
 
-export function TypedText({ text, stepMs = DEFAULT_STEP_MS }: TypedTextProps) {
+export function TypedText({ text, stepMs = DEFAULT_STEP_MS, startDelayMs = 0 }: TypedTextProps) {
   const prefersReducedMotion = usePrefersReducedMotion();
 
   // Сколько символов уже «напечатано». Начальное значение — весь текст: на сервере и до эффекта
@@ -71,14 +79,26 @@ export function TypedText({ text, stepMs = DEFAULT_STEP_MS }: TypedTextProps) {
     // интервал снимается в cleanup. Отдельной логики отмены не нужно.
     dispatch({ type: "restart" });
     let shown = 0;
-    const timer = setInterval(() => {
-      shown += 1;
-      dispatch({ type: "advance", total: text.length });
-      if (shown >= text.length) clearInterval(timer);
-    }, stepMs);
+    let typing: ReturnType<typeof setInterval> | undefined;
 
-    return () => clearInterval(timer);
-  }, [text, stepMs, prefersReducedMotion]);
+    // Пауза перед стартом (Step 15.5). Символы всё это время уже в DOM, просто прозрачны — то есть
+    // ожидание касается только визуальной печати, а доступный слой с полным текстом виден AT сразу,
+    // как и раньше.
+    const startTimer = setTimeout(() => {
+      typing = setInterval(() => {
+        shown += 1;
+        dispatch({ type: "advance", total: text.length });
+        if (shown >= text.length) clearInterval(typing);
+      }, stepMs);
+    }, startDelayMs);
+
+    // Снимаются ОБА таймера: без очистки startTimer быстрое переключение боли оставило бы
+    // отложенный старт от предыдущего текста, и он запустил бы вторую печать поверх новой.
+    return () => {
+      clearTimeout(startTimer);
+      if (typing) clearInterval(typing);
+    };
+  }, [text, stepMs, startDelayMs, prefersReducedMotion]);
 
   if (prefersReducedMotion) {
     return <>{text}</>;

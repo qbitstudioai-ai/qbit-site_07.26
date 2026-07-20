@@ -13,13 +13,29 @@ interface PainGainPanelProps {
 // редьюсер, не меняет URL. Родитель (DepartmentExperience) передаёт key={department.id}, поэтому
 // компонент полностью размонтируется/монтируется заново при SWITCH_DEPARTMENT — состояние
 // гарантированно сбрасывается на пункт №1 (OQ-P2/OQ-P3), а не переносит устаревший индекс.
+// Step 15.5: ступени каскада появления, общий шаг 1 с (требование пользователя). Числа объявлены
+// здесь, а не только в CSS, потому что их обязаны знать оба механизма — и анимация видимости блока,
+// и старт печати текста внутри него. Разъехавшись, они дали бы напечатанный текст в невидимом окне.
+const INITIAL_DELAY_MS = 2000;
+const RESELECT_DELAY_MS = 1000;
+
+// Решение, зафиксированное явно (skeptic Phase B, non-blocking 3): повторный клик по УЖЕ выбранной
+// боли пояснение НЕ переоткрывает — `key` не меняется, значит нет ни перемонтирования, ни повторной
+// анимации. Формально это расходится с буквальным «нажал на боль → через 1 с появилось пояснение»,
+// но переоткрывать ответ на вопрос, который не менялся, значит на секунду прятать от пользователя
+// текст, который он в этот момент читает. Перемигивание по клику в уже выбранный пункт читалось бы
+// как сбой, а не как отклик.
+
 export function PainGainPanel({ painPoints }: PainGainPanelProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  // Отличает первый показ отдела от осознанного выбора другой боли. Сравнивать selectedIndex с 0
+  // нельзя: пользователь может выбрать первый пункт повторно, и это уже «смена боли», а не открытие.
+  const [hasChosen, setHasChosen] = useState(false);
   const selected = painPoints[selectedIndex];
 
   return (
     <div className={styles.panel} data-testid="pain-gain-panel">
-      <ul className={styles.painList}>
+      <ul className={`${styles.painList} ${styles.stagePains}`}>
         {painPoints.map((point, index) => {
           const isSelected = index === selectedIndex;
           return (
@@ -32,7 +48,10 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
                     : styles.painButton
                 }
                 aria-pressed={isSelected}
-                onClick={() => setSelectedIndex(index)}
+                onClick={() => {
+                  setSelectedIndex(index);
+                  setHasChosen(true);
+                }}
               >
                 {/* Слот постоянной ширины: занимает место и когда пуст, поэтому появление маркера
                     не смещает текст и не меняет перенос строк (Amendment 12 — именно из-за таких
@@ -69,8 +88,31 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
           (см. док-комментарий там) — иначе объявление шло бы обрывками.
           key={selected.pain} перезапускает печать при смене пункта: без него React переиспользовал бы
           состояние и новый текст мог бы доехать уже «напечатанным». */}
-      <p className={styles.gain} aria-live="polite">
-        <TypedText key={selected.pain} text={selected.gain} />
+      {/* Step 15.5. Здесь встречаются ДВА разных каскада, и различать их существенно:
+          • при открытии/переключении отдела окно пояснения — третья ступень общего каскада (2 с),
+            и появляется САМО ОКНО целиком (класс на <p>);
+          • при выборе другой боли внутри уже открытого отдела остальные блоки не трогаются вовсе, а
+            здесь заново появляется ТЕКСТ через 1 с (класс на внутреннем <span>).
+
+          Почему перезапуск анимации сделан ключом на внутреннем <span>, а не на самом <p>: CSS
+          перезапускает анимацию только при перемонтировании узла, но <p> — это живой регион
+          (aria-live), и замена самого его узла — известный способ ПОТЕРЯТЬ объявление в части
+          скринридеров. Живой регион обязан оставаться смонтированным, а меняться должно его
+          содержимое — именно на смену содержимого живые регионы и рассчитаны. Заодно это защищает
+          инвариант Amendment 12: геометрию окна задаёт список болей, и она не трогается вовсе.
+
+          Задержка печати передаётся в TypedText тем же числом: иначе текст печатался бы под ещё
+          невидимым блоком и к моменту появления оказался бы уже набранным. */}
+      <p
+        className={hasChosen ? styles.gain : `${styles.gain} ${styles.gainInitial}`}
+        aria-live="polite"
+      >
+        <span key={selectedIndex} className={hasChosen ? styles.gainTextReveal : undefined}>
+          <TypedText
+            text={selected.gain}
+            startDelayMs={hasChosen ? RESELECT_DELAY_MS : INITIAL_DELAY_MS}
+          />
+        </span>
       </p>
     </div>
   );

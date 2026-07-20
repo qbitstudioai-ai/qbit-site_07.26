@@ -46,3 +46,18 @@
     display: flex;
   }
 }
+
+/* Step 15.5: вторая ступень мобильного каскада (заголовок → аккордеон → кнопки). Сама анимация —
+   в stagedReveal.module.css (там объяснено, почему её нельзя объявить глобально).
+   Анимируется только видимость: пункты боли лежат в DOM и в дереве доступности с первого кадра.
+   Клавиатурный вход завершает каскад мгновенно, чтобы нельзя было сфокусировать невидимую кнопку —
+   та же причина и тот же приём, что в DepartmentExperience.module.css. */
+.stageAccordion {
+  composes: staged from "./stagedReveal.module.css";
+  animation-delay: 1s;
+}
+
+/* Односторонняя защёлка — см. DepartmentExperience.module.css. */
+[data-cascade-done="true"] .stageAccordion {
+  animation: none;
+}

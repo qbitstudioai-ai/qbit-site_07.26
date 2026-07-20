@@ -16,7 +16,10 @@ export function MobilePainGainAccordion({ painPoints }: MobilePainGainAccordionP
   const [expandedIndex, setExpandedIndex] = useState(0);
 
   return (
-    <ul className={styles.accordion} data-testid="mobile-pain-gain-accordion">
+    <ul
+      className={`${styles.accordion} ${styles.stageAccordion}`}
+      data-testid="mobile-pain-gain-accordion"
+    >
       {painPoints.map((point, index) => {
         const isExpanded = index === expandedIndex;
         const gainId = `mobile-pain-gain-${index}`;
