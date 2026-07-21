@@ -647,9 +647,20 @@ test.describe("Step 17 — швы каскада, найденные milestone r
           opacity *= Number(getComputedStyle(node).opacity);
           node = node.parentElement;
         }
+        // Step 20: со времени добавления BeforeAfterSequence экран отдела «Продажи» стал выше панели
+        // и прокручивается внутри себя, поэтому CTA может оказаться ниже сгиба. Сторож проверяет НЕ
+        // «CTA в начальном вьюпорте», а что она НЕ погашена и НЕ перестала принимать указатель
+        // (регресс `pointer-events: none`/opacity, Step 15/17) — для этого приводим её в вид и
+        // мерим уже там. Прокрутка сохраняет смысл проверки; без неё elementFromPoint за пределами
+        // вьюпорта вернул бы null и сторож ложно «упал» бы на честной прокрутке, а не на регрессе.
+        cta.scrollIntoView({ block: "center" });
         const rect = cta.getBoundingClientRect();
         const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-        return { opacity, clickable: cta === hit || cta.contains(hit) };
+        const pointerEvents = getComputedStyle(cta).pointerEvents;
+        return {
+          opacity,
+          clickable: (cta === hit || cta.contains(hit)) && pointerEvents !== "none",
+        };
       });
       expect(sample, "CTA не найдена").not.toBeNull();
       worstOpacity = Math.min(worstOpacity, sample!.opacity);

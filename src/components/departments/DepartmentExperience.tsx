@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CarouselNavControls } from "@/components/office/CarouselNavControls";
 import type { Department, DepartmentId } from "@/content/types";
 import type { OfficeMachineView } from "@/features/office-machine/reducer";
+import { BeforeAfterSequence } from "./BeforeAfterSequence";
 import { DepartmentCopy } from "./DepartmentCopy";
 import { DepartmentCTA } from "./DepartmentCTA";
 import { MobilePainGainAccordion } from "./MobilePainGainAccordion";
@@ -19,8 +20,10 @@ interface DepartmentExperienceProps {
 }
 
 // Реальная ~90%-область активного отдела (Step 6), полностью заменяет временный
-// ActiveDepartmentPanel из Step 5 (см. WORKPLAN.md Step 6 Expected files). DepartmentScene/
-// BeforeAfterSequence сознательно не создаются (решение OQ-C, DECISIONS.md 2026-07-15).
+// ActiveDepartmentPanel из Step 5 (см. WORKPLAN.md Step 6 Expected files). BeforeAfterSequence
+// отложен был решением OQ-C (DECISIONS.md 2026-07-15) до Этапа 3 и подключён здесь на Step 20
+// (только для отделов с заполненными шагами процесса). DepartmentScene по-прежнему отдельного
+// компонента не имеет — фон отдела рисует общий сцен-слой (SceneCrossfade, Step 18).
 export function DepartmentExperience({
   department,
   machineView,
@@ -114,6 +117,20 @@ export function DepartmentExperience({
           карта/карусель, Step 7). */}
       <PainGainPanel key={`desktop-${department.id}`} painPoints={department.painPoints} />
       <MobilePainGainAccordion key={`mobile-${department.id}`} painPoints={department.painPoints} />
+      {/* Последовательность «до/после» (Step 20) — между болями и кнопками. Рендерится ТОЛЬКО у
+          отдела с заполненными шагами процесса (сегодня «Продажи», пилот Этапа 3; остальные — на
+          Этапах 4–7), поэтому интеграция обобщаема и не ломает отделы без этих данных.
+          В КАСКАД НЕ ВХОДИТ намеренно (Amendment 16: «каскад оставить как есть»): не несёт классов
+          .staged/.stagedHold, поэтому тайминги существующих блоков (copy 0с, боли 1с, пояснение 2с,
+          кнопки — якорь 3с) не меняются. Своя трансформация «сейчас → после» — самостоятельный
+          motion внутри компонента, критический контент от неё не зависит. */}
+      {department.beforeSteps && department.automationSteps ? (
+        <BeforeAfterSequence
+          beforeSteps={department.beforeSteps}
+          automationSteps={department.automationSteps}
+          headingId={`before-after-heading-${department.id}`}
+        />
+      ) : null}
       {/* Блок кнопок. Со Step 17 (Amendment 17) он ВИДИМ С ПЕРВОГО КАДРА и в каскад не входит:
           CTA и «Закрыть» кликабельны и достижимы клавиатурой всё время (CLAUDE.md «CTA remains easy
           to reach», docs/07 про критические кнопки после анимации).

@@ -1,0 +1,187 @@
+/* Step 20 — последовательность «до/после» отдела. Карточка поверх сцены отдела, тот же контракт
+   читаемости, что у DepartmentCopy/PainGainPanel: фон --scrim-panel (α 0.9, рассчитан на ХУДШИЙ
+   участок фото), поэтому цвета текста берутся из тёмных graphite-токенов, проходящих AA над
+   композитом (225,221,215): label graphite-900 → 12.82:1, description/actor graphite-700 → 7.90:1.
+   graphite-500 здесь НЕ используется намеренно: над тем же композитом он даёт 4.31:1 — ниже AA. */
+.card {
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 8px;
+  background: var(--scrim-panel);
+  box-shadow: var(--elevation-3);
+}
+
+.heading {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-graphite-900);
+  margin-bottom: var(--space-3);
+}
+
+/* Три колонки: [сейчас] [коннектор] [после]. Коннектор — auto, колонки делят остаток поровну.
+   align-items: start — колонки с разным числом шагов выравниваются по верху, а не растягиваются. */
+.columns {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: start;
+  gap: var(--space-4);
+}
+
+.column {
+  min-width: 0;
+}
+
+/* Заголовок колонки несёт СМЫСЛ «до»/«после» ТЕКСТОМ — это первичный (не цветовой) канал различия
+   двух состояний (CLAUDE.md: «Meaning never relies only on colour»). Цвет лишь усиливает: «после» —
+   шалфейный (маркер выигрыша, sage-700 → 6.43:1+), «сейчас» — нейтральный graphite-700. */
+.columnHeading {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--space-2);
+}
+
+.columnHeading.before {
+  color: var(--color-graphite-700);
+}
+
+.columnHeading.after {
+  color: var(--color-sage-700);
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.step {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+/* Маркер шага — форма кодирует статус (см. StepMarker в .tsx). Цвет усиливает форму, но не заменяет:
+   «сейчас» — янтарь (внимание), «после» — шалфей (решено). Порог контраста для графики — 3:1
+   (нетекст), обе пары проходят. flex-shrink: 0 — маркер не сжимается под длинным текстом. */
+.marker {
+  flex-shrink: 0;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.marker svg {
+  width: 100%;
+  height: 100%;
+}
+
+.marker.before {
+  color: var(--color-accent-warm);
+}
+
+.marker.after {
+  color: var(--color-sage-700);
+}
+
+.stepText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.stepLabel {
+  font-weight: 600;
+  color: var(--color-graphite-900);
+}
+
+.stepDescription {
+  font-size: var(--font-size-sm);
+  color: var(--color-graphite-700);
+}
+
+/* actor — кто выполняет шаг (Менеджер/Система): показывает сдвиг ручного труда к автоматическому.
+   graphite-700, а не graphite-500 (тот ниже AA над скримом), отличается размером/разрядкой. */
+.stepActor {
+  margin-top: 2px;
+  font-size: var(--font-size-xs);
+  letter-spacing: 0.03em;
+  color: var(--color-graphite-700);
+}
+
+/* Коннектор «сейчас → после» — единственный анимируемый элемент, декоративный. Форма — треугольник-
+   маршрут логотипа (RouteMarker), тот же графический язык, что в рельсе. */
+.connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  color: var(--color-graphite-500);
+}
+
+.connectorMarker {
+  width: 28px;
+  height: 28px;
+  /* Базовое состояние — видимое и на месте: reduced-motion снимает анимацию, и коннектор просто
+     стоит здесь, а не остаётся невидимым. */
+  opacity: 1;
+  animation: before-after-flow 700ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* Однократный проезд коннектора слева направо — читается как «поток из „сейчас“ в „после“».
+   Только transform и opacity (docs/10). Текст колонок при этом на opacity 1 всегда — критический
+   контент от анимации не зависит (CLAUDE.md). */
+@keyframes before-after-flow {
+  from {
+    transform: translate3d(-8px, 0, 0);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+/* ≤767px: колонки встают друг под друга, коннектор смотрит вниз. Проезд коннектора тоже
+   переориентируется на вертикаль. */
+@media (max-width: 767px) {
+  .columns {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+
+  .connector {
+    justify-self: center;
+  }
+
+  .connectorMarker {
+    transform: rotate(90deg);
+    animation-name: before-after-flow-vertical;
+  }
+}
+
+@keyframes before-after-flow-vertical {
+  from {
+    transform: rotate(90deg) translate3d(-8px, 0, 0);
+    opacity: 0;
+  }
+  to {
+    transform: rotate(90deg) translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+/* prefers-reduced-motion: коннектор не едет вовсе. Глобальное правило globals.css схлопывает
+   ДЛИТЕЛЬНОСТЬ, но здесь важно снять и сам transform из кейфрейма (иначе на мобильном осталась бы
+   доигрывать смещённая позиция); поэтому анимация убирается полностью, а видимость держит базовый
+   opacity: 1. */
+@media (prefers-reduced-motion: reduce) {
+  .connectorMarker {
+    animation: none;
+  }
+}

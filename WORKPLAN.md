@@ -5910,7 +5910,11 @@ scope, оформляется Amendment):
 
 ## Step 20 — `BeforeAfterSequence` для «Продаж»: DOM/SVG-диаграмма [user-facing/motion]
 
-- Status: `PROPOSED`
+- Status: `COMPLETED` (skeptic `PASS`, блокирующих нет. Правка аккордеона `flex:1`→`flex-shrink:0`
+  подтверждена как исправление реального регресса и в scope; правка теста CTA сохраняет и усиливает
+  сторож. 3 non-blocking вынесены на milestone ux/qa: CTA под сгибом на низких desktop (watch-item,
+  не нарушение — внутренний скролл, видна с 1 кадра, Escape закрывает), возможное ужесточение
+  reduced-motion-теста, смягчение «CRM»/абсолютов. Переход к Step 21 разрешён.)
 - Objective: показать в экране «Продажи» трансформацию процесса «до/после» DOM/SVG-диаграммой,
   встроенной в экран отдела, не меняя тайминги принятого каскада.
 - Dependencies: Step 19.

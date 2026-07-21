@@ -143,6 +143,43 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
     expect(screen.getByRole("region", { name: department.overviewLabel })).toBeInTheDocument();
   });
 
+  // Step 20: «до/после» рендерится ТОЛЬКО у отдела с заполненными шагами процесса. Сегодня это
+  // «Продажи» (пилот Этапа 3); отдел без данных не должен получать пустой блок.
+  it("renders the BeforeAfterSequence for a department that has process steps (sales)", () => {
+    render(
+      <DepartmentExperience
+        department={department}
+        machineView="department-active"
+        departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
+        onSelectDepartment={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByRole("region", { name: "Как меняется работа" })).toBeInTheDocument();
+    // Оба состояния присутствуют.
+    expect(screen.getByText("Сейчас")).toBeInTheDocument();
+    expect(screen.getByText("После автоматизации")).toBeInTheDocument();
+  });
+
+  it("does NOT render the BeforeAfterSequence for a department without process steps", () => {
+    const withoutSteps = departments.find(
+      (d) => d.beforeSteps === undefined && d.automationSteps === undefined,
+    );
+    expect(withoutSteps, "ожидался отдел без шагов процесса (все, кроме sales)").toBeDefined();
+    render(
+      <DepartmentExperience
+        department={withoutSteps!}
+        machineView="department-active"
+        departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
+        onSelectDepartment={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("region", { name: "Как меняется работа" })).not.toBeInTheDocument();
+  });
+
   it("renders CarouselNavControls (Step 7) after the actions block, with wrap-around prev/next relative to the departments array", () => {
     const onSelectDepartment = vi.fn();
     // sales — первый в data/departments.json (см. src/content/departments.ts) — не единственный
