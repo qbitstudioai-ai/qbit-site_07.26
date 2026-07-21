@@ -9,6 +9,7 @@ import {
   OFFICE_SCENE_WIDTHS,
 } from "@/components/office/departmentPhotos";
 import { getDepartments } from "@/content/departments";
+import { getHomepageCopy } from "@/content/homepage-copy";
 
 // Уровень jsdom: реальной сети нет, поэтому onError диспатчится вручную. Настоящее поведение
 // браузера при недоступном файле проверяется e2e (reduced-motion-and-fallback.spec.ts, route.abort).
@@ -97,7 +98,7 @@ describe("DepartmentNavigationRail with a failed photo layer (Step 8, AC 2)", ()
       <DepartmentNavigationRail
         departments={departments}
         activeSectionId="sales"
-        taskRailLabel="Ваша задача"
+        taskCopy={getHomepageCopy().taskSection}
         onSelectDepartment={() => {}}
       />,
     );

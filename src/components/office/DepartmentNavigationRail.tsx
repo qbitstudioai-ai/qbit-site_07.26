@@ -1,5 +1,6 @@
-import type { Department } from "@/content/types";
-import { TASK_SECTION_ID, type OfficeSectionId } from "@/features/office-machine/reducer";
+import type { Department, DepartmentId, TaskSectionCopy } from "@/content/types";
+import { type OfficeSectionId } from "@/features/office-machine/reducer";
+import { buildOfficeSections } from "@/features/office-machine/sections";
 import { photoByDepartmentId } from "./departmentPhotos";
 import { RouteMarker } from "@/components/graphics/RouteMarker";
 import { OfficePhoto } from "./OfficePhoto";
@@ -8,8 +9,8 @@ import styles from "./DepartmentNavigationRail.module.css";
 interface DepartmentNavigationRailProps {
   departments: Department[];
   activeSectionId: OfficeSectionId | null;
-  /** Подпись шестого пункта — раздела «Ваша задача» (Step 12.7). */
-  taskRailLabel: string;
+  /** Копирайт раздела «Ваша задача» — источник подписи его пункта в реестре разделов (Step 18). */
+  taskCopy: TaskSectionCopy;
   onSelectDepartment: (sectionId: OfficeSectionId) => void;
 }
 
@@ -33,84 +34,73 @@ interface DepartmentNavigationRailProps {
 export function DepartmentNavigationRail({
   departments,
   activeSectionId,
-  taskRailLabel,
+  taskCopy,
   onSelectDepartment,
 }: DepartmentNavigationRailProps) {
-  const isTaskActive = activeSectionId === TASK_SECTION_ID;
+  // Step 18: рельс идёт по РЕЕСТРУ разделов, а не по «пять отделов циклом плюс шестой литералом».
+  // Прежняя редакция повторяла разметку активного/неактивного состояния дважды, и любая правка
+  // поведения пункта требовала одинаковой правки в двух местах — расхождение между ними было бы
+  // видно только глазами.
+  const sections = buildOfficeSections(departments, taskCopy);
+
   return (
     <nav aria-label="Панель отделов" className={styles.rail}>
       <ul className={styles.list}>
-        {departments.map((department) => {
-          const isActive = department.id === activeSectionId;
+        {sections.map((section) => {
+          const isActive = section.id === activeSectionId;
+          const isDepartment = section.kind === "department";
+          // Миниатюра — признак отдела: у разделов иного рода фотографии нет и быть не должно.
+          const thumbnail = isDepartment ? (
+            <span className={styles.thumbnailWrap}>
+              <OfficePhoto
+                src={photoByDepartmentId[section.id as DepartmentId]}
+                className={styles.thumbnail}
+              />
+            </span>
+          ) : null;
+
           return (
             // aria-current стоит на <li>, а НЕ на внутреннем <span>: у span нет роли, Chromium
             // сводит его к `generic` и атрибут до дерева доступности не доходит вовсе (проверено
             // снимком AX-дерева, skeptic Phase B Step 14). У <li> роль listitem — настоящая, и
             // атрибут на ней сохраняется.
+            //
+            // Разделы, не являющиеся отделами, отделены визуально (.taskItem) и по смыслу: это не
+            // часть офиса, а прямой путь написать о своей задаче (Step 12.7). Ведут себя как
+            // остальные пункты — активный рендерится не кнопкой, а маркером, поэтому
+            // Tab-последовательность рельса остаётся «все пункты, кроме текущего».
             <li
-              key={department.id}
-              className={styles.item}
+              key={section.id}
+              className={isDepartment ? styles.item : `${styles.item} ${styles.taskItem}`}
               aria-current={isActive ? "true" : undefined}
             >
               {isActive ? (
                 <span className={styles.current}>
-                  <span className={styles.thumbnailWrap}>
-                    <OfficePhoto
-                      src={photoByDepartmentId[department.id]}
-                      className={styles.thumbnail}
-                    />
-                  </span>
+                  {thumbnail}
                   <RouteMarker direction="up" className={styles.currentMark} />
                   {/* Текстовый эквивалент статуса — третий канал, которого требует план (форма +
                       aria-current + текст). Он же единственный, что не зависит от того, как браузер
                       обходится с ARIA на элементах без роли: это обычный текст в дереве
                       доступности. Скрыт визуально, потому что зрячему статус уже сообщают маркер,
                       фон и начертание. */}
-                  <span className={styles.statusText}>Текущий отдел: </span>
-                  {department.overviewLabel}
+                  <span className={styles.statusText}>
+                    {isDepartment ? "Текущий отдел: " : "Текущий раздел: "}
+                  </span>
+                  {section.railLabel}
                 </span>
               ) : (
                 <button
                   type="button"
                   className={styles.railButton}
-                  onClick={() => onSelectDepartment(department.id)}
+                  onClick={() => onSelectDepartment(section.id)}
                 >
-                  <span className={styles.thumbnailWrap}>
-                    <OfficePhoto
-                      src={photoByDepartmentId[department.id]}
-                      className={styles.thumbnail}
-                    />
-                  </span>
-                  {department.overviewLabel}
+                  {thumbnail}
+                  {section.railLabel}
                 </button>
               )}
             </li>
           );
         })}
-        {/* Step 12.7: шестой пункт — «Ваша задача». Отделён от пяти отделов и визуально
-            (см. .taskItem), и по смыслу: это не отдел офиса, а прямой путь написать о своей задаче.
-            Ведёт себя как остальные пункты — активный рендерится не кнопкой, а маркером, поэтому
-            Tab-последовательность рельса остаётся «все пункты, кроме текущего». */}
-        <li
-          className={`${styles.item} ${styles.taskItem}`}
-          aria-current={isTaskActive ? "true" : undefined}
-        >
-          {isTaskActive ? (
-            <span className={styles.current}>
-              <RouteMarker direction="up" className={styles.currentMark} />
-              <span className={styles.statusText}>Текущий раздел: </span>
-              {taskRailLabel}
-            </span>
-          ) : (
-            <button
-              type="button"
-              className={styles.railButton}
-              onClick={() => onSelectDepartment(TASK_SECTION_ID)}
-            >
-              {taskRailLabel}
-            </button>
-          )}
-        </li>
       </ul>
     </nav>
   );

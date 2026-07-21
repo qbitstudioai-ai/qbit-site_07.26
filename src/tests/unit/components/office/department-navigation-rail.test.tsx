@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DepartmentNavigationRail } from "@/components/office/DepartmentNavigationRail";
 import { getDepartments } from "@/content/departments";
+import { getHomepageCopy } from "@/content/homepage-copy";
 
 describe("DepartmentNavigationRail", () => {
   const departments = getDepartments();
@@ -12,7 +13,7 @@ describe("DepartmentNavigationRail", () => {
       <DepartmentNavigationRail
         departments={departments}
         activeSectionId="sales"
-        taskRailLabel="Ваша задача"
+        taskCopy={getHomepageCopy().taskSection}
         onSelectDepartment={() => {}}
       />,
     );
@@ -29,7 +30,7 @@ describe("DepartmentNavigationRail", () => {
       <DepartmentNavigationRail
         departments={departments}
         activeSectionId="sales"
-        taskRailLabel="Ваша задача"
+        taskCopy={getHomepageCopy().taskSection}
         onSelectDepartment={() => {}}
       />,
     );
@@ -46,7 +47,7 @@ describe("DepartmentNavigationRail", () => {
       <DepartmentNavigationRail
         departments={departments}
         activeSectionId="sales"
-        taskRailLabel="Ваша задача"
+        taskCopy={getHomepageCopy().taskSection}
         onSelectDepartment={() => {}}
       />,
     );
@@ -83,7 +84,7 @@ describe("DepartmentNavigationRail", () => {
       <DepartmentNavigationRail
         departments={departments}
         activeSectionId="sales"
-        taskRailLabel="Ваша задача"
+        taskCopy={getHomepageCopy().taskSection}
         onSelectDepartment={() => {}}
       />,
     );
@@ -97,7 +98,7 @@ describe("DepartmentNavigationRail", () => {
       <DepartmentNavigationRail
         departments={departments}
         activeSectionId="sales"
-        taskRailLabel="Ваша задача"
+        taskCopy={getHomepageCopy().taskSection}
         onSelectDepartment={onSelectDepartment}
       />,
     );

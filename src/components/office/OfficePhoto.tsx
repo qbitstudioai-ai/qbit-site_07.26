@@ -155,6 +155,11 @@ export function OfficeScenePhoto({ sources, sizes, className, onReady }: OfficeS
         ref={detectAlreadyFailed}
         src={widestWebp.src}
         alt=""
+        // Стабильный, не хешируемый CSS Modules хук: «это кадр сцены офиса», независимо от того,
+        // кто его рендерит. Нужен сторожу укрытости (Step 18): он обязан видеть кадр на ВСЁМ пути
+        // overview→отдел, а привязка к контейнеру перехода видела бы только его вторую половину —
+        // ровно поэтому дефект пути overview→отдел и дожил до конца этапа незамеченным.
+        data-office-scene="true"
         className={className}
         decoding="async"
         // Сцена не нужна для первой отрисовки: hero — самостоятельный HTML, а офис раскрывается

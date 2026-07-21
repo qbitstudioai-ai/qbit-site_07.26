@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef } from "react";
+import { useEffect, useMemo, useReducer, useRef } from "react";
 import { Header } from "@/components/homepage/Header";
 import { HeroCopy } from "@/components/homepage/HeroCopy";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
@@ -9,11 +9,11 @@ import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import styles from "./OfficeMachine.module.css";
 import { initOfficeMachineState, officeMachineReducer, type OfficeSectionId } from "./reducer";
 import {
-  closeReturnCandidateIds,
   MOBILE_CAROUSEL_CARD_ID,
   OVERVIEW_MAP_FIRST_CONTROL,
   sectionHeadingId,
 } from "./focusTargets";
+import { buildOfficeSections, closeReturnCandidateIds } from "./sections";
 import { useDepartmentUrlSync } from "./url-sync";
 
 // Ориентировочная длительность (docs/07-motion-system.md "Уровень Transition") — книгоучёт для
@@ -96,6 +96,14 @@ export function OfficeMachine({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [state.activeSectionId]);
 
+  // Реестр разделов (Step 18) — источник знания о том, какой контрол открыл раздел. useMemo, а не
+  // вычисление внутри эффекта: иначе новый массив на каждый рендер попадал бы в зависимости эффекта
+  // и перезапускал бы перенос фокуса на ровном месте.
+  const sections = useMemo(
+    () => buildOfficeSections(departments, copy.taskSection),
+    [departments, copy.taskSection],
+  );
+
   const previousActiveIdRef = useRef<OfficeSectionId | null>(null);
   const lastNonNullActiveIdRef = useRef<OfficeSectionId | null>(null);
   const previousViewRef = useRef(state.view);
@@ -131,7 +139,7 @@ export function OfficeMachine({
     if (state.view === "overview" && previousView === "department-closing") {
       const returnId = lastNonNullActiveIdRef.current;
       if (returnId) {
-        const target = closeReturnCandidateIds(returnId)
+        const target = closeReturnCandidateIds(sections, returnId)
           .map((id) => document.getElementById(id))
           .find((el): el is HTMLElement => el !== null && el.offsetParent !== null);
         target?.focus({ preventScroll: true });
@@ -163,7 +171,7 @@ export function OfficeMachine({
     if (state.view === "hero" && previousView !== "hero") {
       document.getElementById("hero-heading")?.focus({ preventScroll: true });
     }
-  }, [state.view, state.activeSectionId]);
+  }, [state.view, state.activeSectionId, sections]);
 
   const handleActivateCta = () => dispatch({ type: "ACTIVATE_CTA" });
   const handleReturnToHero = () => dispatch({ type: "RETURN_TO_HERO" });

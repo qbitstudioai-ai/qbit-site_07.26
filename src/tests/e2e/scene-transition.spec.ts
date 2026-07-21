@@ -162,6 +162,65 @@ async function minSceneCoverage(page: Page, action: () => Promise<void>) {
   });
 }
 
+/**
+ * То же, что {@link minSceneCoverage}, но по ЛЮБОМУ кадру сцены офиса, а не только по слоям
+ * контейнера перехода (Step 18).
+ *
+ * Разница не техническая. Все три сторожа укрытости Amendment 15 входят через `?department=<id>` и
+ * переключаются рельсом, то есть щупают только путь отдел→отдел, где обе сцены рендерит один и тот
+ * же контейнер. На пути overview→отдел кадр меняет ХОЗЯИНА: до нажатия его рисует карта офиса, после
+ * — контейнер перехода. Селектор по контейнеру в этот момент не видит ничего и отчитался бы об
+ * укрытости 0 ещё до всякого дефекта, поэтому дефект этого пути не мог быть пойман ни одним из них
+ * ПО ПОСТРОЕНИЮ — именно поэтому он и дожил до конца этапа.
+ *
+ * `img[data-office-scene]` описывает требование напрямую: «на экране есть непрозрачный кадр сцены»,
+ * безотносительно того, кто его сейчас держит.
+ */
+async function minSceneCoverageAnywhere(page: Page, action: () => Promise<void>) {
+  await page.evaluate(() => {
+    window.__sceneMinCoverage = 1;
+    const tick = () => {
+      const images = [...document.querySelectorAll("img[data-office-scene]")];
+      const decoded = images
+        .filter((image) => (image as HTMLImageElement).naturalWidth > 0)
+        // Кадр в схлопнутом контейнере (display: none) физически не показан, каким бы ни был его
+        // opacity: без этой отбраковки ветка, которую сняли с экрана, засчитывалась бы за укрытие.
+        .filter((image) => (image as HTMLElement).offsetParent !== null)
+        .map((image) => Number(getComputedStyle(image).opacity));
+      const covered = decoded.length > 0 ? Math.max(...decoded) : 0;
+      window.__sceneMinCoverage = Math.min(window.__sceneMinCoverage, covered);
+      window.__sceneRaf = requestAnimationFrame(tick);
+    };
+    tick();
+  });
+
+  await action();
+  await page.waitForTimeout(1800);
+
+  return page.evaluate(() => {
+    cancelAnimationFrame(window.__sceneRaf);
+    return window.__sceneMinCoverage;
+  });
+}
+
+/** Дождаться вставшего кадра — по тому же расширенному селектору, что и замер выше. */
+async function waitForSettledSceneAnywhere(page: Page) {
+  await page.waitForFunction(
+    () => {
+      const images = [...document.querySelectorAll("img[data-office-scene]")].filter(
+        (image) => (image as HTMLElement).offsetParent !== null,
+      );
+      if (images.length !== 1) return false;
+      const image = images[0] as HTMLImageElement;
+      if (image.naturalWidth === 0) return false;
+      if (Number(getComputedStyle(image).opacity) < 0.999) return false;
+      return image.getAnimations().every((animation) => animation.playState !== "running");
+    },
+    null,
+    { timeout: 20000 },
+  );
+}
+
 async function openOffice(page: Page) {
   await page.getByRole("link", { name: getHomepageCopy().secondaryCta }).click();
   await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
@@ -479,5 +538,70 @@ test.describe("Step 16 — переход между сценами", () => {
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
 
     expect(messages.filter((text) => /error|hydrat/i.test(text))).toEqual([]);
+  });
+});
+
+/**
+ * Step 18, AC1 — второй конец того же дефекта, ради которого делался Amendment 15.
+ *
+ * Контейнер перехода жил ВНУТРИ ветки активного раздела и при открытии отдела монтировался заново,
+ * поэтому удерживать ему было нечего: кадр карты офиса уходил вместе со своей веткой, а кадр отдела
+ * ещё не был готов к отрисовке. Измерено до правки: 89–138 мс белого экрана на localhost, 378/759/
+ * 1444 мс при задержках 300/600/1200 мс и 863 мс на мобильном Fast 3G. То есть на настоящем канале
+ * пользователь видел не переход, а провал — ровно то, что Amendment 15 уже закрыл для пути
+ * отдел→отдел.
+ */
+test.describe("Step 18 — путь overview→отдел", () => {
+  for (const delayMs of [0, 300, 900]) {
+    test(`открытие отдела с карты офиса не обнажает экран при задержке ${delayMs}мс (AC1)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      if (delayMs > 0) {
+        await page.route(SCENE_FILES, async (route) => {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          await route.continue();
+        });
+      }
+
+      await page.goto("/");
+      await openOffice(page);
+      await waitForSettledSceneAnywhere(page);
+
+      const map = page.getByRole("navigation", { name: "Отделы компании" });
+      const coverage = await minSceneCoverageAnywhere(page, async () => {
+        await map.getByRole("button", { name: sales.overviewLabel }).click();
+      });
+
+      // Отдел действительно открылся — иначе замер укрытости описывал бы неподвижную картинку.
+      await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
+      expect(
+        coverage,
+        `минимальная укрытость кадра ${coverage} при задержке ${delayMs}мс — открытие отдела обнажает экран`,
+      ).toBeGreaterThan(0.99);
+    });
+  }
+
+  // Обратный путь держится тем же слоем, поэтому проверяется здесь же: если подъём слоя сделан
+  // только «в одну сторону», закрытие отдела снова размонтирует кадр и вернёт ту же дыру.
+  test("закрытие отдела не обнажает экран (AC1)", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.route(SCENE_FILES, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await route.continue();
+    });
+
+    await page.goto(`/?department=${sales.id}`);
+    await waitForSettledSceneAnywhere(page);
+
+    const coverage = await minSceneCoverageAnywhere(page, async () => {
+      await page.getByRole("button", { name: "Закрыть" }).click();
+    });
+
+    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
+    expect(
+      coverage,
+      `минимальная укрытость кадра ${coverage} при закрытии отдела — возврат обнажает экран`,
+    ).toBeGreaterThan(0.99);
   });
 });

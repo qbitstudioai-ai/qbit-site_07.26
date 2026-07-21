@@ -20,27 +20,17 @@ import { existsSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
+import { SCENES, SCENE_WIDTHS } from "./office-scenes.config.mjs";
+import { writeCatalog } from "./generate-scene-catalog.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(scriptDir, "..");
 const referencesDir = path.join(projectRoot, "references");
 const outputDir = path.join(projectRoot, "src", "assets", "office-photos");
 
-// id сцены ↔ оригинал. id overview — мастер-сцена (используется и как источник legacy
-// office-background.webp). Пять остальных id совпадают с DepartmentId (src/content/schema.ts) —
-// это соответствие проверяется unit-тестом (departments.test.ts / office-scenes.test.ts) через
-// саму схему именования файлов.
-const SCENES = [
-  { id: "overview", source: "office-overview/01-company-overview.png", isDepartment: false },
-  { id: "sales", source: "sales/02-sales-department.png", isDepartment: true },
-  { id: "support", source: "support/03-support-department.png", isDepartment: true },
-  { id: "executive", source: "executive/04-executive-department.png", isDepartment: true },
-  { id: "hr", source: "hr/05-hr-department.png", isDepartment: true },
-  { id: "logistics", source: "logistics/06-logistics-department.png", isDepartment: true },
-];
-
-// Ширины адаптивной раздачи (OQ-A2-4). Высота выводится из аспекта оригинала (1536×1024 → 2:3).
-const SCENE_WIDTHS = [768, 1280, 1536];
+// Список сцен и ширин раньше жил здесь. Со Step 18 он вынесен в ./office-scenes.config.mjs —
+// единственный источник, из которого порождаются и производные, и TS-каталог сцен (см. writeCatalog
+// ниже). См. импорт в начале файла.
 
 // Детерминированные параметры кодеков. effort зафиксирован ради стабильного набора внутри версии.
 const WEBP_OPTIONS = { quality: 80, effort: 6 };
@@ -131,6 +121,8 @@ async function main() {
       violations.push(`${legacyBgName}: ${kb(bytes)} > бюджет ${kb(budget)}`);
     }
   }
+
+  writeCatalog();
 
   // Отчёт.
   const totalBytes = generated.reduce((sum, g) => sum + g.bytes, 0);

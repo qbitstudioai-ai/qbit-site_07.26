@@ -92,8 +92,12 @@ test.describe("Step 12 — overview renders the master office scene", () => {
     await expect(nav.getByRole("button")).toHaveCount(5);
 
     // Битой картинки не остаётся — на её месте детерминированный плейсхолдер (контракт Step 8).
+    // Со Step 18 плейсхолдер ищется в СЛОЕ СЦЕНЫ, а не внутри nav: кадр держит общий сцен-слой,
+    // живущий через оба состояния офиса, и карта отвечает только за зоны поверх него. Проверяемое
+    // требование то же — «вместо битой картинки ровно один детерминированный плейсхолдер», — и
+    // область поиска по-прежнему точечная (стопка слоёв), а не «где-нибудь на странице».
     await expect(page.locator("picture")).toHaveCount(0);
-    await expect(nav.locator("[data-photo-fallback]")).toHaveCount(1);
+    await expect(page.locator("[data-scene-crossfade] [data-photo-fallback]")).toHaveCount(1);
 
     // Отдел по-прежнему открывается: коммерческий путь не зависит от фотослоя.
     await nav.getByRole("button").first().click();

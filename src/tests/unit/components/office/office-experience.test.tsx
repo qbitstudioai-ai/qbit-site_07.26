@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
 import { SCENE_DISSOLVE_MS, SCENE_DOLLY_MS } from "@/components/office/SceneCrossfade";
@@ -251,35 +251,45 @@ describe("OfficeExperience", () => {
       expect(container.querySelectorAll("picture")).toHaveLength(1);
     });
 
-    // Какая ИМЕННО сцена подключена, проверяется по исходному тексту: в Vite image-импорты
-    // резолвятся в строки-URL, поэтому в jsdom и srcset, и `.src` пусты и отличить sales от support
-    // по отрисованному DOM невозможно (тот же артефакт окружения — office-photo.test.ts,
-    // office-scenes.test.ts; тот же приём — office-semantic-map.test.tsx). Фактически загруженный
-    // браузером файл на каждый отдел проверяет e2e department-scene.spec.ts.
+    // Какая ИМЕННО сцена подключена — теперь проверяется по ОТРИСОВАННОМУ DOM (Step 18).
+    //
+    // Прежняя редакция читала исходный текст и искала в нём форму записи `activeSceneId = ...`:
+    // обходной приём, потому что в Vite image-импорты резолвятся в строки-URL и отличить sales от
+    // support по `img.src` в jsdom нельзя. Со Step 18 отличать МОЖНО — слой переходов выставляет id
+    // текущей сцены атрибутом. Замена не косметическая: регулярка ломалась от любого переписывания
+    // выражения (она и упала на переносе вывода сцены в реестр разделов), но при этом прошла бы,
+    // будь результат этого выражения никуда не передан. Проверка по DOM ведёт себя ровно наоборот —
+    // ей безразлична форма записи и небезразличен результат.
+    //
+    // Фактически загруженный браузером файл на каждый отдел проверяет e2e department-scene.spec.ts.
     it("binds the background to the ACTIVE department's scene, not to a fixed one", () => {
-      const source = readFileSync(
-        path.resolve(process.cwd(), "src/components/office/OfficeExperience.tsx"),
-        "utf-8",
-      );
+      for (const sceneId of ["sales", "logistics"] as const) {
+        const { container, unmount } = renderActive(sceneId);
+        expect(container.querySelector("[data-scene-crossfade]")).toHaveAttribute(
+          "data-scene-crossfade",
+          sceneId,
+        );
+        unmount();
+      }
 
       // Со Step 16 фотослой рендерит SceneCrossfade (два слоя вместо одного), поэтому часть
-      // инвариантов переехала туда. Проверки НЕ сняты — они смотрят по новому адресу, иначе
-      // переезд молча снял бы сторожей вместе с кодом.
+      // инвариантов живёт там. Проверки НЕ сняты — они смотрят по новому адресу, иначе переезд
+      // молча снял бы сторожей вместе с кодом.
       const crossfadeSource = readFileSync(
         path.resolve(process.cwd(), "src/components/office/SceneCrossfade.tsx"),
         "utf-8",
       );
 
-      // Сцена привязана к АКТИВНОМУ отделу, а не зафиксирована: activeSceneId выводится здесь...
-      expect(source).toMatch(/activeSceneId\s*:\s*OfficeSceneId\s*=\s*activeDepartment\s*\?/);
-      // ...и передаётся в фотослой.
-      expect(source).toMatch(/sceneId=\{activeSceneId\}/);
-      // ...а индексация по нему живёт в SceneCrossfade — именно она делает переключение отдела
+      // Индексация по id сцены живёт в SceneCrossfade — именно она делает переключение отдела
       // сменой файла.
       expect(crossfadeSource).toMatch(/officeSceneById\[/);
 
       // И общий фон Step 7.3 больше не участвует: пока он здесь, «сцена отдела» была бы одним и тем
       // же фото на все пять отделов.
+      const source = readFileSync(
+        path.resolve(process.cwd(), "src/components/office/OfficeExperience.tsx"),
+        "utf-8",
+      );
       expect(source).not.toMatch(/officeBackgroundPhoto/);
 
       // key по сцене — то, что не даёт признаку неудачной загрузки залипнуть между отделами
@@ -324,16 +334,68 @@ describe("OfficeExperience", () => {
       expect(durationOf("scene-recede")).toBe(SCENE_DOLLY_MS);
     });
 
+    // ── Сцена overview (переехало из office-semantic-map.test.tsx, Step 18) ──────────────────────
+    // До Step 18 кадр overview рисовала карта офиса, и эти три сторожа стояли у неё. Со Step 18 кадр
+    // держит общий сцен-слой, живущий через оба состояния, поэтому проверки переехали СЮДА вместе с
+    // ответственностью. Требования не изменились — изменился владелец; снять их вместе с переездом
+    // означало бы потерять покрытие ровно того, что шаг трогает.
+    const renderOverview = () =>
+      render(
+        <OfficeExperience
+          interactionHint="Наведите курсор на отдел"
+          returnToOfficeLabel="Выйти из офиса"
+          contactHref="https://t.me/Promt_Pavel"
+          taskCopy={copy.taskSection}
+          onReturnHome={() => {}}
+          departments={departments}
+          officeZones={officeZones}
+          isRevealed={true}
+          machineView="overview"
+          activeSectionId={null}
+          onSelectDepartment={() => {}}
+          onCloseDepartment={() => {}}
+        />,
+      );
+
+    // Step 12: overview — настоящая сцена офиса, а не карточки на токен-фоне.
+    it("renders a scene photo behind the hotspot layer in overview", () => {
+      const { container } = renderOverview();
+      expect(container.querySelector("picture")).not.toBeNull();
+    });
+
+    // При переезде проверка УСИЛЕНА. Прежняя редакция искала `sources={officeSceneById.overview}` в
+    // исходном тексте — обходной приём, потому что в Vite image-импорты резолвятся в строки-URL и
+    // отличить сцены по `img.src` в jsdom нельзя. Теперь отличать по DOM МОЖНО: слой переходов
+    // выставляет id текущей сцены атрибутом, и сторож смотрит на фактический результат рендера, а не
+    // на форму записи в коде. Регулярка прошла бы и при закомментированном вызове; эта — нет.
+    it("wires the overview master scene in overview, not a department scene", () => {
+      const { container } = renderOverview();
+      expect(container.querySelector("[data-scene-crossfade]")).toHaveAttribute(
+        "data-scene-crossfade",
+        "overview",
+      );
+    });
+
+    it("keeps all 5 department buttons usable when the overview scene fails to load (Step 8 fallback)", () => {
+      const { container } = renderOverview();
+      fireEvent.error(container.querySelector("img")!);
+
+      expect(container.querySelector("img")).toBeNull();
+      expect(container.querySelector("[data-photo-fallback]")).not.toBeNull();
+
+      // Коммерческий путь overview не зависит от фотослоя вовсе.
+      const nav = screen.getByRole("navigation", { name: "Отделы компании" });
+      expect(within(nav).getAllByRole("button")).toHaveLength(5);
+    });
+
     it("keeps the overview master scene behind «Ваша задача» — it is not a department", () => {
       const { container } = renderActive("task");
       expect(container.querySelectorAll("picture")).toHaveLength(1);
-
-      const source = readFileSync(
-        path.resolve(process.cwd(), "src/components/office/OfficeExperience.tsx"),
-        "utf-8",
+      // По той же причине, что и выше: проверяется результат, а не форма записи вывода сцены.
+      expect(container.querySelector("[data-scene-crossfade]")).toHaveAttribute(
+        "data-scene-crossfade",
+        "overview",
       );
-      // Ветка «не отдел → overview» в выводе activeSceneId.
-      expect(source).toMatch(/activeDepartment\s*\?\s*activeDepartment\.id\s*:\s*"overview"/);
     });
   });
 });

@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "assets:images": "node scripts/generate-office-images.mjs"
+    "assets:images": "node scripts/generate-office-images.mjs",
+    "assets:scenes": "node scripts/generate-scene-catalog.mjs"
   },
   "dependencies": {
     "next": "16.2.10",

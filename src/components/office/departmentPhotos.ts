@@ -6,45 +6,6 @@ import executiveThumbnail from "../../assets/office-photos/executive-thumbnail.w
 import hrThumbnail from "../../assets/office-photos/hr-thumbnail.webp";
 import logisticsThumbnail from "../../assets/office-photos/logistics-thumbnail.webp";
 
-// Адаптивные производные сцен (Step 10). WebP+AVIF × ширины 768/1280/1536, порождаются
-// `npm run assets:images` (scripts/generate-office-images.mjs) из оригиналов references/**.
-import overview768Avif from "../../assets/office-photos/overview-768.avif";
-import overview1280Avif from "../../assets/office-photos/overview-1280.avif";
-import overview1536Avif from "../../assets/office-photos/overview-1536.avif";
-import overview768Webp from "../../assets/office-photos/overview-768.webp";
-import overview1280Webp from "../../assets/office-photos/overview-1280.webp";
-import overview1536Webp from "../../assets/office-photos/overview-1536.webp";
-import sales768Avif from "../../assets/office-photos/sales-768.avif";
-import sales1280Avif from "../../assets/office-photos/sales-1280.avif";
-import sales1536Avif from "../../assets/office-photos/sales-1536.avif";
-import sales768Webp from "../../assets/office-photos/sales-768.webp";
-import sales1280Webp from "../../assets/office-photos/sales-1280.webp";
-import sales1536Webp from "../../assets/office-photos/sales-1536.webp";
-import support768Avif from "../../assets/office-photos/support-768.avif";
-import support1280Avif from "../../assets/office-photos/support-1280.avif";
-import support1536Avif from "../../assets/office-photos/support-1536.avif";
-import support768Webp from "../../assets/office-photos/support-768.webp";
-import support1280Webp from "../../assets/office-photos/support-1280.webp";
-import support1536Webp from "../../assets/office-photos/support-1536.webp";
-import executive768Avif from "../../assets/office-photos/executive-768.avif";
-import executive1280Avif from "../../assets/office-photos/executive-1280.avif";
-import executive1536Avif from "../../assets/office-photos/executive-1536.avif";
-import executive768Webp from "../../assets/office-photos/executive-768.webp";
-import executive1280Webp from "../../assets/office-photos/executive-1280.webp";
-import executive1536Webp from "../../assets/office-photos/executive-1536.webp";
-import hr768Avif from "../../assets/office-photos/hr-768.avif";
-import hr1280Avif from "../../assets/office-photos/hr-1280.avif";
-import hr1536Avif from "../../assets/office-photos/hr-1536.avif";
-import hr768Webp from "../../assets/office-photos/hr-768.webp";
-import hr1280Webp from "../../assets/office-photos/hr-1280.webp";
-import hr1536Webp from "../../assets/office-photos/hr-1536.webp";
-import logistics768Avif from "../../assets/office-photos/logistics-768.avif";
-import logistics1280Avif from "../../assets/office-photos/logistics-1280.avif";
-import logistics1536Avif from "../../assets/office-photos/logistics-1536.avif";
-import logistics768Webp from "../../assets/office-photos/logistics-768.webp";
-import logistics1280Webp from "../../assets/office-photos/logistics-1280.webp";
-import logistics1536Webp from "../../assets/office-photos/logistics-1536.webp";
-
 // Step 7.3, OQ-P1: реальные фото из references/ (не CSS-заглушки), но НЕ статический импорт
 // оригиналов напрямую. Найдено при skeptic Phase B review: оригиналы (3.1–3.6 МБ, 1536×1024,
 // плохо сжатый PNG для этого типа контента) заставляли next/image заново декодировать/пересжимать
@@ -80,46 +41,57 @@ export const photoByDepartmentId: Record<DepartmentId, StaticImageData> = {
 // бандле ради кода, который никто не вызывает. Сам файл продолжает порождаться
 // scripts/generate-office-images.mjs (legacyBgName) — генератор этот шаг не трогает.
 //
-// ── Адаптивные сцены офиса (Step 10) ─────────────────────────────────────────────────────────────
-// Мастер-сцена overview + 5 сцен отделов. Экспортируются как источники + метаданные для ручного
-// <picture>/srcset (OQ-A2-4). НЕ подключены к рендеру на этом шаге — overview остаётся карточками
-// на токен-фоне (Step 12 подключит мастер-сцену), department-active использует общий фон выше
-// (Step 13 подключит per-department сцены). Оригиналы references/** сюда не входят.
-
-/** id сцены офиса: мастер-сцена overview + пять отделов (совпадают с DepartmentId). */
-export type OfficeSceneId = "overview" | DepartmentId;
-
-/** Ширины адаптивных производных, по возрастанию (см. scripts/generate-office-images.mjs). */
-export const OFFICE_SCENE_WIDTHS = [768, 1280, 1536] as const;
-
-/**
- * `sizes` мастер-сцены overview.
- *
- * Остаётся `100vw` и после Step 15 — сознательно, а не по недосмотру. Кадр overview ограничен
- * `min(ширина панели, высота панели × 3/2)` (OfficeSemanticMap.module.css), то есть зависит и от
- * ВЫСОТЫ вьюпорта. Выразить это в `sizes` можно только набором `(min-height: …)`-условий, которые
- * пришлось бы вручную держать синхронными с CSS, — а рассинхрон здесь тихо ведёт к недостаточной
- * ширине и мылу. `100vw` при этом никогда не занижает: кадр по построению не шире вьюпорта, поэтому
- * ошибка возможна только в сторону запаса.
- */
-export const OFFICE_SCENE_SIZES = "100vw";
+// ── Адаптивные сцены офиса (Step 10, каталог вынесен в Step 18) ──────────────────────────────────
+// Мастер-сцена overview + сцены отделов: источники + метаданные для ручного <picture>/srcset
+// (OQ-A2-4). Оригиналы references/** сюда не входят.
+//
+// Сам каталог (36 строк импорта + запись id → источники) БОЛЬШЕ НЕ ЖИВЁТ ЗДЕСЬ: он порождается из
+// scripts/office-scenes.config.mjs командой `npm run assets:scenes`. Прежняя ручная редакция была
+// третьей копией списка сцен — рядом с генератором производных и тестом, прибивавшим ровно шесть, —
+// и добавление одной сцены требовало согласованной правки во всех трёх местах.
+//
+// Реэкспорт здесь оставлен намеренно, а не заменён на правку всех потребителей: `departmentPhotos`
+// остаётся единственным адресом фотослоя офиса для остального кода, а происхождение каталога —
+// деталь сборки, ради которой незачем менять два десятка импортов.
+export { officeSceneById, OFFICE_SCENE_WIDTHS, type OfficeSceneId } from "./officeScenes";
 
 /**
- * `sizes` сцены отдела (Step 15, AC3). В отличие от overview, здесь кадр ограничен именно ШИРИНОЙ и
- * измерим: сцена расстелена под всей `.shell10x90`, у которой по бокам padding панели офиса
- * (`--space-6` × 2). Замерено: 1600px → ~1552px кадра (97vw), 1024px → ~976px (95vw); доля почти не
- * зависит от брейкпоинта, потому что отнимается фиксированный padding, а не процент.
+ * `sizes` сцены офиса — ОДИН на оба состояния (Step 18).
  *
- * Отсюда 97vw вместо прежнего `100vw`: на 1600px это ровно тот же выбор (1536), а на промежуточных
- * ширинах чуть точнее. Главный эффект AC3 даёт не эта поправка, а сам факт `srcset` — браузер берёт
- * 768 на мобильном, 1280 на планшете и 1536 на desktop, то есть узкий вьюпорт не платит за
- * desktop-производную (проверяется e2e responsive-scene-framing.spec.ts).
+ * Единственность здесь — требование, а не упрощение. До Step 18 состояния рендерили сцену разными
+ * компонентами и потому могли иметь разный `sizes`: overview — `100vw`, department-active — `97vw`
+ * (Step 15, AC3). Со Step 18 кадр держит ОДИН <img>, переживающий переход между состояниями, и два
+ * значения на нём означают смену атрибута прямо во время удержания.
+ *
+ * НАБЛЮДЕНИЕ (не сохранённый артефакт, честно помечено после skeptic-ревью Step 18). Первая
+ * редакция подъёма оставляла разный `sizes` по состояниям, и сторожи укрытости при задержках
+ * 300/900 мс продолжали падать в 0. Покадровый зонд показал у удержанного кадра пустой `currentSrc`
+ * и `naturalWidth === 0` — то есть кадр обнулялся ровно в тот момент, ради которого удерживается.
+ * Зонд был временным и удалён, повторно воспроизвести его на текущем коде нельзя (двух значений
+ * больше нет), а спецификация HTML («react to environment changes») описывает более мягкое
+ * поведение: новая загрузка идёт как pending request, оставляя current request доступным.
+ * Поэтому: наблюдение достоверно ровно настолько, насколько достоверен зонд, и оно НЕ является
+ * единственным основанием — единый `sizes` на персистентном слое верен и просто по смыслу.
+ *
+ * Значение `97vw`, то есть ровно то, что было у сцены отдела до Step 18. Проверено перебором всех
+ * ширин 320…3840 при кандидатах 768/1280/1536: `97vw` НИ НА ОДНОЙ ширине не выбирает производную
+ * уже, чем требует фактический кадр. Это не совпадение — кадр в обоих состояниях не шире панели
+ * офиса, а панель = ширина вьюпорта минус её горизонтальный padding (`--space-6` × 2 = 48px), то
+ * есть заведомо уже 100vw; там же, где 48px составляют менее 3% ширины (от ~1600px), обе доли и так
+ * попадают в самую широкую производную 1536.
+ *
+ * Взять вместо этого `100vw` было бы ХУЖЕ, и это тоже посчитано: доли 97% и 100% попадают в разных
+ * кандидатов в ДВУХ полосах — 769…791 (768 против 1280) и 1281…1319 (1280 против 1536). Первая
+ * полоса — планшеты и крупные телефоны, и цена там 39 226 → 94 144 байт на кадр, то есть ровно та
+ * сторона, ради которой Step 15 AC3 и делался («узкий вьюпорт не платит за desktop-производную»).
+ * В первой редакции Step 18 здесь стояло `100vw` и была названа только вторая полоса — обе находки
+ * принадлежат skeptic-ревью.
  *
  * Занижать долю сильнее (под 90%-область без рельса) было бы ошибкой: фотослой лежит под ВСЕЙ
  * раскладкой, включая колонку рельса (Step 13, skeptic Phase B, finding 5), — `sizes` обязан
  * описывать реальный кадр, а не ту его часть, которая не закрыта интерфейсом.
  */
-export const DEPARTMENT_SCENE_SIZES = "97vw";
+export const OFFICE_SCENE_SIZES = "97vw";
 
 /**
  * Источники одной сцены: массивы производных, упорядоченные по {@link OFFICE_SCENE_WIDTHS}.
@@ -135,30 +107,3 @@ export interface OfficeSceneSources {
   readonly avif: readonly StaticImageData[];
   readonly webp: readonly StaticImageData[];
 }
-
-export const officeSceneById: Record<OfficeSceneId, OfficeSceneSources> = {
-  overview: {
-    avif: [overview768Avif, overview1280Avif, overview1536Avif],
-    webp: [overview768Webp, overview1280Webp, overview1536Webp],
-  },
-  sales: {
-    avif: [sales768Avif, sales1280Avif, sales1536Avif],
-    webp: [sales768Webp, sales1280Webp, sales1536Webp],
-  },
-  support: {
-    avif: [support768Avif, support1280Avif, support1536Avif],
-    webp: [support768Webp, support1280Webp, support1536Webp],
-  },
-  executive: {
-    avif: [executive768Avif, executive1280Avif, executive1536Avif],
-    webp: [executive768Webp, executive1280Webp, executive1536Webp],
-  },
-  hr: {
-    avif: [hr768Avif, hr1280Avif, hr1536Avif],
-    webp: [hr768Webp, hr1280Webp, hr1536Webp],
-  },
-  logistics: {
-    avif: [logistics768Avif, logistics1280Avif, logistics1536Avif],
-    webp: [logistics768Webp, logistics1280Webp, logistics1536Webp],
-  },
-};
