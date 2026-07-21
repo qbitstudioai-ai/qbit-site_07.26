@@ -23,6 +23,17 @@ const painPointSchema = z.object({
   gain: nonEmptyString,
 });
 
+// Step 19: шаг процесса «до»/«после» (docs/12 «ProcessStep»). status ограничен перечнем docs/12 —
+// произвольная строка (напр. "danger" вместо "critical") должна падать на валидации контента.
+const processStepSchema = z.object({
+  id: nonEmptyString,
+  label: nonEmptyString,
+  description: nonEmptyString,
+  actor: nonEmptyString.optional(),
+  status: z.enum(["normal", "warning", "critical", "success"]).optional(),
+  visualAnchor: nonEmptyString.optional(),
+});
+
 export const departmentSchema = z
   .object({
     id: departmentIdSchema,
@@ -32,6 +43,11 @@ export const departmentSchema = z
     headline: nonEmptyString,
     problem: nonEmptyString,
     painPoints: z.array(painPointSchema).length(5),
+    // Step 19: ОПЦИОНАЛЬНЫ (заполнены только для «Продаж», пилот Этапа 3 — остальные отделы на
+    // Этапах 4–7). min(1) при наличии: пустой массив «до/после» бессмыслен. Парность «оба или ни
+    // одного» проверяется в superRefine ниже — половинчатая «до/после» невалидна.
+    beforeSteps: z.array(processStepSchema).min(1).optional(),
+    automationSteps: z.array(processStepSchema).min(1).optional(),
     ctaLabel: nonEmptyString,
     solutionPath: nonEmptyString,
     reference: nonEmptyString,
@@ -43,6 +59,17 @@ export const departmentSchema = z
         code: "custom",
         path: ["solutionPath"],
         message: `solutionPath for "${department.id}" must be "${expectedPath}", got "${department.solutionPath}"`,
+      });
+    }
+    // «До/после» — это трансформация, у неё две стороны. Наличие одной без другой означало бы
+    // сломанную последовательность, которую BeforeAfterSequence (Step 20) не сможет отрисовать.
+    const hasBefore = department.beforeSteps !== undefined;
+    const hasAfter = department.automationSteps !== undefined;
+    if (hasBefore !== hasAfter) {
+      ctx.addIssue({
+        code: "custom",
+        path: [hasBefore ? "automationSteps" : "beforeSteps"],
+        message: `department "${department.id}": beforeSteps и automationSteps задаются вместе (либо оба, либо ни одного)`,
       });
     }
   });

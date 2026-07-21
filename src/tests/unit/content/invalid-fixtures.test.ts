@@ -93,6 +93,71 @@ describe("departmentSchema — invalid fixtures", () => {
       ).success,
     ).toBe(false);
   });
+
+  // Step 19: «до/после» опциональна — отдел без этих полей (сегодня все, кроме sales) валиден.
+  it("accepts a department without before/after steps (optional, Этап 3 pilot fills sales only)", () => {
+    expect(departmentSchema.safeParse(makeDepartment("support")).success).toBe(true);
+  });
+
+  const validSteps = [
+    { id: "b1", label: "l1", description: "d1" },
+    { id: "b2", label: "l2", description: "d2" },
+  ];
+  const validAfter = [
+    { id: "a1", label: "l1", description: "d1", status: "success" },
+    { id: "a2", label: "l2", description: "d2", status: "success" },
+  ];
+
+  it("accepts a department with well-formed before/after steps", () => {
+    expect(
+      departmentSchema.safeParse(
+        makeDepartment("sales", { beforeSteps: validSteps, automationSteps: validAfter }),
+      ).success,
+    ).toBe(true);
+  });
+
+  // Парность: «до/после» — трансформация с двумя сторонами; одна без другой невалидна.
+  it("rejects beforeSteps without automationSteps", () => {
+    expect(
+      departmentSchema.safeParse(makeDepartment("sales", { beforeSteps: validSteps })).success,
+    ).toBe(false);
+  });
+
+  it("rejects automationSteps without beforeSteps", () => {
+    expect(
+      departmentSchema.safeParse(makeDepartment("sales", { automationSteps: validAfter })).success,
+    ).toBe(false);
+  });
+
+  it("rejects an empty before/after array", () => {
+    expect(
+      departmentSchema.safeParse(
+        makeDepartment("sales", { beforeSteps: [], automationSteps: validAfter }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects a ProcessStep missing description", () => {
+    expect(
+      departmentSchema.safeParse(
+        makeDepartment("sales", {
+          beforeSteps: [{ id: "b1", label: "l1" }],
+          automationSteps: validAfter,
+        }),
+      ).success,
+    ).toBe(false);
+  });
+
+  it("rejects a ProcessStep with a status outside the docs/12 enum", () => {
+    expect(
+      departmentSchema.safeParse(
+        makeDepartment("sales", {
+          beforeSteps: [{ id: "b1", label: "l1", description: "d1", status: "danger" }],
+          automationSteps: validAfter,
+        }),
+      ).success,
+    ).toBe(false);
+  });
 });
 
 describe("departmentsSchema — invalid fixtures", () => {
