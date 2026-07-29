@@ -14,11 +14,17 @@ DATA_DIR="/opt/allqbit-data"
 BACKUP_DIR="${DATA_DIR}/backups"
 KEEP_DAYS=30
 STAMP="$(date +%Y%m%d-%H%M%S)"
-WORK_DIR="$(mktemp -d)"
+
+# Рабочий каталог внутри /opt/allqbit-data, а не в /tmp, намеренно: снимок базы делает контейнер
+# под UID 1001 (Node на самом сервере не установлен), и записать он может только туда, где этот
+# UID — владелец.
+WORK_DIR="${DATA_DIR}/.backup-tmp"
 
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-mkdir -p "$BACKUP_DIR"
+rm -rf "$WORK_DIR"
+mkdir -p "$BACKUP_DIR" "$WORK_DIR"
+chown 1001:1001 "$WORK_DIR"
 
 # ─── База ──────────────────────────────────────────────────────────────────────────────────────
 #
@@ -31,12 +37,20 @@ if [ ! -f "${DATA_DIR}/var/content.db" ]; then
   exit 1
 fi
 
-node -e "
-  const { DatabaseSync } = require('node:sqlite');
-  const db = new DatabaseSync('${DATA_DIR}/var/content.db', { readOnly: true });
-  db.exec(\"VACUUM INTO '${WORK_DIR}/content.db'\");
-  db.close();
-"
+# Node берётся из готового образа сайта — ставить его на сам сервер незачем. Контейнер работает
+# под тем же UID, что и сайт: иначе SQLite создал бы рядом с базой служебные файлы -wal и -shm,
+# принадлежащие root, и работающий сайт потерял бы доступ на запись.
+docker run --rm \
+  -u 1001:1001 \
+  -v "${DATA_DIR}/var:/data:ro" \
+  -v "${WORK_DIR}:/out" \
+  allqbit-site:latest \
+  node -e "
+    const { DatabaseSync } = require('node:sqlite');
+    const db = new DatabaseSync('/data/content.db', { readOnly: true });
+    db.exec(\"VACUUM INTO '/out/content.db'\");
+    db.close();
+  "
 
 # ─── Файлы ─────────────────────────────────────────────────────────────────────────────────────
 
