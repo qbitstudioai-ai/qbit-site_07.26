@@ -25,6 +25,13 @@ interface ProductsPageProps {
  */
 export const dynamicParams = true;
 
+/**
+ * Фоновое обновление: тексты и состав продуктов правятся в админ-панели, а образ собирается там,
+ * где базы нет. Без этой строки после деплоя раздел показывал бы состояние сборки. Подробное
+ * объяснение — в `src/app/page.tsx`.
+ */
+export const revalidate = 300;
+
 export function generateStaticParams() {
   const products = getProducts();
   return [

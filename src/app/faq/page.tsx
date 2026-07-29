@@ -8,6 +8,12 @@ import { SITE_URL } from "@/features/products/productSeo";
 import { serializeJsonLd } from "@/lib/jsonLd";
 import { buildOpenGraph, buildTwitter, INDEXABLE_ROBOTS } from "@/lib/seo";
 
+/**
+ * Фоновое обновление: страница берёт контакты для шапки из базы, а образ собирается там, где базы
+ * нет. Подробное объяснение — в `src/app/page.tsx`.
+ */
+export const revalidate = 300;
+
 const title = "FAQ об AI-автоматизации бизнеса — QBit-Studio-Ai";
 const description =
   "Ответы QBit-Studio-Ai на вопросы об AI-автоматизации: выбор процессов, интеграции, пилот, сроки, стоимость, безопасность, размещение и поддержка.";

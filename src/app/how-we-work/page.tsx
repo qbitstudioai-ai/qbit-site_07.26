@@ -14,6 +14,12 @@ import {
   withBrand,
 } from "@/lib/seo";
 
+/**
+ * Фоновое обновление: страница берёт контакты для шапки из базы, а образ собирается там, где базы
+ * нет. Подробное объяснение — в `src/app/page.tsx`.
+ */
+export const revalidate = 300;
+
 const HOW_WE_WORK_URL = `${SITE_URL}/how-we-work`;
 
 const title = withBrand("Как мы работаем");

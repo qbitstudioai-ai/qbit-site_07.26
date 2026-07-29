@@ -9,6 +9,12 @@ import { serializeJsonLd } from "@/lib/jsonLd";
 import { buildOpenGraph, buildTwitter, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { getContactChannels, getContactsPageCopy } from "@/server/content/contacts";
 
+/**
+ * Фоновое обновление: телефон, почта и Telegram правятся в админ-панели, а образ собирается там,
+ * где базы нет. Подробное объяснение — в `src/app/page.tsx`.
+ */
+export const revalidate = 300;
+
 const title = "Контакты QBit-Studio-Ai — обсудить AI-автоматизацию";
 const description =
   "Свяжитесь с QBit-Studio-Ai в Telegram, по телефону или email и отправьте заявку на автоматизацию бизнес-процесса.";
