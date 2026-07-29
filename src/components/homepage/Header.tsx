@@ -12,7 +12,6 @@ interface HeaderProps {
   phoneHref: string;
   phoneAccessibleLabel: string;
   onReturnHome?: () => void;
-  inactiveLinkLabels?: readonly string[];
   /**
    * Адрес текущей страницы. Пункт меню с этим href получает `aria-current="page"` и постоянно
    * видимое подчёркивание. Передаётся страницей явно, а не выводится из `usePathname()`: так
@@ -27,7 +26,6 @@ export function Header({
   phoneHref,
   phoneAccessibleLabel,
   onReturnHome,
-  inactiveLinkLabels = [],
   activeHref,
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -62,7 +60,8 @@ export function Header({
       const navigation = navigationRef.current;
       if (!menuButton || !navigation) return;
 
-      // Пункты без href (`aria-disabled`) в цикл не входят: они не фокусируются и в нём не нужны.
+      // Отбор по `a[href]`, а не по всем детям: в цикл переходов должно попадать только то, что
+      // реально получает фокус.
       const items = [...navigation.querySelectorAll<HTMLElement>("a[href]")];
       const first = menuButton;
       const last = items.at(-1) ?? menuButton;
@@ -159,11 +158,7 @@ export function Header({
         aria-label="Основная навигация"
       >
         {links.map((link) =>
-          inactiveLinkLabels.includes(link.label) ? (
-            <span key={link.label} aria-disabled="true">
-              {link.label}
-            </span>
-          ) : link.href === "#" ? (
+          link.href === "#" ? (
             <a
               key={link.label}
               href={link.href}

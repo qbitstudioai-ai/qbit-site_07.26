@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "next dev -p 3100",
     "build": "next build",
-    "start": "next start -p 3100",
-    "start:e2e": "next start -p 3200",
+    "start": "node scripts/start-standalone.mjs --port 3100",
+    "start:e2e": "node scripts/start-standalone.mjs --port 3200",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

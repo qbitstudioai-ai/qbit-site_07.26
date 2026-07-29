@@ -57,9 +57,12 @@ test.describe("public routes", () => {
    * «Контакты» в общем Header раньше вели на href="#", хотя маршрут /contacts существует.
    * Проверяется на КАЖДОЙ странице, где отрисовывается общий Header, а не только на одной.
    *
-   * /blog в список не входит намеренно: его layout передаёт `inactiveLinkLabels={["Контакты"]}`,
-   * поэтому пункт там отрисован как span[aria-disabled], а не как ссылка. Это отдельное решение
-   * страницы блога, и оно осталось нетронутым.
+   * /blog раньше был из этого списка исключён: его layout передавал
+   * `inactiveLinkLabels={["Контакты"]}`, и пункт отрисовывался как span[aria-disabled]. Обход
+   * остался с тех времён, когда маршрута /contacts ещё не было, но исключение из проверки не дало
+   * это заметить — владелец сайта нашёл вручную 29.07.2026. Обход и сам механизм убраны, /blog
+   * проверяется наравне со всеми: исключение страницы из проверки означает, что именно на ней
+   * дефект и поселится.
    */
   test('общий Header ведёт «Контакты» на /contacts и не содержит href="#"', async ({
     page,
@@ -67,7 +70,16 @@ test.describe("public routes", () => {
   }) => {
     expect((await request.get("/contacts")).status()).toBe(200);
 
-    for (const route of ["/", "/faq", "/products", "/how-we-work", "/contacts", "/login"]) {
+    for (const route of [
+      "/",
+      "/blog",
+      "/faq",
+      "/products",
+      "/documents",
+      "/how-we-work",
+      "/contacts",
+      "/login",
+    ]) {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto(route);
 

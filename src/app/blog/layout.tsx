@@ -12,7 +12,6 @@ export default function BlogLayout({ children }: Readonly<{ children: React.Reac
         phoneLabel={copy.headerPhone}
         phoneHref={copy.headerPhoneHref}
         phoneAccessibleLabel={copy.headerPhoneAccessibleLabel}
-        inactiveLinkLabels={["Контакты"]}
       />
       <div className={styles.main}>{children}</div>
     </div>
