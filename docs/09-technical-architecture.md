@@ -65,7 +65,7 @@ HomepageShell
 ├── DepartmentExperience
 │   ├── DepartmentScene
 │   ├── DepartmentCopy
-│   ├── BeforeAfterSequence
+│   ├── CustomerBenefits
 │   ├── OutcomePanel
 │   └── DepartmentCTA
 ├── DiagnosticFlow
@@ -102,7 +102,12 @@ HomepageShell
 /cases
 /blog
 /contacts
+/login
 ```
+
+`/contacts` и `/login` реализованы как `noindex`-заглушки в общем route layout с единым Header.
+Остальные перечисленные внутренние маршруты остаются целевой архитектурой и не должны имитироваться
+фиктивным контентом до отдельного этапа.
 
 ## Assets
 

@@ -1,3 +1,4 @@
+import { useLayoutEffect, useReducer, useRef, type CSSProperties } from "react";
 import type { Department, DepartmentId, TaskSectionCopy } from "@/content/types";
 import { type OfficeSectionId } from "@/features/office-machine/reducer";
 import { buildOfficeSections } from "@/features/office-machine/sections";
@@ -12,6 +13,19 @@ interface DepartmentNavigationRailProps {
   /** Копирайт раздела «Ваша задача» — источник подписи его пункта в реестре разделов (Step 18). */
   taskCopy: TaskSectionCopy;
   onSelectDepartment: (sectionId: OfficeSectionId) => void;
+}
+
+interface IndicatorGeometry {
+  y: number;
+  height: number;
+  ready: boolean;
+}
+
+function indicatorReducer(
+  _state: IndicatorGeometry,
+  geometry: Omit<IndicatorGeometry, "ready">,
+): IndicatorGeometry {
+  return { ...geometry, ready: true };
 }
 
 // Список содержит все 5 отделов (docs/03-office-map.md "пять миниатюр"), но только 4 не активных
@@ -42,9 +56,55 @@ export function DepartmentNavigationRail({
   // поведения пункта требовала одинаковой правки в двух местах — расхождение между ними было бы
   // видно только глазами.
   const sections = buildOfficeSections(departments, taskCopy);
+  const railRef = useRef<HTMLElement>(null);
+  const sectionRefs = useRef<Partial<Record<OfficeSectionId, HTMLLIElement | null>>>({});
+  const [indicator, updateIndicator] = useReducer(indicatorReducer, {
+    y: 0,
+    height: 0,
+    ready: false,
+  });
+
+  useLayoutEffect(() => {
+    const rail = railRef.current;
+    const target = activeSectionId ? sectionRefs.current[activeSectionId] : null;
+    if (!rail || !target) return;
+
+    const measure = () => {
+      const railRect = rail.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      updateIndicator({
+        y: Math.round((targetRect.top - railRect.top) * 100) / 100,
+        height: Math.round(targetRect.height * 100) / 100,
+      });
+    };
+
+    measure();
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => measure());
+    observer?.observe(rail);
+    observer?.observe(target);
+    window.addEventListener("resize", measure);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [activeSectionId]);
+
+  const indicatorStyle = {
+    "--rail-indicator-y": `${indicator.y}px`,
+    "--rail-indicator-height": `${indicator.height}px`,
+  } as CSSProperties;
 
   return (
-    <nav aria-label="Панель отделов" className={styles.rail}>
+    <nav ref={railRef} aria-label="Панель отделов" className={styles.rail}>
+      <span
+        className={styles.activeIndicator}
+        style={indicatorStyle}
+        data-active-indicator
+        data-ready={indicator.ready}
+        aria-hidden="true"
+      />
       <ul className={styles.list}>
         {sections.map((section) => {
           const isActive = section.id === activeSectionId;
@@ -70,6 +130,9 @@ export function DepartmentNavigationRail({
             // остальные пункты — активный рендерится не кнопкой, а маркером, поэтому
             // Tab-последовательность рельса остаётся «все пункты, кроме текущего».
             <li
+              ref={(node) => {
+                sectionRefs.current[section.id] = node;
+              }}
               key={section.id}
               className={isDepartment ? styles.item : `${styles.item} ${styles.taskItem}`}
               aria-current={isActive ? "true" : undefined}

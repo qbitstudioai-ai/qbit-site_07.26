@@ -59,6 +59,34 @@ describe("OfficeExperience", () => {
     expect(section).toHaveAttribute("data-revealed", "true");
   });
 
+  it("renders the editorial overview stories and direct Telegram CTA from structured copy", () => {
+    render(
+      <OfficeExperience
+        interactionHint={copy.interactionHint}
+        officeOverview={copy.officeOverview}
+        returnToOfficeLabel={copy.returnToOfficeLabel}
+        contactHref={copy.contactHref}
+        taskCopy={copy.taskSection}
+        onReturnHome={() => {}}
+        departments={departments}
+        officeZones={officeZones}
+        isRevealed
+        machineView="overview"
+        activeSectionId={null}
+        onSelectDepartment={() => {}}
+        onCloseDepartment={() => {}}
+      />,
+    );
+
+    expect(screen.getByText(copy.officeOverview.leftStory.title)).toBeInTheDocument();
+    expect(screen.getByText(copy.officeOverview.rightStory.title)).toBeInTheDocument();
+    expect(screen.getByText("Выберите отдел")).toBeInTheDocument();
+    expect(screen.queryByText("Наведи курсор на область офиса")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: copy.officeOverview.ctaAccessibleLabel }),
+    ).toHaveAttribute("href", copy.contactHref);
+  });
+
   it("does not render an active department panel when activeSectionId is null", () => {
     render(
       <OfficeExperience
@@ -79,7 +107,7 @@ describe("OfficeExperience", () => {
     expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
   });
 
-  it("renders the return-to-office button above the department grid in overview, and calls onReturnHome when clicked", () => {
+  it("renders the return-to-office link above the department grid in overview, and calls onReturnHome when clicked", () => {
     const onReturnHome = vi.fn();
     render(
       <OfficeExperience
@@ -97,13 +125,14 @@ describe("OfficeExperience", () => {
         onCloseDepartment={() => {}}
       />,
     );
-    const button = screen.getByRole("button", { name: "Выйти из офиса" });
-    expect(button).toBeInTheDocument();
-    fireEvent.click(button);
+    const link = screen.getByRole("link", { name: "Выйти из офиса" });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute("href", "#hero-heading");
+    fireEvent.click(link);
     expect(onReturnHome).toHaveBeenCalledTimes(1);
   });
 
-  it("does not render the return-to-office button once a department is active (Step 7.4: it only lives above the overview grid)", () => {
+  it("does not render the return-to-office link once a department is active (it only lives above the overview grid)", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
@@ -120,7 +149,7 @@ describe("OfficeExperience", () => {
         onCloseDepartment={() => {}}
       />,
     );
-    expect(screen.queryByRole("button", { name: "Выйти из офиса" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Выйти из офиса" })).not.toBeInTheDocument();
   });
 
   it("renders DepartmentExperience and the rail (4 departments + task section), and hides the office map (Step 6 10/90 shell)", () => {
@@ -153,7 +182,7 @@ describe("OfficeExperience", () => {
     expect(rail.querySelectorAll("button")).toHaveLength(5);
   });
 
-  it("renders MobileDepartmentCarousel alongside OfficeSemanticMap in overview (Step 7 — both present in the DOM at once, CSS switches visibility per breakpoint, verified in e2e)", () => {
+  it("renders the direct OfficeSemanticMap in overview without the old mobile carousel block", () => {
     render(
       <OfficeExperience
         interactionHint="Наведите курсор на отдел"
@@ -171,7 +200,7 @@ describe("OfficeExperience", () => {
       />,
     );
     expect(screen.getByRole("navigation", { name: "Отделы компании" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Карусель отделов" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Карусель отделов" })).not.toBeInTheDocument();
   });
 
   it("passes departments/onSelectDepartment down to DepartmentExperience so CarouselNavControls names the correct wrap-around neighbours (Step 7)", () => {

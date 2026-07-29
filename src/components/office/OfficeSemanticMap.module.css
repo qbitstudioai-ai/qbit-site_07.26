@@ -29,3 +29,11 @@
 .zoneItem {
   list-style: none;
 }
+
+@media (hover: hover) and (pointer: fine) {
+  .map:has(button:hover) button:not(:hover),
+  .map:has(button:focus-visible) button:not(:focus-visible) {
+    background: rgba(30, 26, 22, 0.045);
+    opacity: 0.96;
+  }
+}

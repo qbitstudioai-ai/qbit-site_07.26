@@ -1,11 +1,11 @@
 // Server-only: не импортировать напрямую в "use client"-компоненты (см. DECISIONS.md, Step 2) —
-// иначе zod и валидация попадут в client-бандл.
-import rawHomepageCopy from "../../data/homepage-copy.json";
-import { homepageCopySchema } from "./schema";
-import type { HomepageCopy } from "./types";
-
-const homepageCopy: HomepageCopy = homepageCopySchema.parse(rawHomepageCopy);
-
-export function getHomepageCopy(): HomepageCopy {
-  return homepageCopy;
-}
+// иначе zod, валидация и доступ к базе попали бы в client-бандл.
+//
+// Источник текстов — база контента (`page_content`, ключ `homepage`), а не JSON-файл: их правит
+// владелец сайта через админ-панель. `data/homepage-copy.json` остался в роли seed — из него
+// заполняется база и им же страница подстраховывается, если база ещё пуста.
+//
+// Телефон в шапке и адрес CTA НЕ хранятся здесь второй копией: они берутся из раздела «Контакты»
+// (см. `src/server/content/homepage.ts`). До миграции один и тот же номер лежал в двух местах, и
+// правка в одном из них оставляла второй устаревшим.
+export { getHomepageCopy } from "@/server/content/homepage";

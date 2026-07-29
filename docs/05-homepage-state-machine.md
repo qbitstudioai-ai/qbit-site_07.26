@@ -123,9 +123,9 @@ Step 5 (`headline`/`problem`/до 3 `symptoms`/`outcomes`/CTA/кнопка «З�
 panel")**: основная область теперь показывает 20/80-раскладку "боль/выгода"
 (`painPoints: {pain, gain}[]`, ровно 5, вместо `symptoms`/`outcomes`) на Desktop/Tablet (≥768px) и
 отдельный столбик/аккордеон на Mobile (≤767px); левая панель — `DepartmentNavigationRail` — получила
-фото на каждый отдел; позади 90%-области появилось затемняемое фото офиса. Сцена (`DepartmentScene`),
-последовательность "до/после" (`BeforeAfterSequence`) по-прежнему не входят в low-fidelity milestone
-(тот же OQ-C).
+фото на каждый отдел; позади 90%-области появилось затемняемое фото офиса. Сцена (`DepartmentScene`)
+по-прежнему не входит в low-fidelity milestone (тот же OQ-C). Окно результата на экране отдела —
+«Ваша выгода» (`CustomerBenefits`, Amendment 21/22, заменило "до/после" `BeforeAfterSequence`).
 
 ## error-fallback
 

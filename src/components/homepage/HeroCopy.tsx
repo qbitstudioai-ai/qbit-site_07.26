@@ -7,37 +7,45 @@ interface HeroCopyProps {
   isHiddenAfterReveal: boolean;
 }
 
+function BenefitIcon({ index }: { index: number }) {
+  const paths = [
+    "M13 2 5 13h6l-1 9 8-12h-6z",
+    "M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3-3m-3 3 3 3",
+    "M12 3 5 5v5c0 4 2.4 6.8 5 8 2.6-1.2 5-4 5-8V8zM9.5 13l1.7 1.7 3.5-4",
+    "M2.5 12s3.5-5 9.5-5 9.5 5 9.5 5-3.5 5-9.5 5-9.5-5-9.5-5Zm9.5 3a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  ];
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d={paths[index] ?? paths[0]} />
+    </svg>
+  );
+}
+
 export function HeroCopy({ copy, onActivate, isHiddenAfterReveal }: HeroCopyProps) {
   const sectionClassName = isHiddenAfterReveal
     ? `${styles.hero} ${styles.hiddenAfterReveal}`
     : styles.hero;
+  const accentPhrase = "с помощью ИИ";
+  const accentIndex = copy.headline.lastIndexOf(accentPhrase);
+  const headlineStart = accentIndex >= 0 ? copy.headline.slice(0, accentIndex) : copy.headline;
+  const headlineAccent = accentIndex >= 0 ? accentPhrase : "";
+  const headlineEnd =
+    accentIndex >= 0 ? copy.headline.slice(accentIndex + accentPhrase.length) : "";
 
   return (
     <section className={sectionClassName}>
+      <p className={styles.eyebrow}>{copy.eyebrow}</p>
       <h1 id="hero-heading" tabIndex={-1} className={styles.headline}>
-        {copy.headline}
+        {headlineStart}
+        {headlineAccent ? <span>{headlineAccent}</span> : null}
+        {headlineEnd}
       </h1>
       <p className={styles.subheadline}>{copy.subheadline}</p>
-      <ul className={styles.valuePoints}>
-        {copy.valuePoints.map((point) => (
-          <li key={point}>{point}</li>
-        ))}
-      </ul>
       <div className={styles.ctaRow}>
-        {/* Основной CTA ведёт наружу — в Telegram-контакт (решение пользователя 2026-07-18, см.
-            WORKPLAN.md Amendment 9). Раньше это была <button>, открывавшая офис; офис теперь
-            открывает только вторичный CTA ниже.
-
-            Именно <a>, а не <button onClick={location.href=...}>: внешний переход — это ссылка по
-            смыслу. Её можно скопировать, открыть в новой вкладке средней кнопкой, а скринридер
-            объявит "ссылка", а не "кнопка".
-
-            target="_blank" — чтобы посетитель не терял страницу с офисом, уходя в мессенджер.
-            rel="noopener noreferrer" обязателен при target="_blank": без noopener открытая
-            страница получает доступ к window.opener и может подменить исходную вкладку. */}
         <a
           href={copy.contactHref}
-          className={styles.primaryCta}
+          className={styles.ctaAccent}
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -45,7 +53,7 @@ export function HeroCopy({ copy, onActivate, isHiddenAfterReveal }: HeroCopyProp
         </a>
         <a
           href="#office-map"
-          className={styles.secondaryCta}
+          className={styles.ctaQuiet}
           onClick={(event) => {
             event.preventDefault();
             onActivate();
@@ -54,6 +62,17 @@ export function HeroCopy({ copy, onActivate, isHiddenAfterReveal }: HeroCopyProp
           {copy.secondaryCta}
         </a>
       </div>
+      <p className={styles.ctaNote}>{copy.ctaNote}</p>
+      <ul className={styles.valuePoints}>
+        {copy.valuePoints.map((point, index) => (
+          <li key={point}>
+            <span className={styles.valueIcon}>
+              <BenefitIcon index={index} />
+            </span>
+            <span>{point}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

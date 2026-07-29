@@ -1,0 +1,30 @@
+.shell {
+  display: flex;
+  height: 100dvh;
+  min-height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.main > * {
+  flex: 1;
+}
+
+@media (max-width: 800px) {
+  .shell {
+    height: auto;
+    overflow: visible;
+  }
+
+  .main {
+    display: block;
+    overflow: visible;
+  }
+}

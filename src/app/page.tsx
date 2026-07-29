@@ -1,10 +1,52 @@
+import type { Metadata } from "next";
 import { HomepageShell } from "@/components/homepage/HomepageShell";
 import { getDepartmentIds } from "@/content/departments";
+import { getHomepageCopy } from "@/content/homepage-copy";
 import type { DepartmentId } from "@/content/types";
 import { TASK_SECTION_ID, type OfficeSectionId } from "@/features/office-machine/reducer";
+import { serializeJsonLd } from "@/lib/jsonLd";
+import {
+  buildOpenGraph,
+  buildTwitter,
+  INDEXABLE_ROBOTS,
+  organizationNode,
+  SITE_NAME,
+  SITE_URL,
+  webPageNode,
+  webSiteNode,
+} from "@/lib/seo";
 
 interface HomePageProps {
   searchParams: Promise<{ department?: string; section?: string }>;
+}
+
+/**
+ * Метаданные главной.
+ *
+ * Заголовок и описание берутся из УЖЕ показанных на странице текстов (`headline` — видимый H1,
+ * `subheadline` — видимый абзац под ним), а не сочиняются заново: правка текста в админ-панели
+ * должна менять и метаданные, иначе они разойдутся с содержимым. Прежнее значение — просто
+ * «QBit-Studio-Ai» — не сообщало о странице ничего.
+ *
+ * Canonical ВСЕГДА `https://allqbit.ru`, без параметров запроса. Отдел и раздел «Ваша задача»
+ * адресуются через `?department=…` / `?section=task` — это состояния одной страницы, а не
+ * отдельные документы: заголовок, описание и разметка у них общие. Собственный canonical у
+ * каждого варианта означал бы набор почти одинаковых страниц-дублей. Ограничение этого решения
+ * (содержимое отделов не индексируется отдельно) вынесено в SEO_GEO_CONTENT_LIMITATIONS.md.
+ */
+export function generateMetadata(): Metadata {
+  const copy = getHomepageCopy();
+  const title = `${copy.headline} — ${SITE_NAME}`;
+  const description = copy.subheadline;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: SITE_URL },
+    robots: INDEXABLE_ROBOTS,
+    openGraph: buildOpenGraph({ title, description, url: SITE_URL }),
+    twitter: buildTwitter({ title, description }),
+  };
 }
 
 export default async function HomePage({ searchParams }: HomePageProps) {
@@ -29,5 +71,26 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   // уже выражено.
   const initialRevealed = Boolean(requestedDepartment) || Boolean(requestedSection);
 
-  return <HomepageShell initialRevealed={initialRevealed} initialSectionId={initialSectionId} />;
+  const copy = getHomepageCopy();
+  // Организация и сайт описываются один раз — на главной. Остальные страницы ссылаются на те же
+  // `@id`, поэтому для поисковой системы это одна сущность, а не повторяющиеся однофамильцы.
+  const structuredData = [
+    organizationNode(),
+    webSiteNode(),
+    webPageNode({
+      url: SITE_URL,
+      name: `${copy.headline} — ${SITE_NAME}`,
+      description: copy.subheadline,
+    }),
+  ];
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
+      <HomepageShell initialRevealed={initialRevealed} initialSectionId={initialSectionId} />
+    </>
+  );
 }

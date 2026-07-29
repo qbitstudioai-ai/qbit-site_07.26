@@ -125,6 +125,12 @@ export function TypedText({ text, stepMs = DEFAULT_STEP_MS, startDelayMs = 0 }: 
             {character}
           </span>
         ))}
+        <i
+          className={
+            typedCount >= text.length ? `${styles.cursor} ${styles.cursorComplete}` : styles.cursor
+          }
+          data-typed-cursor
+        />
       </span>
       {/* Доступная копия: ОДИН текстовый узел с полным предложением, визуально скрытый. Именно её
           читает скринридер и объявляет aria-live родителя — независимо от стадии анимации

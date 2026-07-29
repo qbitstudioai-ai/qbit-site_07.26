@@ -36,8 +36,8 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
       await expect(panel.getByRole("button", { name: point.pain }).first()).toBeVisible();
     }
     await expect(panel.getByText(sales.painPoints[0].gain).first()).toBeVisible();
-    await expect(panel.getByRole("link", { name: sales.ctaLabel })).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Закрыть" })).toBeVisible();
+    await expect(panel.getByRole("link", { name: sales.ctaLabel })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Назад к офису" })).toBeVisible();
 
     expect(new URL(page.url()).searchParams.get("department")).toBe("sales");
     const markerSurvived = await page.evaluate(
@@ -142,14 +142,16 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await expect(hotspot).toBeFocused();
   });
 
-  test("the explicit Close button produces the same result as Escape", async ({ page }) => {
+  test("the explicit Back-to-office button produces the same result as Escape", async ({
+    page,
+  }) => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
     const hotspot = nav.getByRole("button", { name: sales.overviewLabel });
     await hotspot.click();
 
-    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.getByRole("button", { name: "Назад к офису" }).click();
 
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
     expect(new URL(page.url()).searchParams.get("department")).toBeNull();

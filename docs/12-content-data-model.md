@@ -11,8 +11,7 @@ type Department = {
   headline: string;
   problem: string;
   painPoints: PainPoint[]; // ровно 5 пар "боль → выгода" (Step 7.3, см. "Правила" ниже)
-  beforeSteps?: ProcessStep[]; // Step 19: опционально, заполнено для sales — см. примечание ниже
-  automationSteps?: ProcessStep[]; // опционально; либо оба поля, либо ни одного
+  customerBenefits: string[]; // Amendment 21: выгоды для заказчика — единые на отдел, см. ниже
   ctaLabel: string;
   solutionPath: string;
   visual: DepartmentVisual;
@@ -27,25 +26,13 @@ type PainPoint = {
 `visual` остаётся известным, зафиксированным расхождением между этим документом и реально
 реализованными данными (`DECISIONS.md`, 2026-07-14 "типизировать docs/12 как есть").
 
-**Step 19 (Этап 3):** `beforeSteps`/`automationSteps` ЧАСТИЧНО реализованы и переведены в
-ОПЦИОНАЛЬНЫЕ. Прежде они были объявлены здесь обязательными, но в данных отсутствовали (то самое
-расхождение). Теперь они заполнены для отдела `sales` (пилот Этапа 3, `data/departments.json`) и
-типизированы как опциональные в `src/content/types.ts`/`schema.ts`: остальные четыре отдела получают
-их на Этапах 4–7 и до тех пор остаются валидными без этих полей. Схема требует, чтобы поля задавались
-ПАРОЙ (либо оба, либо ни одного) — половинчатая «до/после» без одной из сторон невалидна.
-
-## ProcessStep
-
-```ts
-type ProcessStep = {
-  id: string;
-  label: string;
-  description: string;
-  actor?: string;
-  status?: "normal" | "warning" | "critical" | "success";
-  visualAnchor?: string;
-};
-```
+**Amendment 21 (2026-07-21):** поля `beforeSteps`/`automationSteps` и тип `ProcessStep` (Step 19/20,
+диаграмма «до/после» `BeforeAfterSequence`) **удалены**. Вместо них — `customerBenefits: string[]`:
+единый на отдел список выгод, которые заказчик получает от автоматизации ИМЕННО этого отдела (окно
+`CustomerBenefits` «Ваша выгода», `docs/06`/`docs/07`). В отличие от `painPoints[].gain`
+(привязан к конкретной боли 1:1), не зависит от выбранной боли. Схема (`src/content/schema.ts`):
+массив непустых строк со значением по умолчанию `[]` (отдел без поля валиден и получает пустой
+список). Сейчас пуст у всех пяти отделов НАМЕРЕННО — текст наполняется на этапе копирайта.
 
 ## Visual
 

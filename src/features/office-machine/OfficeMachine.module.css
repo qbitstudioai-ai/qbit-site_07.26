@@ -1,9 +1,190 @@
-/* Перенесено из HomepageShell.module.css — Header рендерится здесь же, рядом с main (Step 7.4).
-   Кнопка "Выйти из офиса" впоследствии перенесена в OfficeExperience (не в Header) — этот перенос
-   сохранён ради минимального diff, не по функциональной необходимости Header'а. */
 .main {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  flex: 1;
   min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 61% 42%, rgba(212, 179, 143, 0.16), transparent 34%), #f7f4ef;
+}
+
+.heroGrid {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 68% 48%, rgba(177, 124, 72, 0.1), transparent 31%),
+    linear-gradient(102deg, #f8f5f0 0%, #f6f1ea 44%, #f3ede5 100%);
+}
+
+.heroGrid::before,
+.heroGrid::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.heroGrid::before {
+  z-index: 8;
+  inset: 0;
+  background-image: radial-gradient(rgba(74, 56, 39, 0.16) 0.55px, transparent 0.55px);
+  background-size: 4px 4px;
+  opacity: 0.09;
+  mix-blend-mode: multiply;
+}
+
+.heroGrid::after {
+  z-index: 2;
+  top: -24%;
+  right: 16%;
+  width: min(44vw, 780px);
+  height: 118%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(244, 220, 191, 0.24), transparent 68%);
+  transform: rotate(-8deg);
+}
+
+.heroVisualCell,
+.heroCopyCell,
+.heroInfoCell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  grid-row: 1;
+}
+
+.heroVisualCell {
+  grid-column: 2 / -1;
+  margin: -10px -1.5vw -16px -2.5vw;
+}
+
+.heroCopyCell {
+  z-index: 4;
+  isolation: isolate;
+  grid-column: 1 / 7;
+}
+
+.heroCopyCell::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0 -6vw 0 0;
+  background:
+    radial-gradient(ellipse at 16% 50%, rgba(248, 245, 240, 0.76) 0 34%, transparent 64%),
+    linear-gradient(
+      100deg,
+      rgba(248, 245, 240, 0.72) 0 32%,
+      rgba(248, 245, 240, 0.48) 50%,
+      rgba(248, 245, 240, 0.1) 67%,
+      transparent 79%
+    );
+  -webkit-backdrop-filter: blur(1.5px);
+  backdrop-filter: blur(1.5px);
+  pointer-events: none;
+}
+
+.heroCopyCell > * {
+  position: relative;
+  z-index: 1;
+}
+
+.heroInfoCell {
+  z-index: 5;
+  grid-column: 9 / -1;
+  margin-left: clamp(-24px, -1.2vw, -12px);
+}
+
+:global(.js) .heroGridHidden {
+  display: none;
+}
+
+@media (max-width: 1400px) and (min-width: 1200px) {
+  .heroVisualCell {
+    grid-column: 2 / -1;
+    margin-left: -4vw;
+  }
+
+  .heroCopyCell {
+    grid-column: 1 / 7;
+  }
+
+  .heroInfoCell {
+    grid-column: 9 / -1;
+    margin-left: -18px;
+  }
+
+  .heroCopyCell::before {
+    right: -4vw;
+  }
+}
+
+@media (max-width: 1199px) {
+  .main {
+    overflow-y: auto;
+  }
+
+  .heroGrid {
+    display: grid;
+    flex: none;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    overflow: visible;
+    padding-bottom: 0;
+    background:
+      radial-gradient(circle at 62% 44%, rgba(177, 124, 72, 0.1), transparent 30%), #f4f0e9;
+  }
+
+  .heroGrid::after {
+    top: 22%;
+    right: -18%;
+    width: 82vw;
+    height: 52%;
+  }
+
+  .heroCopyCell,
+  .heroVisualCell,
+  .heroInfoCell {
+    grid-column: 1;
+    min-height: 0;
+    margin-left: 0;
+  }
+
+  .heroCopyCell {
+    grid-row: 1;
+  }
+
+  .heroCopyCell::before {
+    inset: 0;
+    background: radial-gradient(ellipse at 28% 44%, rgba(251, 249, 246, 0.96), transparent 76%);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .heroVisualCell {
+    grid-row: 2;
+    margin: 0 clamp(18px, 5vw, 64px);
+  }
+
+  .heroInfoCell {
+    z-index: 5;
+    grid-row: 3;
+    margin-top: clamp(-116px, -10vw, -78px);
+  }
+}
+
+@media (max-width: 800px) {
+  .heroInfoCell {
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .heroVisualCell {
+    margin-inline: 12px;
+  }
 }

@@ -19,6 +19,14 @@
   overflow-y: auto;
 }
 
+.office[data-office-mode="overview"] {
+  overflow-y: hidden;
+}
+
+.office[data-office-mode="section"] {
+  overflow: hidden;
+}
+
 /* Step 7.2: interactionHint скрывается на ВСЕХ ширинах (docs/05 "overview", Amendment 5 — включая
    Tablet, не только Mobile как раньше в Step 7) — безусловно, без :global(.js)-обёртки: в отличие
    от HeroCopy, для этой подсказки no-JS исключение не сделано (см. WORKPLAN.md Step 7.2, решение 3). */
@@ -32,6 +40,9 @@
 .returnButton {
   align-self: flex-start;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
   background: none;
   border: 1px solid var(--color-graphite-300);
   border-radius: 6px;
@@ -40,6 +51,38 @@
   font-size: 0.875rem;
   color: var(--color-graphite-700);
   cursor: pointer;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+}
+
+.returnButton:hover {
+  border-color: var(--color-oak-500);
+  background: rgba(250, 246, 239, 0.72);
+  color: var(--color-graphite-900);
+}
+
+.instructionTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--color-graphite-700);
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  letter-spacing: 0.035em;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.instructionMark {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent-warm);
+  box-shadow: 0 0 0 4px rgba(143, 87, 34, 0.1);
 }
 
 /* ── Общий сцен-слой (Step 18) ────────────────────────────────────────────────────────────────────
@@ -56,8 +99,11 @@
    эти пустующие поля и кадр не уменьшают. `align-items: center` держит сцену по центру вертикали. */
 .stageRow {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns:
+    minmax(180px, 0.86fr) minmax(0, 3.7fr)
+    minmax(180px, 0.86fr);
   align-items: center;
+  gap: clamp(14px, 1.5vw, 28px);
   width: 100%;
   flex: 1;
   min-height: 0;
@@ -66,23 +112,90 @@
   container-type: size;
 }
 
-/* Пустые брони под будущий текст. Намеренно без фона, рамки и содержимого: пока текста нет, они
-   ничего не показывают, а место держат. Когда контент появится, здесь же появятся заголовок/абзац —
-   разметку и сетку менять уже не придётся. */
 .asideSlot {
   min-width: 0;
   height: 100%;
 }
 
-/* < 1280px: боковые брони схлопываются, сцена занимает всю ширину панели. На планшете и уже кадр и
-   так упирается в ширину, и колонки отнимали бы у него место, которого нет (docs/08). */
-@media (max-width: 1279px) {
-  .stageRow {
-    grid-template-columns: 1fr;
-  }
+.story {
+  display: flex;
+  align-items: center;
+  color: color-mix(in srgb, var(--color-graphite-500) 90%, var(--color-graphite-700) 10%);
+}
 
-  .asideSlot {
-    display: none;
+.storyInner {
+  position: relative;
+  max-width: 31ch;
+  padding-left: clamp(14px, 1.35vw, 22px);
+}
+
+.storyInner::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(111, 101, 89, 0.34) 14%,
+    rgba(111, 101, 89, 0.34) 86%,
+    transparent
+  );
+}
+
+.storyWarm .storyInner::before {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(143, 87, 34, 0.32) 14%,
+    rgba(143, 87, 34, 0.32) 86%,
+    transparent
+  );
+}
+
+.storyTitle {
+  margin-bottom: clamp(12px, 1.3vw, 18px);
+  color: var(--color-graphite-700);
+  font-size: clamp(0.75rem, 0.8vw, 0.875rem);
+  font-weight: 750;
+  line-height: 1.35;
+  letter-spacing: 0.035em;
+}
+
+.storyWarm .storyTitle {
+  color: var(--color-oak-700);
+}
+
+.storyParagraph {
+  font-size: clamp(var(--font-size-xs), 0.72vw, 0.8125rem);
+  line-height: 1.62;
+}
+
+.storyParagraph + .storyParagraph {
+  margin-top: clamp(10px, 1vw, 16px);
+}
+
+.officeCenter {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  container-type: size;
+}
+
+.stageRow[data-stage-mode="overview"] .officeCenter {
+  align-self: stretch;
+  height: auto;
+}
+
+@media (min-width: 1280px) {
+  .stageRow[data-stage-mode="overview"] {
+    grid-template-rows: minmax(0, 1fr);
   }
 }
 
@@ -122,11 +235,79 @@
   background: var(--color-graphite-100);
 }
 
+.stageRow[data-stage-mode="overview"] .stage {
+  background: #f7f4ef;
+}
+
+.stageRow[data-stage-mode="overview"] .stagePhoto {
+  -webkit-mask-image:
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.7) 0,
+      #000 clamp(20px, 2.5vw, 34px),
+      #000 calc(100% - clamp(20px, 2.5vw, 34px)),
+      rgba(0, 0, 0, 0.7) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.84) 0,
+      #000 10px,
+      #000 calc(100% - 10px),
+      rgba(0, 0, 0, 0.84) 100%
+    );
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.7) 0,
+      #000 clamp(20px, 2.5vw, 34px),
+      #000 calc(100% - clamp(20px, 2.5vw, 34px)),
+      rgba(0, 0, 0, 0.7) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.84) 0,
+      #000 10px,
+      #000 calc(100% - 10px),
+      rgba(0, 0, 0, 0.84) 100%
+    );
+  mask-composite: intersect;
+}
+
+.stageRow[data-stage-mode="overview"] .stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      to right,
+      rgba(247, 244, 239, 0.12),
+      transparent 28px,
+      transparent calc(100% - 28px),
+      rgba(247, 244, 239, 0.12)
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(247, 244, 239, 0.08),
+      transparent 12px,
+      transparent calc(100% - 12px),
+      rgba(247, 244, 239, 0.08)
+    );
+  pointer-events: none;
+}
+
 /* department-active: кадр разворачивается на всю панель. Брони и центрирование по пропорции здесь
    не нужны — 90%-область и рельс лежат ПОВЕРХ кадра, а не рядом с ним (Amendment 8). */
 .stageRow[data-stage-mode="section"] {
   grid-template-columns: 1fr;
   align-items: stretch;
+}
+
+.stageRow[data-stage-mode="section"] .officeCenter {
+  height: 100%;
+  container-type: size;
 }
 
 .stageRow[data-stage-mode="section"] .asideSlot {
@@ -145,7 +326,22 @@
      Скругление и клип самой фотографии от этого не страдают: их держит стопка слоёв внутри
      SceneCrossfade (.stack — overflow: hidden + border-radius), которой они и нужны — там ездит
      увеличенный кадр. */
-  overflow: visible;
+  overflow: hidden;
+}
+
+/* Локальный контраст только под существующими зонами контента. Правый край фотосцены остаётся
+   чистым: здесь нет ни равномерного scrim, ни blur всей фотографии. */
+.stageRow[data-stage-mode="section"] .stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 38% 24% at 20% 5%, rgba(20, 15, 10, 0.2), transparent 72%),
+    radial-gradient(ellipse 62% 48% at 30% 44%, rgba(20, 15, 10, 0.15), transparent 74%),
+    radial-gradient(ellipse 58% 24% at 36% 80%, rgba(20, 15, 10, 0.14), transparent 76%);
+  pointer-events: none;
 }
 
 /* Step 6: 10/90-раскладка активного отдела. grid-template-areas разделяет визуальный порядок
@@ -157,6 +353,17 @@
    раньше кадр был её фоном и потому монтировался вместе с ней. Занимаемая площадь та же — .stage в
    этом режиме растянут на всю панель. */
 .shell10x90 {
+  --department-surface: linear-gradient(
+    135deg,
+    rgba(250, 247, 241, 0.88),
+    rgba(239, 234, 226, 0.78)
+  );
+  --department-surface-border: 1px solid rgba(255, 255, 255, 0.5);
+  --department-surface-radius: 12px;
+  --department-surface-shadow:
+    0 16px 40px rgba(22, 17, 11, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  --department-surface-filter: blur(14px) saturate(110%);
+
   position: absolute;
   inset: 0;
   z-index: 1;
@@ -215,8 +422,69 @@
   display: flex;
 }
 
+.railStack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--space-3);
+}
+
+.departmentBackButton {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: var(--department-surface-border);
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(250, 247, 241, 0.76), rgba(239, 234, 226, 0.64));
+  box-shadow:
+    0 9px 24px rgba(20, 16, 10, 0.09),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(12px) saturate(108%);
+  color: var(--color-graphite-700);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    border-color 200ms ease,
+    background-color 200ms ease,
+    color 200ms ease;
+}
+
+.departmentBackButton:hover {
+  border-color: rgba(143, 87, 34, 0.46);
+  background: linear-gradient(135deg, rgba(255, 252, 247, 0.9), rgba(241, 232, 220, 0.76));
+  color: var(--color-graphite-900);
+}
+
+.departmentBackButton:focus-visible {
+  border-color: rgba(143, 87, 34, 0.72);
+  box-shadow:
+    0 9px 24px rgba(20, 16, 10, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
+}
+
+.departmentBackArrow {
+  display: inline-block;
+  color: var(--color-accent-warm);
+  transition: transform 200ms ease;
+}
+
+.departmentBackButton:hover .departmentBackArrow {
+  transform: translateX(-4px);
+}
+
 @media (max-height: 700px) {
   .shell10x90 {
+    gap: var(--space-2);
+  }
+
+  .railStack {
     gap: var(--space-2);
   }
 }
@@ -254,7 +522,7 @@
   .stageRow[data-stage-mode="overview"] {
     flex: none;
     container-type: inline-size;
-    margin-bottom: var(--space-4);
+    margin-bottom: 0;
   }
 
   /* Потолок высоты кадра обязателен, и его отсутствие было дефектом первой редакции Step 15
@@ -275,6 +543,80 @@
   .stageRow[data-stage-mode="overview"] .stage {
     width: min(100%, calc(45vh * 3 / 2));
     width: min(100%, calc(45dvh * 3 / 2));
+  }
+}
+
+@media (max-width: 1279px) {
+  .office[data-office-mode="overview"] {
+    overflow-y: auto;
+  }
+
+  .stageRow[data-stage-mode="overview"] {
+    flex: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    container-type: normal;
+    gap: clamp(24px, 4vw, 44px);
+  }
+
+  .stageRow[data-stage-mode="overview"] .officeCenter {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    height: auto;
+    container-type: inline-size;
+  }
+
+  .stageRow[data-stage-mode="overview"] .story {
+    grid-row: 2;
+    height: auto;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .storyInner {
+    max-width: 52ch;
+  }
+
+  .storyParagraph {
+    font-size: var(--font-size-sm);
+    line-height: 1.65;
+  }
+}
+
+@media (max-width: 767px) {
+  .office {
+    padding: var(--space-4);
+  }
+
+  .stageRow[data-stage-mode="overview"] {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  .stageRow[data-stage-mode="overview"] .officeCenter,
+  .stageRow[data-stage-mode="overview"] .story,
+  .storyWarm {
+    grid-column: 1;
+  }
+
+  .stageRow[data-stage-mode="overview"] .story {
+    grid-row: auto;
+  }
+
+  .story {
+    justify-content: flex-start;
+  }
+
+  .storyInner {
+    max-width: 62ch;
+  }
+
+  .storyTitle {
+    margin-bottom: var(--space-3);
+    font-size: var(--font-size-sm);
+  }
+
+  .storyParagraph {
+    font-size: 0.8125rem;
   }
 }
 
@@ -317,19 +659,104 @@
   font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
 }
 
 .taskEntryButton:hover {
   background: var(--color-accent-warm-strong);
+  border-color: var(--color-accent-warm-strong);
+  transform: translateY(-1px);
 }
 
-/* Верхний ряд overview: возврат в hero слева, вход в «Вашу задачу» справа. Ряд заменяет прежнее
-   одиночное расположение .returnButton и держит обе кнопки на одной высоте. */
-.overviewActions {
-  display: flex;
+/* Единый ряд overview: возврат слева, спокойная инструкция точно по центру, Telegram CTA справа. */
+.overviewControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   flex-shrink: 0;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-3);
+}
+
+.overviewControls .returnButton {
+  justify-self: start;
+}
+
+.overviewControls .instructionTitle {
+  justify-self: center;
+}
+
+.overviewControls .taskEntryButton {
+  justify-self: end;
+}
+
+@media (max-width: 1279px) {
+  .overviewControls {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "return cta"
+      "instruction instruction";
+    column-gap: var(--space-2);
+    row-gap: var(--space-3);
+    margin-bottom: var(--space-4);
+  }
+
+  .overviewControls .returnButton {
+    grid-area: return;
+    justify-self: start;
+  }
+
+  .overviewControls .instructionTitle {
+    grid-area: instruction;
+    justify-self: center;
+  }
+
+  .overviewControls .taskEntryButton {
+    grid-area: cta;
+    justify-self: end;
+  }
+
+  .returnButton,
+  .taskEntryButton {
+    padding-inline: var(--space-3);
+    font-size: var(--font-size-sm);
+    white-space: nowrap;
+  }
+
+  .taskEntryButton {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 430px) {
+  .overviewControls {
+    column-gap: 6px;
+  }
+
+  .returnButton,
+  .taskEntryButton {
+    padding-inline: var(--space-2);
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 340px) {
+  .overviewControls {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "return"
+      "cta"
+      "instruction";
+  }
+
+  .overviewControls .taskEntryButton {
+    justify-self: stretch;
+    justify-content: center;
+    white-space: normal;
+  }
 }

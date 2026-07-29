@@ -189,8 +189,10 @@ test.describe("office overview", () => {
     // "не обрезаются" теперь имеют смысл только в состоянии hero, до раскрытия офиса.
     const heading = page.getByRole("heading", { level: 1 });
     const headingBox = await heading.boundingBox();
+    const mainBox = await page.locator("main").boundingBox();
     expect(headingBox).not.toBeNull();
-    expect(headingBox!.y).toBeGreaterThanOrEqual(0);
+    expect(mainBox).not.toBeNull();
+    expect(headingBox!.y).toBeGreaterThanOrEqual(mainBox!.y);
     expect(headingBox!.y + headingBox!.height).toBeLessThanOrEqual(500);
 
     const copy = getHomepageCopy();
@@ -230,7 +232,9 @@ test.describe("office overview", () => {
     await activateCta(page);
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(
+      page.locator("[data-hero-grid]").getByRole("link", { name: copy.primaryCta }),
+    ).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     // interactionHint остаётся в DOM (markup не удаляется, см. WORKPLAN.md Step 7.2, решение 3) —
     // toBeHidden(), а не toHaveCount(0), проверяет именно визуальное сокрытие через CSS.
@@ -240,7 +244,9 @@ test.describe("office overview", () => {
     await nav.getByRole("button").first().click();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(
+      page.locator("[data-hero-grid]").getByRole("link", { name: copy.primaryCta }),
+    ).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
   });
@@ -264,7 +270,9 @@ test.describe("office overview", () => {
     await activateCtaViaSecondary(page);
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(
+      page.locator("[data-hero-grid]").getByRole("link", { name: copy.primaryCta }),
+    ).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
 
@@ -272,16 +280,22 @@ test.describe("office overview", () => {
     await expect(nav.getByRole("button").first()).toBeFocused();
   });
 
-  test("the header tagline is visible in every state (hero and overview)", async ({ page }) => {
+  test("the old generic tagline is absent and the header CTA uses the same contact as the hero CTA", async ({
+    page,
+  }) => {
     const copy = getHomepageCopy();
     await page.goto("/");
-    await expect(page.getByText(copy.tagline)).toBeVisible();
-
-    await activateCta(page);
-    await expect(page.getByText(copy.tagline)).toBeVisible();
+    await expect(page.getByText("Помогаем экономить ДЕНЬГИ и ВРЕМЯ")).toHaveCount(0);
+    const headerPhone = page.getByRole("link", { name: copy.headerPhoneAccessibleLabel });
+    await expect(headerPhone).toHaveAttribute("href", copy.headerPhoneHref);
+    await expect(headerPhone).toHaveText(copy.headerPhone);
+    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveAttribute(
+      "href",
+      copy.contactHref,
+    );
   });
 
-  // Step 7.6 — шапка: кликабельный логотип + размер/центрирование tagline.
+  // Step 7.6 — шапка: кликабельный логотип и сохранённая машина возврата.
   test("Step 7.6: the logo returns to hero from overview and from an open department, clearing ?department, without a full reload (AC1, AC6)", async ({
     page,
   }) => {
@@ -306,14 +320,15 @@ test.describe("office overview", () => {
     expect(markerSurvived).toBe(true);
 
     // Из открытого отдела — тоже прямо в hero, и ?department исчезает из URL.
+    const sales = getDepartments().find((department) => department.id === "sales")!;
     await page.goto("/?department=sales");
-    await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
     await page.evaluate(() => {
       (window as unknown as { __noReloadMarker?: boolean }).__noReloadMarker = true;
     });
     await logo.click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
-    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toHaveCount(0);
     expect(new URL(page.url()).searchParams.get("department")).toBeNull();
     expect(
       await page.evaluate(
@@ -335,35 +350,6 @@ test.describe("office overview", () => {
     await expect(page.getByRole("link", { name: copy.primaryCta })).toBeVisible();
   });
 
-  test("Step 7.6: the tagline text is centred on the viewport, not on the space left of the logo (AC8)", async ({
-    page,
-  }) => {
-    const copy = getHomepageCopy();
-    // 768/1024/1279 — одноколоночная раскладка, 1280/1920 — трёхколоночная: обе стороны порога.
-    for (const width of [768, 1024, 1279, 1280, 1920]) {
-      await page.setViewportSize({ width, height: 800 });
-      await page.goto("/");
-
-      // Range.getBoundingClientRect(), а не boundingBox() самого <p>: на ≤1279px параграф занимает
-      // всю ширину контента, поэтому его собственный центр совпадает с центром экрана тождественно
-      // — при любом text-align. Такой guard был бы вакуумным и пропустил бы ровно тот дефект, на
-      // который жаловался пользователь. Range меряет реальный inline-box текста.
-      const textCentre = await page.getByText(copy.tagline).evaluate((el) => {
-        const range = document.createRange();
-        range.selectNodeContents(el);
-        const rect = range.getBoundingClientRect();
-        return rect.x + rect.width / 2;
-      });
-
-      // Допуск 1px — субпиксельное округление. Прежняя раскладка (flex: 1 после brandRow) смещала
-      // центр вправо на ~половину ширины логотипа, что этот допуск не пропустил бы.
-      expect(
-        Math.abs(textCentre - width / 2),
-        `tagline text centre offset at ${width}px`,
-      ).toBeLessThanOrEqual(1);
-    }
-  });
-
   test("Step 7.6: the logo tap target is at least 44x44 CSS px on mobile and tablet (AC5)", async ({
     page,
   }) => {
@@ -380,24 +366,12 @@ test.describe("office overview", () => {
     }
   });
 
-  test("Step 7.6: the enlarged tagline neither overlaps the logo nor causes horizontal scroll (AC9)", async ({
+  test("Step 7.6: the updated header causes no horizontal scroll at representative widths", async ({
     page,
   }) => {
-    const copy = getHomepageCopy();
-    for (const width of [320, 768, 1279, 1280, 1920]) {
+    for (const width of [320, 390, 768, 1024, 1280, 1920]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/");
-
-      const logoBox = await page.getByRole("button", { name: "QBit-Studio-Ai" }).boundingBox();
-      const taglineBox = await page.getByText(copy.tagline).boundingBox();
-      expect(logoBox).not.toBeNull();
-      expect(taglineBox).not.toBeNull();
-
-      // На ≤767px они лежат в двух строках одной колонки (вертикально разнесены); шире — в одной
-      // строке, значит не должны пересекаться по горизонтали.
-      const stacked = taglineBox!.y >= logoBox!.y + logoBox!.height;
-      const sideBySide = taglineBox!.x >= logoBox!.x + logoBox!.width;
-      expect(stacked || sideBySide, `logo/tagline overlap at ${width}px`).toBe(true);
 
       const { scrollWidth, innerWidth } = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,
@@ -407,27 +381,27 @@ test.describe("office overview", () => {
     }
   });
 
-  test("the 'return to office' button is absent in hero, appears after ACTIVATE_CTA, and sends the user back to hero with focus on the hero heading", async ({
+  test("the 'return to office' link is absent in hero, appears after ACTIVATE_CTA, and sends the user back to hero with focus on the hero heading", async ({
     page,
   }) => {
     const copy = getHomepageCopy();
     await page.goto("/");
-    await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.returnToOfficeLabel })).toHaveCount(0);
 
     await activateCta(page);
-    const returnButton = page.getByRole("button", { name: copy.returnToOfficeLabel });
-    await expect(returnButton).toBeVisible();
-    await returnButton.click();
+    const returnLink = page.getByRole("link", { name: copy.returnToOfficeLabel });
+    await expect(returnLink).toBeVisible();
+    await returnLink.click();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
     await expect(page.getByRole("link", { name: copy.primaryCta })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: copy.returnToOfficeLabel })).toHaveCount(0);
     const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
     expect(focusedId).toBe("hero-heading");
   });
 
-  test("the 'return to office' button lives only above the overview grid: absent while a department is open, reachable again after closing it", async ({
+  test("the 'return to office' link lives only above the overview grid: absent while a department is open, reachable again after closing it", async ({
     page,
   }) => {
     const copy = getHomepageCopy();
@@ -437,15 +411,15 @@ test.describe("office overview", () => {
       page.getByRole("heading", { level: 2, name: salesDepartment.headline }),
     ).toBeVisible();
     // Step 7.4 (правка): кнопка теперь живёт только над сеткой отделов в overview, не в Header —
-    // из открытого отдела её нет, сначала нужно закрыть отдел существующей кнопкой «Закрыть».
-    await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
+    // из открытого отдела её нет, сначала нужно вернуться кнопкой «Назад к офису».
+    await expect(page.getByRole("link", { name: copy.returnToOfficeLabel })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.getByRole("button", { name: "Назад к офису" }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
 
-    const returnButton = page.getByRole("button", { name: copy.returnToOfficeLabel });
-    await expect(returnButton).toBeVisible();
-    await returnButton.click();
+    const returnLink = page.getByRole("link", { name: copy.returnToOfficeLabel });
+    await expect(returnLink).toBeVisible();
+    await returnLink.click();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
     expect(new URL(page.url()).searchParams.get("department")).toBeNull();

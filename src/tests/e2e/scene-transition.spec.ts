@@ -504,11 +504,11 @@ test.describe("Step 16 — переход между сценами", () => {
 
     // Сразу после переключения, пока играет и переход сцены, и каскад блоков.
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
-    await expect(page.getByRole("link", { name: hr.ctaLabel })).toHaveAttribute("href", /.+/);
+    await expect(page.getByRole("button", { name: "Назад к офису" })).toBeVisible();
 
     // Контрол не просто в разметке — он верхний в своей точке, то есть сцена его не перекрывает.
     const closeIsTopmost = await page
-      .getByRole("button", { name: "Закрыть" })
+      .getByRole("button", { name: "Назад к офису" })
       .evaluate((element) => {
         const rect = element.getBoundingClientRect();
         const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
@@ -517,7 +517,7 @@ test.describe("Step 16 — переход между сценами", () => {
     expect(closeIsTopmost).toBe(true);
 
     // И действительно срабатывает, не дожидаясь конца анимаций.
-    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.getByRole("button", { name: "Назад к офису" }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
   });
 
@@ -595,7 +595,7 @@ test.describe("Step 18 — путь overview→отдел", () => {
     await waitForSettledSceneAnywhere(page);
 
     const coverage = await minSceneCoverageAnywhere(page, async () => {
-      await page.getByRole("button", { name: "Закрыть" }).click();
+      await page.getByRole("button", { name: "Назад к офису" }).click();
     });
 
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();

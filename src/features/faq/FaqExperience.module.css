@@ -1,0 +1,528 @@
+/*
+ * Раздел FAQ: интерфейс лежит НА физической стеклянной доске фотографии, а не в отдельном окне
+ * поверх неё.
+ *
+ * Геометрия доски не подобрана процентами на глаз, а измерена по пикселям исходника
+ * `public/faq/faq-open-space-background.png` (1672×941): доска занимает x 359…1317, y 98…666,
+ * то есть 958×568 px, её горизонтальный центр — 50.1 % ширины кадра.
+ *
+ * Фон отрисован как `object-fit: cover; object-position: center center`. Ровно эта же математика
+ * повторена в calc() ниже, поэтому рамка контента совпадает с доской на всех пропорциях, где
+ * видимая часть доски вообще помещается в экран (окно соотношений 1.2…2.33 — см. медиазапрос в конце
+ * файла; за его пределами страница переходит в обычный поток), а не только на одном разрешении:
+ *   k     = max(ширина_контейнера / 1672, высота_контейнера / 941)   — коэффициент cover
+ *   left  = (ширина_контейнера − 1672·k) / 2 + 359·k
+ *   top   = (высота_контейнера − 941·k) / 2 + 98·k
+ * Единицы cqw/cqh (а не vw/vh) взяты намеренно: считать нужно от области ПОД шапкой, и такой счёт
+ * не зависит ни от высоты шапки, ни от ширины полосы прокрутки.
+ */
+
+.shell {
+  /* Сетка `auto 1fr` при ОПРЕДЕЛЁННОЙ высоте, а не flex-column с min-height. Это не стилистический
+     выбор: у `container-type: size` (.stage) высота контейнера должна быть определённой, иначе
+     Chromium резолвит 100cqh в 0 и рамка доски уезжает за верх экрана — воспроизведено на
+     минимальном примере. Сетка даёт .stage определённую высоту, flex-растяжение — нет.
+     На мобильном высота возвращается к auto (медиазапрос в конце файла). */
+  display: grid;
+  height: 100svh;
+  grid-template-rows: auto 1fr;
+  background: var(--color-graphite-900);
+
+  /* Включает интерполяцию block-size: auto → плавное раскрытие ответа там, где браузер это умеет
+     (см. ::details-content ниже). Свойство наследуемое, поэтому объявлено один раз здесь и не
+     трогает глобальные стили. */
+  interpolate-size: allow-keywords;
+}
+
+.stage {
+  position: relative;
+  z-index: 0;
+  min-height: 0;
+  container-type: size;
+  overflow: hidden;
+}
+
+.photo {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+}
+
+.photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.board {
+  --photo-width: 1672;
+  --photo-height: 941;
+  --board-left: 359;
+  --board-top: 98;
+  --board-width: 958;
+  --board-height: 568;
+  --k: max(100cqw / var(--photo-width), 100cqh / var(--photo-height));
+
+  position: absolute;
+  z-index: 1;
+  top: calc((100cqh - var(--photo-height) * var(--k)) / 2 + var(--board-top) * var(--k));
+  left: calc((100cqw - var(--photo-width) * var(--k)) / 2 + var(--board-left) * var(--k));
+  width: calc(var(--board-width) * var(--k));
+  height: calc(var(--board-height) * var(--k));
+}
+
+/* Затемнение ТОЛЬКО в границах доски: сама фотография (офис, стол, перегородки, свет) остаётся
+   нетронутой. Альфа не декоративная — она рассчитана на самый светлый участок доски (яркость 215),
+   чтобы светлый текст держал контраст ≥ 4.5:1 в любой её точке. */
+.board::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  border-radius: 3px;
+  background: linear-gradient(158deg, rgba(20, 16, 12, 0.74), rgba(30, 24, 18, 0.62));
+  box-shadow:
+    inset 0 0 0 1px rgba(236, 230, 221, 0.14),
+    inset 0 0 70px rgba(0, 0, 0, 0.26);
+  inset: 0;
+}
+
+.boardInner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  padding: max(20px, calc(30 * var(--k))) max(20px, calc(44 * var(--k)));
+  gap: max(14px, calc(20 * var(--k)));
+}
+
+/* ── Верхняя зона ─────────────────────────────────────────────────────────────────────────────── */
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+}
+
+.headCopy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: max(4px, calc(6 * var(--k)));
+}
+
+.eyebrow {
+  color: #f0dcc0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.heading {
+  color: #f5f0e8;
+  font-size: clamp(1.5rem, 2.4vw, 2.35rem);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.14;
+}
+
+.intro {
+  max-width: 62ch;
+  color: rgba(236, 230, 221, 0.88);
+  font-size: clamp(0.85rem, 1vw, 0.98rem);
+  line-height: 1.5;
+}
+
+.counter {
+  flex-shrink: 0;
+  padding-top: 2px;
+  color: rgba(230, 207, 179, 0.92);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.14em;
+}
+
+/* ── Список вопросов ──────────────────────────────────────────────────────────────────────────── */
+
+.list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  padding-right: 6px;
+  gap: max(6px, calc(9 * var(--k)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(211, 180, 149, 0.42) transparent;
+  scrollbar-width: thin;
+}
+
+.list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgba(211, 180, 149, 0.42);
+}
+
+.list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.item {
+  border: 1px solid rgba(236, 230, 221, 0.16);
+  border-radius: 9px;
+  background: rgba(24, 20, 16, 0.42);
+  transition:
+    background-color 260ms ease,
+    border-color 260ms ease;
+}
+
+.item:hover {
+  border-color: rgba(211, 180, 149, 0.32);
+  background: rgba(30, 25, 19, 0.52);
+}
+
+.item[open] {
+  border-color: rgba(211, 180, 149, 0.46);
+  background: rgba(46, 37, 28, 0.58);
+}
+
+.summary {
+  display: grid;
+  min-height: 44px;
+  align-items: center;
+  padding: max(10px, calc(13 * var(--k))) max(14px, calc(18 * var(--k)));
+  cursor: pointer;
+  gap: max(10px, calc(14 * var(--k)));
+  grid-template-columns: auto 1fr auto;
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary:focus-visible {
+  border-radius: 8px;
+  outline: 2px solid #e9cba6;
+  outline-offset: -2px;
+}
+
+.number {
+  color: rgba(230, 207, 179, 0.88);
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+}
+
+.question {
+  color: #ece6dd;
+  font-size: clamp(0.86rem, 0.95vw, 0.98rem);
+  font-weight: 600;
+  line-height: 1.35;
+  /* Утверждённые вопросы длиннее черновых: строка должна переноситься, а не растягивать строку и
+     выдавливать иконку «+». Размер шрифта при этом не уменьшается. */
+  overflow-wrap: break-word;
+}
+
+/* «+» → «−»: горизонтальная черта остаётся на месте, вертикальная сжимается. Знак декоративный,
+   состояние передаётся нативной семантикой <details>, а не только этой иконкой. */
+.marker {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.marker::before,
+.marker::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 1px;
+  background: rgba(232, 213, 192, 0.85);
+  transition: transform 260ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.marker::before {
+  width: 13px;
+  height: 1.5px;
+  transform: translate(-50%, -50%);
+}
+
+.marker::after {
+  width: 1.5px;
+  height: 13px;
+  transform: translate(-50%, -50%);
+}
+
+.item[open] .marker::after {
+  transform: translate(-50%, -50%) scaleY(0);
+}
+
+.answer {
+  margin: 0 max(14px, calc(18 * var(--k)));
+  padding: max(10px, calc(12 * var(--k))) 0 max(12px, calc(14 * var(--k)));
+  border-top: 1px solid rgba(236, 230, 221, 0.14);
+}
+
+.answer p {
+  max-width: 78ch;
+  color: rgba(236, 230, 221, 0.84);
+  font-size: clamp(0.82rem, 0.9vw, 0.92rem);
+  line-height: 1.6;
+}
+
+/* Ответы состоят из нескольких абзацев — им нужен интервал; размер шрифта при этом не меняется. */
+.answer p + p {
+  margin-top: max(8px, calc(10 * var(--k)));
+}
+
+/* Внутренние ссылки внутри ответа: подчёркивание, а не только цвет, — смысл не должен зависеть
+   исключительно от оттенка. */
+.answerLink {
+  color: #f0dcc0;
+  text-decoration: underline;
+  text-decoration-color: rgba(240, 220, 192, 0.5);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 200ms ease;
+}
+
+.answerLink:hover {
+  text-decoration-color: currentcolor;
+}
+
+.answerLink:focus-visible {
+  border-radius: 3px;
+  outline: 2px solid #e9cba6;
+  outline-offset: 2px;
+}
+
+/* Базовое раскрытие: высота меняется браузером, содержимое проявляется. Закрытие остаётся
+   мгновенным — этого достаточно и не требует JS. */
+.item[open] .answer {
+  animation: faqReveal 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes faqReveal {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Прогрессивное улучшение: там, где браузер умеет ::details-content, анимируется сама высота —
+   и на раскрытии, и на закрытии. */
+@supports selector(::details-content) {
+  .item::details-content {
+    overflow: hidden;
+    block-size: 0;
+    opacity: 0;
+    transition:
+      block-size 280ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      opacity 220ms ease,
+      content-visibility 280ms allow-discrete;
+  }
+
+  .item[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+
+  .item[open] .answer {
+    animation: none;
+  }
+}
+
+/* ── Нижняя зона ──────────────────────────────────────────────────────────────────────────────── */
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: max(12px, calc(16 * var(--k)));
+  border-top: 1px solid rgba(236, 230, 221, 0.16);
+  gap: var(--space-4);
+}
+
+.footPrompt {
+  color: rgba(236, 230, 221, 0.88);
+  font-size: clamp(0.82rem, 0.9vw, 0.92rem);
+}
+
+.cta {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 20px;
+  border: 1px solid rgba(211, 180, 149, 0.6);
+  border-radius: 8px;
+  background: rgba(143, 87, 34, 0.22);
+  color: #f6ece0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+.cta:hover {
+  border-color: rgba(232, 203, 166, 0.8);
+  background: var(--color-accent-warm);
+  color: #fff;
+}
+
+.cta:focus-visible {
+  outline: 2px solid #e9cba6;
+  outline-offset: 3px;
+}
+
+/* ── Десктоп: отдать списку максимум высоты внутри доски ──────────────────────────────────────
+ * Утверждённые ответы длиннее черновых (около 200 px в раскрытом виде), а высота доски задана
+ * фотографией и меняться не может. Поэтому вертикальный ритм заголовочной и нижней зон сжимается в
+ * пользу прокручиваемой области: на 1366×768 список получает 163 → ~193 px, на 1440×900 —
+ * 187 → ~221 px. Сжимаются ТОЛЬКО отступы и интервалы; размеры шрифта, сетка, положение доски и
+ * размеры карточек не меняются.
+ */
+@media (min-width: 901px) and (min-aspect-ratio: 6 / 5) and (max-aspect-ratio: 7 / 3) {
+  .boardInner {
+    padding-block: max(14px, calc(20 * var(--k)));
+    gap: max(10px, calc(13 * var(--k)));
+  }
+
+  .foot {
+    padding-top: max(9px, calc(12 * var(--k)));
+  }
+}
+
+/* ── Обычный поток: планшет, мобильный и любые пропорции, где доска не помещается ──────────────
+ *
+ * Привязка к доске работает только там, где видимая часть доски реально помещается в экран.
+ * Ширина доски = 958·k, высота = 568·k, где k — коэффициент cover. Отсюда два предела:
+ *   • узко-высокое окно (соотношение ≲ 1.02): k считается по высоте, и 958·k становится ШИРЕ окна —
+ *     панель уезжала за левый и правый край, а `overflow: hidden` у .stage делал её недостижимой
+ *     (замерено: 1024×1366 → x = −148 при ширине 1024; 901×1200 → x = −125);
+ *   • сверхширокое окно (≳ 2.4): k считается по ширине, и 568·k перерастает высоту области.
+ * За пределами окна пропорций 1.2…2.33 (с запасом к обоим пределам) страница переходит в обычный
+ * поток, где ограничений нет. Верхний порог именно 7/3, а не 2.4: на 2.36…2.40 верхняя кромка рамки
+ * уходила на 1–3 px под обрез. Порог 901px оставлен для планшета/мобильного независимо от пропорций.
+ */
+
+@media (max-width: 900px), (max-aspect-ratio: 6 / 5), (min-aspect-ratio: 7 / 3) {
+  .shell {
+    height: auto;
+    min-height: 100svh;
+  }
+
+  .stage {
+    container-type: normal;
+    overflow: visible;
+  }
+
+  /* Фотография остаётся фотографией и не растягивается на всю высоту документа: фиксированный слой
+     вместо background-attachment: fixed (последний ломается в iOS Safari). */
+  .photo {
+    position: fixed;
+  }
+
+  .photo img {
+    /* Более плотный кадр: 41 % по вертикали — центр доски в исходнике. */
+    object-position: 50% 41%;
+  }
+
+  .board {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: clamp(14px, 4vw, 28px);
+    /* Именно 1px, а не 1: --k множитель ДЛИНЫ, и число здесь сделало бы calc(14 * var(--k))
+       безразмерным, то есть невалидным для gap/padding — отступы молча схлопнулись бы в ноль. */
+    --k: 1px;
+  }
+
+  .boardInner {
+    height: auto;
+    padding: clamp(18px, 5vw, 28px) clamp(16px, 4.5vw, 26px);
+    gap: 18px;
+  }
+
+  .head {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .counter {
+    padding-top: 0;
+  }
+
+  .heading {
+    font-size: clamp(1.5rem, 6.4vw, 2rem);
+  }
+
+  .intro {
+    font-size: 0.92rem;
+  }
+
+  .list {
+    flex: none;
+    padding-right: 0;
+    gap: 10px;
+    overflow-y: visible;
+  }
+
+  .summary {
+    padding: 13px 15px;
+  }
+
+  .question {
+    font-size: 0.94rem;
+  }
+
+  .answer {
+    margin: 0 15px;
+  }
+
+  .answer p {
+    font-size: 0.88rem;
+  }
+
+  .foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+    text-align: center;
+  }
+
+  .cta {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .item,
+  .marker::before,
+  .marker::after,
+  .cta {
+    transition: none;
+  }
+
+  .item[open] .answer {
+    animation: none;
+  }
+
+  .item::details-content {
+    transition: none;
+  }
+}

@@ -27,8 +27,8 @@ describe("HomePage", () => {
     fireEvent.click(screen.getByRole("link", { name: copy.secondaryCta }));
 
     expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "true");
-    // Scoped to the office map nav (Step 7 co-renders MobileDepartmentCarousel with the same
-    // overviewLabel text — CSS toggles visibility, both exist in jsdom, see WORKPLAN.md Step 7).
+    // Scoped to the office map nav: mobile overview now uses the same direct hotspot selection as
+    // tablet/desktop, without the old intermediate carousel block.
     const officeMapNav = screen.getByRole("navigation", { name: "Отделы компании" });
     const departments = getDepartments();
     for (const department of departments) {
@@ -72,7 +72,7 @@ describe("HomePage", () => {
   });
 
   it("the return-to-office button sends the user back to hero and moves focus to the hero heading", async () => {
-    // The button lives in OfficeExperience's overview branch, alongside the office map/hint —
+    // The link lives in OfficeExperience's overview branch, alongside the office map/hint —
     // like them, it is only CSS-hidden in hero via `hiddenUntilRevealed` (real hiding verified in
     // e2e, see office-overview.spec.ts; jsdom does not apply that stylesheet rule, see the existing
     // OfficeExperience unit test comment). Here we check the structural fact the reveal logic
@@ -82,19 +82,17 @@ describe("HomePage", () => {
     fireEvent.click(screen.getByRole("link", { name: copy.secondaryCta }));
     expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "true");
 
-    fireEvent.click(screen.getByRole("button", { name: copy.returnToOfficeLabel }));
+    fireEvent.click(screen.getByRole("link", { name: copy.returnToOfficeLabel }));
 
     expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "false");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(copy.headline);
     expect(document.activeElement?.id).toBe("hero-heading");
   });
 
-  it("the return-to-office button is absent from a booted department-active state (Step 7.4 correction: it only lives above the overview grid, not in department-active — full close-then-return flow with real timers is covered by e2e office-overview.spec.ts)", async () => {
+  it("the return-to-office link is absent from a booted department-active state (it only lives above the overview grid, not in department-active — full close-then-return flow with real timers is covered by e2e office-overview.spec.ts)", async () => {
     render(await HomePage({ searchParams: Promise.resolve({ department: "sales" }) }));
     const copy = getHomepageCopy();
-    expect(
-      screen.queryByRole("button", { name: copy.returnToOfficeLabel }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: copy.returnToOfficeLabel })).not.toBeInTheDocument();
   });
 
   it("boots already revealed (data-revealed=true) when a ?department= param is present", async () => {
@@ -117,6 +115,10 @@ describe("HomePage", () => {
       await HomePage({ searchParams: Promise.resolve({ department: "does-not-exist" }) }),
     );
     expect(container.querySelector("[data-revealed]")).toHaveAttribute("data-revealed", "true");
-    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
+    for (const department of getDepartments()) {
+      expect(
+        screen.queryByRole("heading", { level: 2, name: department.headline }),
+      ).not.toBeInTheDocument();
+    }
   });
 });

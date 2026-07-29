@@ -1,6 +1,15 @@
-import { useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import type { PainPoint } from "@/content/types";
 import { RouteMarker } from "@/components/graphics/RouteMarker";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
+import { PainSolutionImpulse, type PainSolutionImpulseGeometry } from "./PainSolutionImpulse";
 import { TypedText } from "./TypedText";
 import styles from "./PainGainPanel.module.css";
 
@@ -16,74 +25,234 @@ interface PainGainPanelProps {
 // Step 15.5: ступени каскада появления, общий шаг 1 с (требование пользователя). Числа объявлены
 // здесь, а не только в CSS, потому что их обязаны знать оба механизма — и анимация видимости блока,
 // и старт печати текста внутри него. Разъехавшись, они дали бы напечатанный текст в невидимом окне.
-const INITIAL_DELAY_MS = 2000;
-const RESELECT_DELAY_MS = 1000;
+const INITIAL_DELAY_MS = 1400;
+const IMPULSE_TYPING_DELAY_MS = 700;
+const IMPULSE_ARRIVAL_MS = 560;
+const IMPULSE_CLEANUP_MS = 1100;
+const MAX_TYPING_DURATION_MS = 1900;
+const MIN_STEP_MS = 10;
+const MAX_STEP_MS = 34;
 
-// Решение, зафиксированное явно (skeptic Phase B, non-blocking 3): повторный клик по УЖЕ выбранной
-// боли пояснение НЕ переоткрывает — `key` не меняется, значит нет ни перемонтирования, ни повторной
-// анимации. Формально это расходится с буквальным «нажал на боль → через 1 с появилось пояснение»,
-// но переоткрывать ответ на вопрос, который не менялся, значит на секунду прятать от пользователя
-// текст, который он в этот момент читает. Перемигивание по клику в уже выбранный пункт читалось бы
-// как сбой, а не как отклик.
+interface ImpulseState {
+  geometry: PainSolutionImpulseGeometry | null;
+  arrived: boolean;
+}
+
+type ImpulseAction =
+  | { type: "launch"; geometry: PainSolutionImpulseGeometry }
+  | { type: "remeasure"; geometry: PainSolutionImpulseGeometry }
+  | { type: "arrive"; runId: number }
+  | { type: "finish"; runId: number };
+
+function impulseReducer(state: ImpulseState, action: ImpulseAction): ImpulseState {
+  if (action.type === "launch") return { geometry: action.geometry, arrived: false };
+  if (action.type === "remeasure") {
+    if (!state.geometry || state.geometry.runId !== action.geometry.runId) return state;
+    return { ...state, geometry: action.geometry };
+  }
+  if (!state.geometry || state.geometry.runId !== action.runId) return state;
+  if (action.type === "arrive") return { ...state, arrived: true };
+  return { geometry: null, arrived: false };
+}
+
+function roundCoordinate(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function measureImpulse(
+  panel: HTMLDivElement,
+  source: HTMLButtonElement,
+  target: HTMLElement,
+  runId: number,
+  sourceIndex: number,
+): PainSolutionImpulseGeometry {
+  const panelRect = panel.getBoundingClientRect();
+  const sourceRect = source.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const startX = roundCoordinate(sourceRect.right - panelRect.left);
+  const startY = roundCoordinate(sourceRect.top - panelRect.top + sourceRect.height / 2);
+  const targetTop = targetRect.top - panelRect.top;
+  const targetBottom = targetRect.bottom - panelRect.top;
+  const endX = roundCoordinate(targetRect.left - panelRect.left + 1);
+  const endY = roundCoordinate(Math.min(targetBottom - 16, Math.max(targetTop + 16, startY)));
+  const distance = Math.max(18, endX - startX);
+  const handle = Math.min(28, distance * 0.46);
+  const path = `M ${startX} ${startY} C ${roundCoordinate(startX + handle)} ${startY}, ${roundCoordinate(endX - handle)} ${endY}, ${endX} ${endY}`;
+
+  return {
+    runId,
+    sourceIndex,
+    path,
+    width: roundCoordinate(panelRect.width),
+    height: roundCoordinate(panelRect.height),
+    startX,
+    startY,
+    endX,
+    endY,
+    entryY: roundCoordinate(endY - targetTop),
+  };
+}
+
+// Повторный клик по УЖЕ выбранной боли ничего не перезапускает. Проверка выполняется до изменения
+// state: так не появляется ни новый run-id импульса, ни новый startDelay у TypedText.
 
 export function PainGainPanel({ painPoints }: PainGainPanelProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const prefersReducedMotion = usePrefersReducedMotion();
   // Отличает первый показ отдела от осознанного выбора другой боли. Сравнивать selectedIndex с 0
   // нельзя: пользователь может выбрать первый пункт повторно, и это уже «смена боли», а не открытие.
   const [hasChosen, setHasChosen] = useState(false);
   // Номер пункта, чей текст ответа уже проявлен. Метка привязана к ВЫБОРУ, а не к отделу: см.
   // разбор у самого <span> ниже.
   const [shownIndex, setShownIndex] = useState<number | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const gainRef = useRef<HTMLElement>(null);
+  const painButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const runIdRef = useRef(0);
+  const [impulse, dispatchImpulse] = useReducer(impulseReducer, {
+    geometry: null,
+    arrived: false,
+  });
+  const activeImpulseRunId = impulse.geometry?.runId;
   const selected = painPoints[selectedIndex];
+  const typingStepMs = Math.min(
+    MAX_STEP_MS,
+    Math.max(MIN_STEP_MS, Math.floor(MAX_TYPING_DURATION_MS / selected.gain.length)),
+  );
+
+  useEffect(() => {
+    const runId = activeImpulseRunId;
+    if (!runId) return;
+
+    const arrivalTimer = window.setTimeout(
+      () => dispatchImpulse({ type: "arrive", runId }),
+      IMPULSE_ARRIVAL_MS,
+    );
+    const cleanupTimer = window.setTimeout(
+      () => dispatchImpulse({ type: "finish", runId }),
+      IMPULSE_CLEANUP_MS,
+    );
+
+    return () => {
+      window.clearTimeout(arrivalTimer);
+      window.clearTimeout(cleanupTimer);
+    };
+  }, [activeImpulseRunId]);
+
+  useLayoutEffect(() => {
+    const runId = activeImpulseRunId;
+    const panel = panelRef.current;
+    const source = painButtonRefs.current[selectedIndex];
+    const target = gainRef.current;
+    if (!runId || !panel || !source || !target) return;
+
+    const remeasure = () => {
+      dispatchImpulse({
+        type: "remeasure",
+        geometry: measureImpulse(panel, source, target, runId, selectedIndex),
+      });
+    };
+
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => remeasure());
+    observer?.observe(panel);
+    observer?.observe(source);
+    observer?.observe(target);
+    window.addEventListener("resize", remeasure);
+
+    /**
+     * `ResizeObserver` следит за РАЗМЕРОМ и по устройству не видит смещения.
+     *
+     * У кнопки боли есть `:hover { transform: translateX(2px) }` с переходом. Геометрия снимается
+     * синхронно в обработчике клика — то есть до того, как этот переход отработает, — и дальше
+     * оставалась устаревшей: линия начиналась там, где кнопка БЫЛА, а не там, где она видна.
+     * Наблюдатель размера этого не ловил, потому что ширина и высота не менялись.
+     *
+     * Переход завершился — пересчитываем. Задержка не нужна: событие приходит ровно тогда, когда
+     * положение окончательно установилось.
+     */
+    const handleTransitionEnd = (event: TransitionEvent) => {
+      // Только смещение самой кнопки. У неё переходят четыре свойства (фон, рамка, transform, тень),
+      // и событие всплывает ещё и от дочерних узлов — без этой проверки один клик давал бы пять с
+      // лишним пересчётов подряд. Пересчёт меняет состояние, то есть каждый лишний вызов — лишний
+      // рендер и сдвиг таймингов соседних анимаций.
+      if (event.target !== source || event.propertyName !== "transform") return;
+      remeasure();
+    };
+    source.addEventListener("transitionend", handleTransitionEnd);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", remeasure);
+      source.removeEventListener("transitionend", handleTransitionEnd);
+    };
+  }, [activeImpulseRunId, selectedIndex]);
+
+  const gainStyle = impulse.geometry
+    ? ({ "--impulse-entry-y": `${impulse.geometry.entryY}px` } as CSSProperties)
+    : undefined;
 
   return (
-    <div className={styles.panel} data-testid="pain-gain-panel">
-      <ul className={`${styles.painList} ${styles.stagePains}`}>
-        {painPoints.map((point, index) => {
-          const isSelected = index === selectedIndex;
-          return (
-            <li key={point.pain}>
-              <button
-                type="button"
-                className={
-                  isSelected
-                    ? `${styles.painButton} ${styles.painButtonSelected}`
-                    : styles.painButton
-                }
-                aria-pressed={isSelected}
-                onClick={() => {
-                  setSelectedIndex(index);
-                  setHasChosen(true);
-                }}
-              >
-                {/* Слот постоянной ширины: занимает место и когда пуст, поэтому появление маркера
-                    не смещает текст и не меняет перенос строк (Amendment 12 — именно из-за таких
-                    сдвигов пришлось отказаться от жирного начертания у выбранного пункта).
-                    Step 14: текстовый глиф «▸» заменён треугольником логотипа. Маркер aria-hidden;
-                    без этого он попал бы в вычисляемое имя кнопки, и выбранный пункт назывался бы
-                    иначе, чем невыбранный, — имя контрола менялось бы от состояния. Смысл
-                    выбранности несёт aria-pressed. */}
-                <span className={styles.painMarker} aria-hidden="true">
-                  {isSelected ? <RouteMarker direction="right" /> : null}
-                </span>
-                {point.pain}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-      {/* Step 14: коннектор «боль → результат». Это не украшение промежутка, а указатель перехода
-          (`docs/02` «Графическая система»: стрелки логотипа — маршруты, указатели, переходы). После
-          Amendment 12 боли и результат стоят двумя колонками, и связь между ними держится только
-          соседством; треугольник, направленный вправо, называет эту связь явно.
-          Позиционируется абсолютно в зазоре сетки (см. .connector) — то есть не занимает колонки и
-          не участвует в раскладке, поэтому равенство высот и неизменность окна пояснения (AC8)
-          остаются ровно теми же. aria-hidden: смысл «эта боль → этот результат» уже выражен
-          разметкой (aria-pressed у выбранной боли + aria-live у пояснения), маркер его дублирует
-          визуально, а не заменяет. */}
-      <span className={styles.connector} aria-hidden="true" data-connector="pain-to-gain">
-        <RouteMarker direction="right" />
-      </span>
+    <div
+      ref={panelRef}
+      className={styles.panel}
+      data-testid="pain-gain-panel"
+      data-impulse-state={impulse.geometry ? (impulse.arrived ? "arrived" : "travelling") : "idle"}
+    >
+      <section className={`${styles.painCard} ${styles.stagePains}`}>
+        <h3 className={styles.cardTitle}>Что происходит сейчас</h3>
+        <ul className={styles.painList}>
+          {painPoints.map((point, index) => {
+            const isSelected = index === selectedIndex;
+            return (
+              <li key={point.pain}>
+                <button
+                  ref={(node) => {
+                    painButtonRefs.current[index] = node;
+                  }}
+                  type="button"
+                  className={
+                    isSelected
+                      ? `${styles.painButton} ${styles.painButtonSelected}`
+                      : styles.painButton
+                  }
+                  aria-pressed={isSelected}
+                  onClick={(event) => {
+                    if (isSelected) return;
+                    setSelectedIndex(index);
+                    setHasChosen(true);
+                    setShownIndex(null);
+
+                    const panel = panelRef.current;
+                    const target = gainRef.current;
+                    if (!prefersReducedMotion && panel && target) {
+                      runIdRef.current += 1;
+                      dispatchImpulse({
+                        type: "launch",
+                        geometry: measureImpulse(
+                          panel,
+                          event.currentTarget,
+                          target,
+                          runIdRef.current,
+                          index,
+                        ),
+                      });
+                    }
+                  }}
+                >
+                  <span className={styles.painMarker} aria-hidden="true">
+                    {isSelected ? <RouteMarker direction="right" /> : null}
+                  </span>
+                  {point.pain}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+      {impulse.geometry && !prefersReducedMotion ? (
+        <PainSolutionImpulse key={impulse.geometry.runId} geometry={impulse.geometry} />
+      ) : null}
       {/* aria-live озвучивает смену выгоды при выборе другого пункта боли (не aria-describedby на
           кнопках — текст описывает результат уже выбранного пункта, а не сами кнопки).
           Amendment 12: блок переехал из-под списка вправо и печатается посимвольно. aria-live здесь
@@ -106,13 +275,17 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
 
           Задержка печати передаётся в TypedText тем же числом: иначе текст печатался бы под ещё
           невидимым блоком и к моменту появления оказался бы уже набранным. */}
-      <p
-        className={hasChosen ? styles.gain : `${styles.gain} ${styles.gainInitial}`}
-        // Стабильный, не хешируемый CSS Modules хук для e2e (тот же приём, что data-photo-fallback).
+      <section
+        ref={gainRef}
+        className={`${hasChosen ? styles.gain : `${styles.gain} ${styles.gainInitial}`} ${
+          impulse.arrived ? styles.gainImpulseArrived : ""
+        }`}
+        style={gainStyle}
         data-gain-panel="true"
-        aria-live="polite"
       >
-        {/* Защёлка НА ТЕКУЩИЙ ВЫБОР (Step 17, решение пользователя 2026-07-20).
+        <h3 className={styles.cardTitle}>После внедрения</h3>
+        <p className={styles.gainCopy} aria-live="polite">
+          {/* Защёлка НА ТЕКУЩИЙ ВЫБОР (Step 17, решение пользователя 2026-07-20).
 
             Дефект, который она закрывает, измерен skeptic-ревью: `.panel` переключается
             медиазапросом через `display` (grid выше 768px, none ниже), а повторный показ элемента
@@ -125,18 +298,33 @@ export function PainGainPanel({ painPoints }: PainGainPanelProps) {
             прямое требование пользователя. Поэтому метка привязана к номеру выбранного пункта: она
             сбрасывается на каждом новом выборе, то есть задержка сохраняется, но однажды показанный
             текст ресайзом уже не гасится. */}
-        <span
-          key={selectedIndex}
-          data-gain-shown={shownIndex === selectedIndex}
-          onAnimationEnd={() => setShownIndex(selectedIndex)}
-          className={hasChosen ? styles.gainTextReveal : undefined}
-        >
-          <TypedText
-            text={selected.gain}
-            startDelayMs={hasChosen ? RESELECT_DELAY_MS : INITIAL_DELAY_MS}
-          />
-        </span>
-      </p>
+          <span
+            key={selectedIndex}
+            data-gain-shown={shownIndex === selectedIndex}
+            onAnimationEnd={() => setShownIndex(selectedIndex)}
+            className={hasChosen ? styles.gainTextReveal : undefined}
+            style={
+              hasChosen
+                ? ({
+                    "--gain-reveal-delay": `${IMPULSE_TYPING_DELAY_MS}ms`,
+                  } as CSSProperties)
+                : undefined
+            }
+          >
+            <TypedText
+              text={selected.gain}
+              stepMs={typingStepMs}
+              startDelayMs={hasChosen ? IMPULSE_TYPING_DELAY_MS : INITIAL_DELAY_MS}
+            />
+          </span>
+        </p>
+        {selected.howItWorks ? (
+          <div className={styles.howItWorks}>
+            <p className={styles.howItWorksLabel}>Как работает</p>
+            <p className={styles.howItWorksCopy}>{selected.howItWorks}</p>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }

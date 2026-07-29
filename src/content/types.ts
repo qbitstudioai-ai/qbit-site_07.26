@@ -3,6 +3,8 @@ export type DepartmentId = "sales" | "support" | "executive" | "hr" | "logistics
 export interface PainPoint {
   pain: string;
   gain: string;
+  /** Дополнительная строка сценария из исходного контента; присутствует не у всех сценариев. */
+  howItWorks?: string;
 }
 
 /** Статус шага процесса — драйвер визуального акцента в `BeforeAfterSequence` (Step 20). */
@@ -29,6 +31,7 @@ export interface Department {
   name: string;
   overviewLabel: string;
   overviewProblem: string;
+  hoverDescription: string;
   headline: string;
   problem: string;
   painPoints: PainPoint[];
@@ -39,6 +42,10 @@ export interface Department {
    */
   beforeSteps?: ProcessStep[];
   automationSteps?: ProcessStep[];
+  /**
+   * Результат для бизнеса: основной результат первым, затем ровно три дополнительных результата.
+   */
+  customerBenefits: string[];
   ctaLabel: string;
   solutionPath: string;
   reference: string;
@@ -59,16 +66,63 @@ export interface TaskSectionCopy {
   tooShortMessage: string;
 }
 
+export interface HeroLink {
+  label: string;
+  href: string;
+}
+
+export interface HeroProjectScenario {
+  metricPrefix?: string;
+  metric: string;
+  unit: string;
+  qualifier?: string;
+  title: string;
+  description: string;
+  detail?: string;
+  effectLabel: string;
+}
+
+export interface HeroInfoPanel {
+  title: string;
+  subtitle: string;
+  scenarios: HeroProjectScenario[];
+  postscript: {
+    label: string;
+    text: string;
+    ariaLabel: string;
+  };
+}
+
+export interface OfficeOverviewStory {
+  title: string;
+  paragraphs: string[];
+}
+
+export interface OfficeOverviewCopy {
+  instruction: string;
+  ctaAccessibleLabel: string;
+  leftStory: OfficeOverviewStory;
+  rightStory: OfficeOverviewStory;
+}
+
 export interface HomepageCopy {
+  eyebrow: string;
   headline: string;
   subheadline: string;
+  headerPhone: string;
+  headerPhoneHref: string;
+  headerPhoneAccessibleLabel: string;
   primaryCta: string;
   /** Единый адрес контакта (Telegram) для всех CTA сайта: hero и CTA внутри отделов. */
   contactHref: string;
   secondaryCta: string;
+  ctaNote: string;
   interactionHint: string;
+  officeOverview: OfficeOverviewCopy;
   valuePoints: string[];
-  tagline: string;
+  heroLinks: HeroLink[];
+  heroInfoPanel: HeroInfoPanel;
+  tagline?: string;
   returnToOfficeLabel: string;
   taskSection: TaskSectionCopy;
 }

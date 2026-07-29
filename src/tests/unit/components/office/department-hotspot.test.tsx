@@ -10,9 +10,11 @@ const department: Department = {
   name: "Продажи",
   overviewLabel: "Продажи",
   overviewProblem: "Не терять заявки и не забывать клиентов",
+  hoverDescription: "Заявки, CRM и упущенные возможности",
   headline: "headline",
   problem: "problem",
   painPoints: [{ pain: "a", gain: "b" }],
+  customerBenefits: ["primary", "extra 1", "extra 2", "extra 3"],
   ctaLabel: "cta",
   solutionPath: "/solutions/sales",
   reference: "references/sales/02-sales-department.png",
@@ -24,7 +26,7 @@ describe("DepartmentHotspot", () => {
     expect(screen.getByRole("button", { name: department.overviewLabel })).toBeInTheDocument();
   });
 
-  it("keeps overviewProblem in the DOM, described via aria-describedby", () => {
+  it("keeps hoverDescription in the DOM, described via aria-describedby", () => {
     render(<DepartmentHotspot zone={zone} department={department} onSelect={() => {}} />);
     const button = screen.getByRole("button", { name: department.overviewLabel });
     const describedById = button.getAttribute("aria-describedby");
@@ -32,7 +34,14 @@ describe("DepartmentHotspot", () => {
 
     const description = document.getElementById(describedById as string);
     expect(description).not.toBeNull();
-    expect(description).toHaveTextContent(department.overviewProblem);
+    expect(description).toHaveTextContent(department.hoverDescription);
+  });
+
+  it("renders four decorative corner markers instead of a permanent rectangular border", () => {
+    const { container } = render(
+      <DepartmentHotspot zone={zone} department={department} onSelect={() => {}} />,
+    );
+    expect(container.querySelectorAll("[data-corner-marker]")).toHaveLength(4);
   });
 
   it("positions itself from the zone prop, not a hardcoded value", () => {

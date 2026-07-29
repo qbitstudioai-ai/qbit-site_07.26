@@ -49,6 +49,37 @@
   color: var(--color-graphite-700);
 }
 
+.gainCopy,
+.howItWorksLabel,
+.howItWorksCopy {
+  margin: 0;
+}
+
+.gainCopy {
+  font-size: 0.8125rem;
+  line-height: 1.42;
+}
+
+.howItWorks {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid rgba(143, 87, 34, 0.22);
+}
+
+.howItWorksLabel {
+  color: var(--color-oak-700);
+  font-size: 0.625rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.howItWorksCopy {
+  margin-top: 3px;
+  font-size: 0.75rem;
+  line-height: 1.38;
+}
+
 @media (max-width: 767px) {
   .accordion {
     display: flex;

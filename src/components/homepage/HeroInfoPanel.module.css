@@ -1,0 +1,635 @@
+.panel {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  align-items: flex-end;
+  justify-content: center;
+  flex-direction: column;
+  gap: clamp(12px, 1.6vh, 18px);
+  padding: clamp(14px, 1.8vw, 30px) clamp(18px, 2.2vw, 42px) clamp(14px, 1.8vw, 30px) 0;
+  background: transparent;
+}
+
+.scenarioPanel {
+  width: min(100%, 448px);
+  padding: clamp(18px, 1.55vw, 26px);
+  border: 1px solid rgba(111, 78, 48, 0.18);
+  border-radius: 25px;
+  background:
+    linear-gradient(145deg, rgba(252, 248, 242, 0.78), rgba(235, 222, 207, 0.64)),
+    rgba(250, 246, 239, 0.7);
+  box-shadow:
+    0 34px 88px rgba(45, 34, 24, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.64);
+  color: var(--color-graphite-900);
+  -webkit-backdrop-filter: blur(20px) saturate(0.92);
+  backdrop-filter: blur(20px) saturate(0.92);
+}
+
+.panelHeader {
+  display: grid;
+  gap: 5px;
+  padding-bottom: clamp(13px, 1.4vh, 18px);
+}
+
+.panelHeader h2 {
+  margin: 0;
+  color: var(--color-graphite-900);
+  font-size: clamp(0.72rem, 0.7vw, 0.84rem);
+  font-weight: 760;
+  letter-spacing: 0.14em;
+  line-height: 1.25;
+}
+
+.panelHeader p {
+  margin: 0;
+  color: var(--color-graphite-500);
+  font-size: clamp(0.66rem, 0.64vw, 0.76rem);
+  line-height: 1.4;
+}
+
+.scenarios {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scenarios > li {
+  min-width: 0;
+}
+
+.scenarios > li + li {
+  border-top: 1px solid rgba(100, 73, 47, 0.15);
+}
+
+.scenario {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(112px, 0.39fr) minmax(0, 1fr);
+  gap: clamp(13px, 1vw, 18px);
+  padding: clamp(13px, 1.35vh, 18px) 0;
+}
+
+.scenarios > li:first-child .scenario {
+  padding-top: 0;
+}
+
+.scenarios > li:last-child .scenario {
+  padding-bottom: 0;
+}
+
+.metricBlock {
+  min-width: 0;
+}
+
+.metricPrefix {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--color-accent-warm-strong);
+  font-size: clamp(0.62rem, 0.58vw, 0.7rem);
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.metric {
+  display: flex;
+  margin: 0;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 6px;
+  color: var(--color-accent-warm-strong);
+  font-variant-numeric: tabular-nums;
+  font-weight: 760;
+  letter-spacing: -0.035em;
+  line-height: 0.95;
+}
+
+.metric span {
+  font-size: clamp(1.22rem, 1.28vw, 1.55rem);
+}
+
+.metric small {
+  font-size: clamp(0.67rem, 0.64vw, 0.76rem);
+  font-weight: 720;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.qualifier {
+  margin: 6px 0 0;
+  color: var(--color-accent-warm-strong);
+  font-size: clamp(0.62rem, 0.59vw, 0.7rem);
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.scenarioCopy {
+  min-width: 0;
+}
+
+.scenarioCopy h3 {
+  margin: 0 0 6px;
+  color: var(--color-graphite-900);
+  font-size: clamp(0.76rem, 0.72vw, 0.85rem);
+  font-weight: 740;
+  line-height: 1.28;
+}
+
+.description,
+.detail,
+.effectLabel {
+  margin: 0;
+}
+
+.description {
+  color: var(--color-graphite-700);
+  font-size: clamp(0.67rem, 0.63vw, 0.74rem);
+  line-height: 1.42;
+}
+
+.detail {
+  margin-top: 6px;
+  color: var(--color-graphite-500);
+  font-size: clamp(0.63rem, 0.58vw, 0.69rem);
+  line-height: 1.38;
+}
+
+.effectLabel {
+  display: flex;
+  margin-top: 9px;
+  align-items: center;
+  gap: 7px;
+  color: var(--color-oak-700);
+  font-size: clamp(0.58rem, 0.54vw, 0.65rem);
+  font-weight: 710;
+  letter-spacing: 0.045em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.effectLabel::before {
+  content: "";
+  width: 18px;
+  height: 1px;
+  flex: 0 0 auto;
+  background: currentColor;
+  opacity: 0.56;
+}
+
+.postscript {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  width: max-content;
+  max-width: min(790px, 76vw);
+  align-items: baseline;
+  align-self: flex-end;
+  gap: 9px;
+  padding: 7px 5px 7px 16px;
+  background: transparent;
+  color: var(--color-graphite-700);
+  text-decoration: none;
+  translate: 0 clamp(22px, 3vh, 30px);
+  transition: color 180ms ease;
+}
+
+.postscript::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 2px;
+  background: rgba(143, 87, 34, 0.78);
+  transform-origin: center;
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+@media (min-width: 1200px) {
+  .postscript::after {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    inset: -2px -12px;
+    background: radial-gradient(
+      ellipse at center,
+      rgba(250, 246, 239, 0.78) 0%,
+      rgba(250, 246, 239, 0.58) 64%,
+      rgba(250, 246, 239, 0.18) 84%,
+      transparent 100%
+    );
+    filter: blur(6px);
+    pointer-events: none;
+  }
+
+  .postscriptLabel,
+  .postscriptText {
+    text-shadow:
+      0 0 3px rgba(250, 246, 239, 1),
+      0 0 9px rgba(250, 246, 239, 0.96),
+      0 0 19px rgba(250, 246, 239, 0.82);
+  }
+}
+
+.postscriptLabel {
+  color: var(--color-accent-warm-strong);
+  font-size: 0.76rem;
+  font-weight: 790;
+  letter-spacing: 0.08em;
+}
+
+.postscriptText {
+  min-width: 0;
+  font-size: clamp(0.72rem, 0.68vw, 0.78rem);
+  font-weight: 560;
+  line-height: 1.45;
+}
+
+.postscriptArrow {
+  display: inline-block;
+  color: var(--color-accent-warm-strong);
+  font-size: 0.82rem;
+  font-weight: 760;
+  transition: transform 180ms ease;
+}
+
+.postscript:hover {
+  color: var(--color-graphite-900);
+}
+
+.postscript:hover::before {
+  background: var(--color-accent-warm-strong);
+  transform: scaleY(1.16);
+}
+
+.postscript:hover .postscriptArrow {
+  transform: translateX(4px);
+}
+
+.postscript:active .postscriptArrow {
+  transform: translateX(1px);
+}
+
+.postscript:focus-visible {
+  outline: 3px solid var(--color-accent-warm);
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .scenarioPanel {
+    animation: panel-in 460ms cubic-bezier(0.2, 0.72, 0.26, 1) 180ms both;
+  }
+
+  .scenarios > li {
+    animation: scenario-in 360ms cubic-bezier(0.2, 0.72, 0.26, 1) both;
+  }
+
+  .scenarios > li:nth-child(1) {
+    animation-delay: 300ms;
+  }
+
+  .scenarios > li:nth-child(2) {
+    animation-delay: 350ms;
+  }
+
+  .scenarios > li:nth-child(3) {
+    animation-delay: 400ms;
+  }
+
+  .postscript {
+    animation: postscript-in 360ms ease-out 480ms both;
+  }
+}
+
+@media (max-width: 1400px) and (min-width: 1200px) {
+  .panel {
+    padding: 12px 18px 12px 0;
+  }
+
+  .scenarioPanel {
+    width: min(100%, 420px);
+    padding: 18px;
+  }
+
+  .scenario {
+    grid-template-columns: minmax(102px, 0.37fr) minmax(0, 1fr);
+    gap: 12px;
+    padding-block: 12px;
+  }
+
+  .detail {
+    display: none;
+  }
+
+  .postscript {
+    max-width: min(740px, 70vw);
+  }
+}
+
+@media (max-height: 720px) and (min-width: 1200px) {
+  .panel {
+    gap: 7px;
+    padding-block: 8px;
+  }
+
+  .scenarioPanel {
+    padding: 13px 16px;
+    border-radius: 20px;
+  }
+
+  .panelHeader {
+    gap: 2px;
+    padding-bottom: 9px;
+  }
+
+  .scenario {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 10px;
+    padding-block: 9px;
+  }
+
+  .metric span {
+    font-size: 1.12rem;
+  }
+
+  .scenarioCopy h3 {
+    margin-bottom: 3px;
+    font-size: 0.69rem;
+  }
+
+  .description {
+    font-size: 0.6rem;
+    line-height: 1.31;
+  }
+
+  .detail {
+    display: none;
+  }
+
+  .effectLabel {
+    margin-top: 5px;
+    font-size: 0.54rem;
+  }
+
+  .postscript {
+    padding-block: 4px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .panel {
+    height: auto;
+    align-items: stretch;
+    gap: 18px;
+    padding: 18px clamp(24px, 7vw, 72px) 56px;
+  }
+
+  .scenarioPanel {
+    width: 100%;
+    padding: 24px;
+  }
+
+  .scenarios {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .scenarios > li + li {
+    border-top: 0;
+    border-left: 1px solid rgba(100, 73, 47, 0.15);
+  }
+
+  .scenario,
+  .scenarios > li:first-child .scenario,
+  .scenarios > li:last-child .scenario {
+    display: block;
+    height: 100%;
+    padding: 0 20px;
+  }
+
+  .scenarios > li:first-child .scenario {
+    padding-left: 0;
+  }
+
+  .scenarios > li:last-child .scenario {
+    padding-right: 0;
+  }
+
+  .scenarioCopy {
+    margin-top: 13px;
+  }
+
+  .scenarioCopy h3 {
+    font-size: 0.86rem;
+  }
+
+  .description {
+    font-size: 0.78rem;
+  }
+
+  .detail {
+    font-size: 0.72rem;
+  }
+
+  /* Мобильный аудит 2026-07-28, MOB-06: 0.62rem — это 9.9px, ниже читаемого минимума на телефоне.
+     Оговорка «Расчётный эффект…» несёт не декоративную нагрузку: по CLAUDE.md (Copy rules) расчёт
+     обязан быть помечен как предварительный, и пометка, которую не прочитать, эту роль не выполняет.
+     Ниже 1200px раскладка панели одноколоночная и текст переносится свободно — прибавка высоту
+     блока заметно не меняет. Desktop-правила (min-width: 1200px) не тронуты. */
+  .effectLabel {
+    font-size: 0.72rem;
+  }
+
+  .postscript {
+    width: max-content;
+    max-width: 100%;
+    align-self: flex-start;
+    translate: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .panel {
+    padding-top: 12px;
+  }
+
+  .scenarioPanel {
+    padding: 22px;
+  }
+
+  .scenarios {
+    grid-template-columns: 1fr;
+  }
+
+  .scenarios > li + li {
+    border-top: 1px solid rgba(100, 73, 47, 0.15);
+    border-left: 0;
+  }
+
+  .scenario,
+  .scenarios > li:first-child .scenario,
+  .scenarios > li:last-child .scenario {
+    display: grid;
+    height: auto;
+    grid-template-columns: minmax(112px, 0.34fr) minmax(0, 1fr);
+    gap: 18px;
+    padding: 20px 0;
+  }
+
+  .scenarios > li:first-child .scenario {
+    padding-top: 0;
+  }
+
+  .scenarios > li:last-child .scenario {
+    padding-bottom: 0;
+  }
+
+  .scenarioCopy {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .panel {
+    gap: 16px;
+    padding: 10px 18px 38px;
+  }
+
+  .scenarioPanel {
+    padding: 20px 18px;
+    border-radius: 22px;
+  }
+
+  .panelHeader {
+    padding-bottom: 16px;
+  }
+
+  .panelHeader h2 {
+    font-size: 0.73rem;
+  }
+
+  .panelHeader p {
+    font-size: 0.74rem;
+  }
+
+  .scenario,
+  .scenarios > li:first-child .scenario,
+  .scenarios > li:last-child .scenario {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 14px;
+    padding: 18px 0;
+  }
+
+  .scenarios > li:first-child .scenario {
+    padding-top: 0;
+  }
+
+  .scenarios > li:last-child .scenario {
+    padding-bottom: 0;
+  }
+
+  .metric span {
+    font-size: 1.18rem;
+  }
+
+  .metric small,
+  .metricPrefix,
+  .qualifier {
+    font-size: 0.66rem;
+  }
+
+  .scenarioCopy h3 {
+    font-size: 0.88rem;
+  }
+
+  .description {
+    font-size: 0.82rem;
+    line-height: 1.46;
+  }
+
+  .detail {
+    display: none;
+  }
+
+  /* MOB-06, продолжение: на ≤520px было 0.61rem (9.8px) — тот же дефект, что и выше, и именно эту
+     ширину видит большинство телефонов. */
+  .effectLabel {
+    align-items: flex-start;
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  .effectLabel::before {
+    margin-top: 0.45em;
+  }
+
+  .postscript {
+    gap: 8px;
+    padding-left: 14px;
+  }
+
+  .postscriptText {
+    font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scenarioPanel,
+  .scenarios > li,
+  .postscript {
+    animation: none;
+  }
+
+  .postscript,
+  .postscript::before,
+  .postscriptArrow {
+    transition: none;
+  }
+
+  .postscript:hover::before,
+  .postscript:hover .postscriptArrow,
+  .postscript:active .postscriptArrow {
+    transform: none;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scenario-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes postscript-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

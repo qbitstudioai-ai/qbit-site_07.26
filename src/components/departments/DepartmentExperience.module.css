@@ -7,6 +7,7 @@
    делает верх контента недостижимым скроллом (карточки уезжают за верхнюю границу с отрицательным
    смещением). Колонка прижата к верху — порядок чтения тот же, а скролл остаётся исправным. */
 .experience {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -17,6 +18,16 @@
   gap: var(--space-3);
   background: none;
   border: none;
+}
+
+.mobileBack {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .experience {
+    overflow: hidden;
+  }
 }
 
 /* Desktop ≥1280px: ширина колонки контента. Было 46% (Amendment 8, одна колонка), стало 74%
@@ -88,23 +99,22 @@
    а не собрана в один список, оторванный от разметки. Общий шаг — 1 с (требование пользователя). */
 .stageCopy {
   composes: staged from "./stagedReveal.module.css";
-  animation-delay: 0s;
+  animation-delay: 80ms;
 }
 
 /* Кнопки видны с первого кадра; анимация оставлена только как якорь времени для защёлки —
    разбор в stagedReveal.module.css. */
 .stageActions {
   composes: stagedHold from "./stagedReveal.module.css";
-  animation-delay: 3s;
+  animation-delay: 2s;
 }
 
-/* Mobile ≤767px: блоков три, а не четыре — PainGainPanel скрыт, вместо него MobilePainGainAccordion
-   (заголовок → аккордеон → кнопки). Ступень кнопок поэтому 2 с, а не 3: иначе после аккордеона
-   висела бы секунда пустоты на месте блока, которого на этой ширине не существует. */
-@media (max-width: 767px) {
-  .stageActions {
-    animation-delay: 2s;
-  }
+.cascadeAnchor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  pointer-events: none;
 }
 
 /* Завершение каскада — ОДНОСТОРОННЯЯ ЗАЩЁЛКА через data-атрибут, а не обратимое CSS-условие.
@@ -112,28 +122,12 @@
    редакция писала `:has(button:focus-visible) { animation: none }`. Когда условие переставало
    выполняться, `animation` возвращалась — а возврат анимации по спецификации это СТАРТ НОВОЙ, вместе
    с `backwards`-fill, который снова держит opacity 0 всю задержку. Замерено: после полностью
-   отыгранного каскада обычный Tab к рельсу гасил CTA и «Закрыть» ещё на 3 секунды, и так
-   неограниченно. `data-cascade-done` ставится один раз (DepartmentExperience.tsx) и не снимается,
-   поэтому обратного хода нет по построению. */
+   отыгранного каскада обычный Tab к рельсу повторно гасил прежний блок действий ещё на 3 секунды,
+   и так неограниченно. `data-cascade-done` ставится один раз (DepartmentExperience.tsx) и не
+   снимается, поэтому обратного хода нет по построению. */
 .experience[data-cascade-done="true"] .stageCopy,
 .experience[data-cascade-done="true"] .stageActions {
   animation: none;
-}
-
-.actions {
-  display: flex;
-  flex-shrink: 0;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-
-.close {
-  padding: var(--space-2) var(--space-4);
-  border-radius: 6px;
-  border: 1px solid var(--color-graphite-300);
-  background: var(--color-surface);
-  cursor: pointer;
-  font-weight: 600;
 }
 
 /* Прежние правила здесь уплотняли padding самой .experience на низких и узких вьюпортах. Со
@@ -150,14 +144,22 @@
   .experience {
     gap: var(--space-2);
   }
-}
 
-/* Тап-таргет «Закрыть» ≥44px (WORKPLAN.md Step 7 AC 8, Step 7.5 AC 7) — граница поднята с 767px до
-   1279px по той же причине и тем же измерением, что и .cta (DepartmentCTA.module.css): на Tablet
-   ввод касанием, а padding давал только 33px. Отделено от блока ≤767px выше сознательно: более
-   плотный padding самой .experience остаётся мобильным, шире 767px он не нужен. */
-@media (max-width: 1279px) {
-  .close {
+  .mobileBack {
+    order: -1;
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--space-2);
     min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 9px;
+    background: rgba(248, 245, 239, 0.78);
+    backdrop-filter: blur(10px);
+    color: var(--color-graphite-700);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    cursor: pointer;
   }
 }

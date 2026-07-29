@@ -16,6 +16,12 @@ Overview, пять HTML/SVG hotspots, hover/focus/touch, state machine, URL, 10/
 
 Полная сцена, до/после, copy, CTA, analytics, calculator prototype, performance и accessibility.
 
+> **Правка Amendment 23 (2026-07-22, решение пользователя):** из пилота Этапа 3 ИСКЛЮЧЕНЫ
+> **calculator** (Steps 22–23) и **analytics** (Steps 24–25). «До/после» ещё раньше заменено окном
+> «Ваша выгода» (Amendment 21). CTA пилота ведёт в тот же Telegram, что и форма «Ваша задача»
+> (Step 26, вариант D-a). Аналитика/калькулятор могут вернуться позже отдельным решением;
+> `docs/15` остаётся будущей спецификацией. Актуальный состав — `WORKPLAN.md`, «Amendment 23».
+
 ## Этапы 4–7
 
 Поддержка, дирекция, HR и логистика на общем шаблоне.

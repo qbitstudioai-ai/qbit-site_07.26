@@ -1,6 +1,6 @@
 import type { Department, TaskSectionCopy } from "@/content/types";
 import { TASK_SECTION_ID, type OfficeSectionId } from "./reducer";
-import { hotspotId, MOBILE_CAROUSEL_CARD_ID, TASK_ENTRY_BUTTON_ID } from "./focusTargets";
+import { hotspotId, TASK_ENTRY_BUTTON_ID } from "./focusTargets";
 
 /**
  * РЕЕСТР РАЗДЕЛОВ ОФИСА (Step 18, находка архитектора M7).
@@ -113,5 +113,5 @@ export function closeReturnCandidateIds(
   returnSectionId: OfficeSectionId,
 ): readonly string[] {
   const section = sections.find((candidate) => candidate.id === returnSectionId);
-  return section ? [section.entryControlId, MOBILE_CAROUSEL_CARD_ID] : [MOBILE_CAROUSEL_CARD_ID];
+  return section ? [section.entryControlId] : [];
 }

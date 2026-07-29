@@ -1,0 +1,1056 @@
+/*
+ * Раздел «Документы».
+ *
+ * Визуальный язык — тот же, что у раздела «Продукт и Стоимость»: та же верхняя панель управления
+ * (назад слева, заголовок по центру, акцентный CTA справа), те же радиусы, те же токены палитры,
+ * та же логика «экран не скроллится, скроллится только список». Отличие одно и оно продиктовано
+ * фотографией архива: поверхности здесь ТЁМНЫЕ полупрозрачные, а не кремовые. Такие поверхности в
+ * системе уже есть (`.sceneViewport`, `.locationIndex`, `.formats` в ProductsExperience), поэтому
+ * это не вторая дизайн-система, а тёмная сторона существующей палитры: те же графит и янтарь.
+ *
+ * Все правила ниже локальны для CSS-модуля и не влияют на другие страницы.
+ */
+
+.experience {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 10px var(--space-6) var(--space-6);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* ── Фотография архива ─────────────────────────────────────────────────────────────────────── */
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: #17130f;
+}
+
+.backdrop picture,
+.backdrop img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.backdrop img {
+  /* cover, без filter и без blur: фотография не растягивается и не «выцветает». Точка привязки
+     смещена ниже центра — так при кадрировании на широких мониторах в кадре остаётся картотека с
+     подписанными папками, а не только стеллажи. */
+  object-fit: cover;
+  object-position: 50% 58%;
+}
+
+.scrim {
+  position: absolute;
+  inset: 0;
+  /* Затемнение не сплошное. Горизонтальный градиент делает темнее ЛЕВУЮ зону (там список и
+     заголовок) и почти отпускает правый нижний угол — именно там на фотографии стоят папки
+     «Устав QBit», «Документы Павла», «Архив компаний-партнёров», «Реализованные проекты QBit»,
+     «Проекты автоматизации в работе». Вертикальный слой лишь снимает пересвет вверху. */
+  background:
+    linear-gradient(
+      100deg,
+      rgba(20, 16, 13, 0.62) 0%,
+      rgba(20, 16, 13, 0.5) 34%,
+      rgba(20, 16, 13, 0.32) 64%,
+      rgba(20, 16, 13, 0.22) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(20, 16, 13, 0.28) 0%,
+      rgba(20, 16, 13, 0) 42%,
+      rgba(20, 16, 13, 0.16) 100%
+    );
+}
+
+/* ── Верхняя панель: назад, заголовок, CTA ─────────────────────────────────────────────────── */
+
+.controls {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-2);
+  animation: documents-fade-in 320ms ease both;
+}
+
+.back,
+.primaryAction,
+.retry,
+.mobileBack {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  border: 1px solid rgba(247, 220, 187, 0.34);
+  border-radius: 7px;
+  font-size: var(--font-size-sm);
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.back {
+  gap: var(--space-2);
+  justify-self: start;
+  padding: 5px var(--space-3);
+  background: rgba(24, 20, 16, 0.56);
+  color: var(--color-surface-cream);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.back span {
+  color: var(--color-accent-warm-soft);
+  transition: transform 180ms ease;
+}
+
+.back:hover {
+  border-color: rgba(247, 220, 187, 0.6);
+  background: rgba(24, 20, 16, 0.78);
+}
+
+.back:hover span {
+  transform: translateX(-3px);
+}
+
+.intro {
+  width: min(68vw, 720px);
+  text-align: center;
+}
+
+.intro h1 {
+  color: #fbf7f0;
+  font-size: clamp(1.25rem, 1rem + 0.7vw, 1.55rem);
+  font-weight: 710;
+  letter-spacing: -0.018em;
+  line-height: 1.08;
+  text-shadow: 0 1px 12px rgba(12, 9, 7, 0.55);
+}
+
+.intro p {
+  max-width: 700px;
+  margin: 3px auto 0;
+  color: rgba(240, 233, 223, 0.86);
+  font-size: 0.78rem;
+  line-height: 1.3;
+  text-shadow: 0 1px 10px rgba(12, 9, 7, 0.6);
+}
+
+.primaryAction {
+  justify-self: end;
+  padding: 5px var(--space-4);
+  border-color: var(--color-accent-warm);
+  background: var(--color-accent-warm);
+  color: var(--color-surface);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.primaryAction:hover {
+  border-color: var(--color-accent-warm-strong);
+  background: var(--color-accent-warm-strong);
+  transform: translateY(-1px);
+}
+
+.primaryAction:active {
+  transform: translateY(0);
+}
+
+/* ── Рабочая область ───────────────────────────────────────────────────────────────────────── */
+
+.panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(240px, 35%) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+  gap: var(--space-4);
+}
+
+/* Общая «дымчатая» поверхность колонок. Прозрачность оставляет фотографию читаемой, blur
+   намеренно минимальный (2px) — тяжёлое размытие спрятало бы архив, ради которого фон и выбран. */
+.catalogColumn,
+.viewerColumn,
+.statusBlock {
+  border: 1px solid rgba(247, 220, 187, 0.2);
+  border-radius: 10px;
+  background: linear-gradient(150deg, rgba(26, 21, 17, 0.78), rgba(26, 21, 17, 0.62));
+  box-shadow:
+    0 20px 48px rgba(8, 6, 5, 0.42),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.045),
+    inset 0 1px 48px rgba(247, 220, 187, 0.045);
+  -webkit-backdrop-filter: blur(2px) saturate(106%);
+  backdrop-filter: blur(2px) saturate(106%);
+}
+
+/* Правая колонка светлеет в средней полосе — ровно там, где на фотографии стоит картотека с
+   подписанными папками. Полоса между листом и информационной зоной работает окном в архив, а не
+   пустотой; сверху и снизу поверхность снова плотная, чтобы лист и текст оставались читаемыми. */
+.viewerColumn {
+  background: linear-gradient(
+    180deg,
+    rgba(26, 21, 17, 0.8) 0%,
+    rgba(26, 21, 17, 0.66) 40%,
+    rgba(26, 21, 17, 0.34) 60%,
+    rgba(26, 21, 17, 0.46) 76%,
+    rgba(26, 21, 17, 0.78) 100%
+  );
+}
+
+.catalogColumn {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  padding: var(--space-3);
+  animation: documents-surface-in 420ms ease both;
+  animation-delay: 90ms;
+}
+
+.viewerColumn {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  animation: documents-surface-in 420ms ease both;
+  animation-delay: 170ms;
+}
+
+/* ── Левая колонка: категории и список ─────────────────────────────────────────────────────── */
+
+.catalog {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.categories {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.category {
+  min-height: 30px;
+  padding: 4px 11px;
+  border: 1px solid rgba(247, 220, 187, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(240, 233, 223, 0.78);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 620;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.category:hover {
+  border-color: rgba(247, 220, 187, 0.4);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fbf7f0;
+}
+
+.category[aria-pressed="true"] {
+  border-color: rgba(247, 220, 187, 0.52);
+  background: rgba(247, 220, 187, 0.14);
+  color: #fbf7f0;
+  font-weight: 700;
+}
+
+.list {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 3px;
+  overflow-y: auto;
+  list-style: none;
+  /* Тонкий стилизованный скроллбар: прокручивается ТОЛЬКО список, страница остаётся одним экраном. */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(247, 220, 187, 0.3) transparent;
+}
+
+.list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: rgba(247, 220, 187, 0.3);
+}
+
+.list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.listItem {
+  position: relative;
+  display: grid;
+  width: 100%;
+  grid-template-columns: 18px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  min-height: 44px;
+  align-items: center;
+  gap: 1px var(--space-2);
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(240, 233, 223, 0.86);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    transform 200ms ease;
+}
+
+.listItemGlyph {
+  width: 16px;
+  height: 16px;
+  grid-row: span 2;
+  color: rgba(247, 220, 187, 0.55);
+}
+
+.listItemTitle {
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 620;
+  line-height: 1.22;
+  /* Длинное название не ломает колонку: две строки, дальше многоточие. */
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.listItemFacts {
+  color: rgba(226, 217, 205, 0.6);
+  font-size: 0.68rem;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.listItem:hover {
+  border-color: rgba(247, 220, 187, 0.2);
+  background: rgba(255, 255, 255, 0.055);
+  color: #fbf7f0;
+  transform: translateX(4px);
+}
+
+.listItem[aria-current="true"] {
+  border-color: rgba(247, 220, 187, 0.32);
+  background: rgba(247, 220, 187, 0.1);
+  box-shadow: inset 0 0 26px rgba(247, 220, 187, 0.07);
+  color: #fbf7f0;
+  transform: translateX(4px);
+}
+
+.listItem[aria-current="true"] .listItemTitle {
+  font-weight: 720;
+}
+
+.listItem[aria-current="true"] .listItemFacts {
+  color: rgba(240, 233, 223, 0.78);
+}
+
+.listItem[aria-current="true"] .listItemGlyph {
+  color: var(--color-accent-warm-soft);
+}
+
+/* Акцентная линия слева — второй, не цветовой признак выбора рядом с aria-current. */
+.listItem[aria-current="true"]::before {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: -4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-accent-warm-soft);
+}
+
+/* Каскад появления строк. Ограничен первыми восемью — дальше список всё равно за пределами
+   видимой области, а общий бюджет появления интерфейса остаётся в пределах ~0,8 с. */
+.list > li {
+  animation: documents-row-in 260ms ease both;
+}
+
+.list > li:nth-child(1) {
+  animation-delay: 200ms;
+}
+
+.list > li:nth-child(2) {
+  animation-delay: 240ms;
+}
+
+.list > li:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+.list > li:nth-child(4) {
+  animation-delay: 320ms;
+}
+
+.list > li:nth-child(5) {
+  animation-delay: 360ms;
+}
+
+.list > li:nth-child(6) {
+  animation-delay: 400ms;
+}
+
+.list > li:nth-child(7) {
+  animation-delay: 440ms;
+}
+
+.list > li:nth-child(n + 8) {
+  animation-delay: 480ms;
+}
+
+.listEmpty {
+  padding: var(--space-4) var(--space-2);
+  color: rgba(226, 217, 205, 0.72);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+/* ── Правая колонка: предпросмотр ──────────────────────────────────────────────────────────── */
+
+.mobileBack {
+  display: none;
+  gap: var(--space-2);
+  align-self: flex-start;
+  padding: 5px var(--space-3);
+  background: rgba(24, 20, 16, 0.6);
+  color: var(--color-surface-cream);
+  cursor: pointer;
+}
+
+.mobileBack span {
+  color: var(--color-accent-warm-soft);
+}
+
+.stage {
+  container-type: size;
+  position: relative;
+  display: flex;
+  min-height: 0;
+  /* Пропорция 3:2 с информационной зоной — предпросмотр занимает ~60% высоты рабочей области,
+     как требует композиция раздела. Обе доли заданы от нулевой базы, поэтому соотношение не
+     зависит от длины описания конкретного документа. */
+  flex: 3 1 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition:
+    transform 130ms ease,
+    opacity 130ms ease;
+}
+
+.stageLeaving {
+  transform: translateY(10px);
+  opacity: 0;
+}
+
+.sheet {
+  --sheet-aspect: 1.19;
+
+  position: relative;
+  display: flex;
+  width: min(100%, calc(100cqh * var(--sheet-aspect)));
+  aspect-ratio: var(--sheet-aspect);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgba(247, 220, 187, 0.3);
+  border-radius: 5px;
+  /* Нейтральная подложка листа: та же кремовая поверхность, что у панелей сайта. */
+  background: var(--color-surface-cream);
+  box-shadow:
+    0 24px 48px rgba(8, 6, 5, 0.52),
+    0 2px 6px rgba(8, 6, 5, 0.32);
+  /* Едва заметный наклон — «лист из архива», а не скриншот. Меньше градуса, текст не искажается. */
+  transform: rotate(-0.4deg);
+  animation: document-sheet-in 260ms ease both;
+}
+
+.sheetImage {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Пропорции файла не искажаются: ширина по листу, высота свободная. Всё, что не поместилось,
+     обрезается контейнером — видна верхняя часть первой страницы, и понятно, что она продолжается. */
+  flex: 0 0 auto;
+}
+
+.sheetFade {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 22%;
+  background: linear-gradient(
+    180deg,
+    rgba(250, 246, 239, 0) 0%,
+    rgba(214, 205, 192, 0.35) 55%,
+    rgba(30, 26, 22, 0.5) 100%
+  );
+  pointer-events: none;
+}
+
+/* ── Заглушка формата ──────────────────────────────────────────────────────────────────────── */
+
+.fallback {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--space-6);
+  background: linear-gradient(150deg, #f6f1e8, #e9e2d6);
+  color: var(--color-graphite-700);
+  text-align: center;
+}
+
+.fallbackGlyph {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 2px;
+  color: var(--color-oak-500);
+}
+
+.fallbackType {
+  color: var(--color-oak-700);
+  font-size: 0.78rem;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+}
+
+.fallbackTitle {
+  max-width: 34ch;
+  color: var(--color-graphite-900);
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.fallbackNote {
+  color: var(--color-graphite-500);
+  font-size: 0.78rem;
+}
+
+/* ── Информационная зона под предпросмотром ────────────────────────────────────────────────── */
+
+.meta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 0;
+  flex: 2 1 0;
+  align-items: end;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(247, 220, 187, 0.16);
+  animation: documents-fade-in 240ms ease both;
+  animation-delay: 60ms;
+}
+
+.metaText {
+  min-width: 0;
+}
+
+.metaTitle {
+  color: #fbf7f0;
+  font-size: clamp(1rem, 0.85rem + 0.4vw, 1.2rem);
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.18;
+}
+
+.metaDescription {
+  display: -webkit-box;
+  margin-top: 5px;
+  overflow: hidden;
+  color: rgba(236, 228, 217, 0.8);
+  font-size: 0.82rem;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.metaFacts {
+  margin-top: 7px;
+  color: rgba(226, 217, 205, 0.68);
+  font-size: 0.74rem;
+  letter-spacing: 0.01em;
+}
+
+.metaActions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.download {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 8px var(--space-4);
+  border: 1px solid var(--color-accent-warm);
+  border-radius: 6px;
+  background: var(--color-accent-warm);
+  color: var(--color-surface);
+  font-size: var(--font-size-sm);
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.downloadGlyph {
+  width: 17px;
+  height: 17px;
+}
+
+.download:hover {
+  border-color: var(--color-accent-warm-strong);
+  background: var(--color-accent-warm-strong);
+  transform: translateY(-1px);
+}
+
+.download:active {
+  background: var(--color-accent-warm-strong);
+  transform: translateY(0);
+}
+
+.openFull {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  color: rgba(240, 233, 223, 0.76);
+  font-size: 0.74rem;
+  text-decoration: underline;
+  text-decoration-color: rgba(247, 220, 187, 0.4);
+  text-underline-offset: 3px;
+  transition: color 180ms ease;
+}
+
+.openFull:hover {
+  color: #fbf7f0;
+}
+
+/* ── Состояния: загрузка, ошибка, пусто ────────────────────────────────────────────────────── */
+
+.panel[data-documents-status="loading"],
+.panel[data-documents-status="error"],
+.panel[data-documents-status="empty"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.statusBlock {
+  display: flex;
+  max-width: 520px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: auto;
+  padding: var(--space-8);
+  text-align: left;
+}
+
+.statusTitle {
+  color: #fbf7f0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.statusNote {
+  color: rgba(232, 224, 213, 0.78);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.retry {
+  margin-top: var(--space-2);
+  padding: 6px var(--space-4);
+  border-color: var(--color-accent-warm);
+  background: var(--color-accent-warm);
+  color: var(--color-surface);
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+
+.retry:hover {
+  background: var(--color-accent-warm-strong);
+}
+
+.skeleton {
+  display: grid;
+  grid-template-columns: minmax(240px, 35%) minmax(0, 1fr);
+  min-height: 0;
+  flex: 1;
+  gap: var(--space-4);
+}
+
+.skeletonList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid rgba(247, 220, 187, 0.16);
+  border-radius: 10px;
+  background: rgba(26, 21, 17, 0.6);
+}
+
+.skeletonRow {
+  height: 42px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05),
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.05)
+  );
+  background-size: 200% 100%;
+  animation: documents-shimmer 1400ms linear infinite;
+}
+
+.skeletonSheet {
+  border: 1px solid rgba(247, 220, 187, 0.16);
+  border-radius: 10px;
+  background: rgba(26, 21, 17, 0.6);
+}
+
+/* ── Фокус ─────────────────────────────────────────────────────────────────────────────────── */
+
+.back:focus-visible,
+.primaryAction:focus-visible,
+.category:focus-visible,
+.listItem:focus-visible,
+.download:focus-visible,
+.openFull:focus-visible,
+.retry:focus-visible,
+.mobileBack:focus-visible {
+  outline: 3px solid var(--color-accent-warm-soft);
+  outline-offset: 2px;
+}
+
+/* ── Анимации ──────────────────────────────────────────────────────────────────────────────── */
+
+@keyframes documents-fade-in {
+  from {
+    transform: translateY(5px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes documents-surface-in {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes documents-row-in {
+  from {
+    transform: translateX(-8px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes document-sheet-in {
+  from {
+    transform: rotate(-0.4deg) translateY(9px) scale(0.99);
+    opacity: 0;
+  }
+
+  to {
+    transform: rotate(-0.4deg) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes documents-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ── Низкие экраны ─────────────────────────────────────────────────────────────────────────── */
+
+@media (max-height: 720px) and (min-width: 768px) {
+  .experience {
+    gap: var(--space-2);
+    padding-block: var(--space-2) var(--space-3);
+  }
+
+  .panel {
+    gap: var(--space-3);
+  }
+
+  .viewerColumn {
+    padding: var(--space-3);
+  }
+
+  .listItem {
+    min-height: 40px;
+    padding: 5px 8px;
+  }
+}
+
+/* ── Планшет ───────────────────────────────────────────────────────────────────────────────── */
+
+@media (min-width: 768px) and (max-width: 1279px) {
+  .experience {
+    padding-inline: var(--space-4);
+  }
+
+  .intro {
+    width: min(58vw, 580px);
+  }
+
+  .intro p {
+    font-size: 0.72rem;
+  }
+
+  .panel {
+    grid-template-columns: minmax(212px, 38%) minmax(0, 1fr);
+    gap: var(--space-3);
+  }
+
+  .metaActions {
+    gap: 4px;
+  }
+
+  .download {
+    padding-inline: var(--space-3);
+  }
+}
+
+/* ── Мобильный ─────────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .experience {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3) var(--space-3);
+  }
+
+  /* Фотография на маленьком экране затемняется сильнее: текста на единицу площади больше. */
+  .scrim {
+    background:
+      linear-gradient(
+        160deg,
+        rgba(20, 16, 13, 0.76) 0%,
+        rgba(20, 16, 13, 0.66) 50%,
+        rgba(20, 16, 13, 0.5) 100%
+      ),
+      linear-gradient(180deg, rgba(20, 16, 13, 0.2) 0%, rgba(20, 16, 13, 0.1) 100%);
+  }
+
+  .controls {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--space-2) var(--space-3);
+  }
+
+  .intro {
+    width: auto;
+    text-align: left;
+  }
+
+  .intro p {
+    margin-inline: 0;
+    font-size: 0.72rem;
+  }
+
+  /* CTA уходит под заголовок и остаётся на виду — до него легко дотянуться. */
+  .primaryAction {
+    grid-column: 1 / -1;
+    justify-content: center;
+    justify-self: stretch;
+    min-height: 42px;
+    padding-block: 4px;
+  }
+
+  /* Два состояния экрана: список ИЛИ выбранный документ. Двух узких колонок нет. */
+  .panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .panel[data-mobile-view="list"] .viewerColumn,
+  .panel[data-mobile-view="document"] .catalogColumn {
+    display: none;
+  }
+
+  .mobileBack {
+    display: inline-flex;
+  }
+
+  .viewerColumn {
+    padding: var(--space-3);
+  }
+
+  .listItem {
+    padding: 8px 9px;
+  }
+
+  .listItemTitle {
+    font-size: 0.84rem;
+  }
+
+  /* На мобильном пропорция 3:2 не нужна: информационная зона берёт свою естественную высоту,
+     чтобы кнопка скачивания никогда не оказалась обрезанной, а предпросмотр занимает остальное. */
+  .stage {
+    flex: 1 1 auto;
+  }
+
+  .meta {
+    grid-template-columns: minmax(0, 1fr);
+    flex: 0 0 auto;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .metaDescription {
+    -webkit-line-clamp: 2;
+  }
+
+  .metaActions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .download {
+    flex: 1 1 auto;
+  }
+
+  .openFull {
+    flex: 0 0 auto;
+  }
+
+  .skeleton {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .skeletonSheet {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .metaActions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}
+
+/* ── Уважение к prefers-reduced-motion ─────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .back,
+  .back span,
+  .primaryAction,
+  .category,
+  .listItem,
+  .stage,
+  .download,
+  .openFull,
+  .retry {
+    transition: none;
+  }
+
+  .listItem:hover,
+  .listItem[aria-current="true"] {
+    transform: none;
+  }
+
+  .stageLeaving {
+    transform: none;
+  }
+
+  .skeletonRow {
+    animation: none;
+  }
+}
+
+/*
+ * Мобильный аудит 2026-07-28, MOB-05. Размер мишеней в каталоге документов при вводе пальцем.
+ *
+ * Замерено на 320–430px: фильтры категорий («Все», «Юридические документы», …) — 30px по высоте,
+ * ссылка «Открыть полностью» — тоже 30px. Фильтры при этом стоят в перенос по строкам с зазором
+ * 5px, то есть промах по соседней категории вероятен вдвойне.
+ *
+ * Высота поднимается до 44px, зазор между фильтрами — до 8px, чтобы соседние мишени не смыкались.
+ * Ни один текст не меняется, состав фильтров прежний. Правило висит на `pointer: coarse`, поэтому
+ * desktop-каталог остаётся ровно таким, каким утверждён.
+ */
+@media (pointer: coarse) {
+  .categories {
+    gap: 8px;
+  }
+
+  .category {
+    min-height: 44px;
+  }
+
+  .openFull {
+    min-height: 44px;
+  }
+}

@@ -1,15 +1,54 @@
 .rail {
+  position: relative;
   display: flex;
+  flex: 0 0 auto;
   flex-direction: column;
   width: 100%;
   min-height: 0;
-  overflow-y: auto;
+  padding: var(--space-2);
+  overflow: hidden;
+  border: var(--department-surface-border, 1px solid rgba(255, 255, 255, 0.5));
+  border-radius: var(--department-surface-radius, 12px);
+  background: var(
+    --department-surface,
+    linear-gradient(135deg, rgba(250, 247, 241, 0.9), rgba(239, 234, 226, 0.82))
+  );
+  box-shadow: var(
+    --department-surface-shadow,
+    0 16px 40px rgba(22, 17, 11, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58)
+  );
+  backdrop-filter: var(--department-surface-filter, blur(14px) saturate(110%));
+}
+
+.activeIndicator {
+  position: absolute;
+  top: 0;
+  left: 7px;
+  z-index: 3;
+  width: 3px;
+  height: var(--rail-indicator-height, 0);
+  border-radius: 3px;
+  background: linear-gradient(180deg, #c58a4d, var(--color-accent-warm));
+  box-shadow: 0 0 10px rgba(143, 87, 34, 0.22);
+  opacity: 1;
+  transform: translateY(var(--rail-indicator-y, 0));
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 160ms ease;
+  pointer-events: none;
+}
+
+.activeIndicator[data-ready="false"] {
+  opacity: 0;
 }
 
 .list {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 6px;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -26,29 +65,40 @@
   gap: var(--space-1);
   width: 100%;
   padding: var(--space-2);
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 0.8rem;
   line-height: 1.3;
   text-align: left;
 }
 
 .railButton {
-  border: 1px solid var(--color-graphite-300);
-  background: var(--color-surface);
+  border: 1px solid rgba(111, 101, 89, 0.16);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.46), rgba(246, 240, 232, 0.3));
   color: var(--color-graphite-900);
   font-weight: 500;
   cursor: pointer;
+  transition:
+    background-color 200ms ease,
+    border-color 200ms ease,
+    transform 200ms ease,
+    box-shadow 200ms ease;
 }
 
 .railButton:hover {
-  background: var(--color-graphite-100);
+  border-color: rgba(143, 87, 34, 0.36);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72), rgba(246, 237, 226, 0.5));
+  transform: translateX(2px);
+  box-shadow: 0 5px 14px rgba(49, 36, 24, 0.07);
 }
 
 .current {
-  border: 1px solid var(--color-accent-warm);
-  background: var(--color-graphite-100);
+  border: 1px solid rgba(143, 87, 34, 0.52);
+  background: linear-gradient(135deg, rgba(255, 251, 244, 0.9), rgba(239, 226, 207, 0.72));
   color: var(--color-graphite-900);
   font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.74),
+    0 7px 16px rgba(91, 57, 27, 0.09);
 }
 
 /* Step 14: вместо текстового «●» — треугольный маркер логотипа (RouteMarker). Габарит задаётся
@@ -71,13 +121,33 @@
   flex-shrink: 0;
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 7px;
   overflow: hidden;
   background: var(--color-graphite-100);
+  transition: transform 200ms ease;
 }
 
 .thumbnail {
   object-fit: cover;
+}
+
+.current .thumbnailWrap {
+  transform: scale(1.03);
+}
+
+.railButton:hover .thumbnailWrap {
+  transform: scale(1.015);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activeIndicator {
+    transition: none;
+  }
+
+  .thumbnailWrap {
+    transition: none;
+  }
 }
 
 /* Step 12.7: «Ваша задача» — не шестой отдел, а другой тип действия, поэтому отделяется от списка
@@ -94,6 +164,49 @@
 .taskItem .railButton,
 .taskItem .current {
   min-height: 44px;
+}
+
+.taskItem .railButton {
+  position: relative;
+  padding-right: 28px;
+  border-color: rgba(143, 87, 34, 0.3);
+  background: linear-gradient(135deg, rgba(255, 252, 247, 0.62), rgba(241, 233, 223, 0.46));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58);
+}
+
+.taskItem .railButton::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 14px;
+  height: 8px;
+  background: rgba(112, 72, 36, 0.76);
+  clip-path: polygon(0 44%, 66% 44%, 66% 0, 100% 50%, 66% 100%, 66% 56%, 0 56%);
+  opacity: 0.82;
+  transform: translateY(-50%);
+  transition:
+    background-color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease;
+  pointer-events: none;
+}
+
+.taskItem .railButton:hover {
+  border-color: rgba(143, 87, 34, 0.46);
+  background: linear-gradient(135deg, rgba(255, 253, 249, 0.76), rgba(241, 230, 216, 0.58));
+  transform: none;
+}
+
+.taskItem .railButton:hover::after {
+  background-color: var(--color-accent-warm);
+  opacity: 1;
+  transform: translate(2px, -50%);
+}
+
+.taskItem .railButton:focus-visible {
+  border-color: rgba(143, 87, 34, 0.54);
+  background: linear-gradient(135deg, rgba(255, 253, 249, 0.78), rgba(241, 230, 216, 0.6));
 }
 
 /* Текстовый эквивалент статуса активного пункта (Step 14, правка по skeptic Phase B).

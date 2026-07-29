@@ -1,0 +1,92 @@
+{
+  "categories": [
+    { "id": "legal", "label": "Юридические документы", "sortOrder": 10 },
+    { "id": "presentations", "label": "Презентации", "sortOrder": 20 },
+    { "id": "requisites", "label": "Реквизиты", "sortOrder": 30 },
+    { "id": "projects", "label": "Реализованные проекты", "sortOrder": 40 },
+    { "id": "automation", "label": "Документы по автоматизации", "sortOrder": 50 },
+    { "id": "other", "label": "Другое", "sortOrder": 60 }
+  ],
+  "documents": [
+    {
+      "id": "ustav-qbit",
+      "title": "Устав QBit",
+      "description": "Учредительный документ компании: организационная форма, органы управления, порядок принятия решений.",
+      "category": "legal",
+      "sourceFile": "public/dox/files/ustav-qbit.pdf",
+      "previewFile": "public/dox/previews/ustav-qbit.svg",
+      "documentDate": "2026-07-18",
+      "sortOrder": 10,
+      "isPublished": true
+    },
+    {
+      "id": "qbit-presentation",
+      "title": "Презентация компании QBit",
+      "description": "Кто мы, какие процессы автоматизируем и какой результат получают клиенты.",
+      "category": "presentations",
+      "sourceFile": "public/dox/files/qbit-presentation.pdf",
+      "previewFile": "public/dox/previews/qbit-presentation.svg",
+      "documentDate": "2026-07-09",
+      "sortOrder": 20,
+      "isPublished": true
+    },
+    {
+      "id": "privacy-policy",
+      "title": "Политика обработки персональных данных",
+      "description": "Правила обработки и хранения персональных данных пользователей сайта.",
+      "category": "legal",
+      "sourceFile": "public/dox/files/privacy-policy.pdf",
+      "previewFile": "public/dox/previews/privacy-policy.svg",
+      "documentDate": "2026-06-30",
+      "sortOrder": 30,
+      "isPublished": true
+    },
+    {
+      "id": "delivered-projects",
+      "title": "Реализованные проекты QBit",
+      "description": "Перечень завершённых внедрений: отрасль, автоматизированный процесс, срок работ.",
+      "category": "projects",
+      "sourceFile": "public/dox/files/delivered-projects.xlsx",
+      "documentDate": "2026-07-21",
+      "sortOrder": 40,
+      "isPublished": true
+    },
+    {
+      "id": "automation-in-progress",
+      "title": "Проекты автоматизации в работе",
+      "description": "Текущие внедрения и стадия, на которой они находятся.",
+      "category": "automation",
+      "sourceFile": "public/dox/files/automation-in-progress.docx",
+      "documentDate": "2026-07-24",
+      "sortOrder": 50,
+      "isPublished": true
+    },
+    {
+      "id": "contractor-guideline",
+      "title": "Регламент взаимодействия с подрядчиками при внедрении автоматизации бизнес-процессов",
+      "description": "Порядок передачи задач, согласования этапов и приёмки работ на стороне заказчика.",
+      "category": "projects",
+      "sourceFile": "public/dox/files/contractor-guideline.png",
+      "documentDate": "2026-05-14",
+      "sortOrder": 60,
+      "isPublished": true
+    },
+    {
+      "id": "qbit-requisites",
+      "title": "Реквизиты QBit-Studio-Ai",
+      "category": "requisites",
+      "sourceFile": "public/dox/files/qbit-requisites.txt",
+      "sortOrder": 70,
+      "isPublished": true
+    },
+    {
+      "id": "internal-draft",
+      "title": "Внутренний черновик регламента",
+      "description": "Демонстрационная запись: черновик, снятый с публикации.",
+      "category": "legal",
+      "sourceFile": "public/dox/files/automation-in-progress.docx",
+      "sortOrder": 80,
+      "isPublished": false
+    }
+  ]
+}

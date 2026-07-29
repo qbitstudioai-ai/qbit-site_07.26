@@ -1,0 +1,749 @@
+/*
+ * Оформление админ-панели.
+ *
+ * Намеренно нейтральное: это рабочий инструмент, а не витрина. Ни фотографий, ни 3D, ни
+ * стеклянных поверхностей, ни печатающегося текста — всё, что делает публичный сайт публичным
+ * сайтом, здесь только мешало бы читать таблицы и заполнять формы.
+ *
+ * Один модуль на весь раздел: у экранов общий словарь (панель, таблица, форма, кнопка), и десять
+ * файлов с одинаковыми `.button` расходились бы при первой же правке.
+ */
+
+.shell {
+  --admin-bg: #f4f5f7;
+  --admin-surface: #ffffff;
+  --admin-border: #d8dce3;
+  --admin-text: #1c2430;
+  --admin-muted: #5b6675;
+  --admin-accent: #1f4b8f;
+  --admin-accent-soft: #e8effa;
+  --admin-danger: #a32020;
+  --admin-danger-soft: #fbeaea;
+  --admin-success: #1c6b3f;
+  --admin-success-soft: #e7f4ec;
+  --admin-radius: 6px;
+
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ── Боковая панель ─────────────────────────────────────────────────────────────────────────── */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 20px 16px;
+  background: var(--admin-surface);
+  border-right: 1px solid var(--admin-border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.brand {
+  display: block;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--admin-text);
+}
+
+.brandNote {
+  display: block;
+  font-size: 13px;
+  color: var(--admin-muted);
+  margin-top: 2px;
+}
+
+.nav,
+.sidebarFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebarFooter {
+  margin-top: auto;
+  border-top: 1px solid var(--admin-border);
+  padding-top: 12px;
+}
+
+.navLink {
+  display: block;
+  padding: 9px 12px;
+  border-radius: var(--admin-radius);
+  color: var(--admin-text);
+  text-decoration: none;
+  font-size: 15px;
+}
+
+.navLink:hover {
+  background: var(--admin-bg);
+}
+
+.navLink[aria-current="page"] {
+  background: var(--admin-accent-soft);
+  color: var(--admin-accent);
+  font-weight: 600;
+}
+
+/* ── Верхняя панель и основная область ──────────────────────────────────────────────────────── */
+
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 24px;
+  background: var(--admin-surface);
+  border-bottom: 1px solid var(--admin-border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.topbarTitle {
+  font-size: 18px;
+  font-weight: 650;
+  margin-right: auto;
+}
+
+.breadcrumbs {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--admin-muted);
+  padding: 12px 24px 0;
+}
+
+.breadcrumbs a {
+  color: var(--admin-accent);
+  text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+  text-decoration: underline;
+}
+
+.content {
+  padding: 20px 24px 48px;
+  min-width: 0;
+}
+
+/* ── Блоки и панели ─────────────────────────────────────────────────────────────────────────── */
+
+.panel {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.panelTitle {
+  font-size: 16px;
+  font-weight: 650;
+  margin-bottom: 4px;
+}
+
+.panelNote {
+  font-size: 13px;
+  color: var(--admin-muted);
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.splitLayout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.recordList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.recordLink {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--admin-radius);
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.recordLink:hover {
+  background: var(--admin-bg);
+}
+
+.recordLinkActive {
+  background: var(--admin-accent-soft);
+  border-color: var(--admin-accent);
+  font-weight: 600;
+}
+
+.recordMeta {
+  display: block;
+  font-size: 12px;
+  color: var(--admin-muted);
+  font-weight: 400;
+}
+
+/* ── Формы ──────────────────────────────────────────────────────────────────────────────────── */
+
+.field {
+  display: block;
+  margin-bottom: 16px;
+}
+
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.requiredMark {
+  color: var(--admin-danger);
+  margin-left: 2px;
+}
+
+.hint {
+  display: block;
+  font-size: 12px;
+  color: var(--admin-muted);
+  margin-top: 4px;
+}
+
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+}
+
+.textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.editorArea {
+  min-height: 420px;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.input:focus-visible,
+.textarea:focus-visible,
+.select:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 1px;
+}
+
+.inputError {
+  border-color: var(--admin-danger);
+}
+
+.fieldError {
+  display: block;
+  font-size: 12.5px;
+  color: var(--admin-danger);
+  margin-top: 4px;
+}
+
+.checkboxField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.checkboxField input {
+  width: 16px;
+  height: 16px;
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0 16px;
+}
+
+/* ── Кнопки ─────────────────────────────────────────────────────────────────────────────────── */
+
+.button,
+.buttonPrimary,
+.buttonDanger,
+.buttonGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--admin-radius);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.button:hover,
+.buttonGhost:hover {
+  background: var(--admin-bg);
+}
+
+.buttonPrimary {
+  background: var(--admin-accent);
+  border-color: var(--admin-accent);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.buttonPrimary:hover {
+  background: #17396d;
+}
+
+/* Опасное действие отличается визуально — и всё равно требует подтверждения. */
+.buttonDanger {
+  background: var(--admin-danger-soft);
+  border-color: #e2b5b5;
+  color: var(--admin-danger);
+  font-weight: 600;
+}
+
+.buttonDanger:hover {
+  background: #f6dada;
+}
+
+.buttonGhost {
+  border-color: transparent;
+  background: none;
+}
+
+.button:disabled,
+.buttonPrimary:disabled,
+.buttonDanger:disabled,
+.buttonGhost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.buttonSmall {
+  padding: 4px 9px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/*
+ * Кнопка «Меню» видна только на узком экране. Правило стоит ПОСЛЕ .button намеренно: у обоих
+ * классов одинаковая специфичность, и порядок в файле — единственное, что решает, чей `display`
+ * победит. Перенос этого блока выше вернул бы кнопку на десктоп.
+ */
+.menuButton {
+  display: none;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Статусы ────────────────────────────────────────────────────────────────────────────────── */
+
+.statusBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.statusDirty {
+  color: #8a5a00;
+  background: #fff4e0;
+  border: 1px solid #ecd0a0;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.statusSaved {
+  color: var(--admin-success);
+  background: var(--admin-success-soft);
+  border: 1px solid #b7dcc6;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.statusError {
+  color: var(--admin-danger);
+  background: var(--admin-danger-soft);
+  border: 1px solid #e2b5b5;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.messageError,
+.messageSuccess,
+.messageEmpty {
+  padding: 12px 14px;
+  border-radius: var(--admin-radius);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.messageError {
+  background: var(--admin-danger-soft);
+  border: 1px solid #e2b5b5;
+  color: var(--admin-danger);
+}
+
+.messageSuccess {
+  background: var(--admin-success-soft);
+  border: 1px solid #b7dcc6;
+  color: var(--admin-success);
+}
+
+.messageEmpty {
+  background: var(--admin-bg);
+  border: 1px dashed var(--admin-border);
+  color: var(--admin-muted);
+  text-align: center;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+}
+
+.badgePublished {
+  background: var(--admin-success-soft);
+  border-color: #b7dcc6;
+  color: var(--admin-success);
+}
+
+.badgeDraft {
+  background: #fff4e0;
+  border-color: #ecd0a0;
+  color: #8a5a00;
+}
+
+/* ── Таблицы ────────────────────────────────────────────────────────────────────────────────── */
+
+.tableWrapper {
+  overflow-x: auto;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  /* Ширины хватает, чтобы даты и кнопки действий не рвались на несколько строк; на узком экране
+     таблица прокручивается по горизонтали внутри .tableWrapper, а не ломает страницу. */
+  min-width: 1180px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--admin-border);
+  vertical-align: top;
+}
+
+.table th {
+  background: var(--admin-bg);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--admin-muted);
+  white-space: nowrap;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+/*
+ * Кнопки действий стоят в одну строку и не переносятся: при переносе строка таблицы вырастала
+ * втрое, и глазами сравнивать записи становилось невозможно. Если ширины не хватает, таблица
+ * прокручивается по горизонтали внутри .tableWrapper — это дешевле, чем ломать строки.
+ */
+.tableActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+/* Ячейки с датой, форматом, размером и порядком не переносятся: «18 июля 2026» в три строки
+   растягивает строку таблицы втрое и мешает сравнивать записи глазами. */
+.cellNowrap {
+  white-space: nowrap;
+}
+
+.filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.filters .field {
+  margin-bottom: 0;
+  min-width: 180px;
+}
+
+/* ── Редактор списков ───────────────────────────────────────────────────────────────────────── */
+
+.listEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.listItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-bg);
+}
+
+.listItemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.listItemControls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.listIndex {
+  font-size: 12px;
+  color: var(--admin-muted);
+  font-weight: 600;
+}
+
+/* ── Предпросмотр документов ────────────────────────────────────────────────────────────────── */
+
+.previewBox {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  background: var(--admin-bg);
+  margin-bottom: 16px;
+}
+
+.previewImage {
+  width: 160px;
+  height: auto;
+  max-height: 220px;
+  object-fit: contain;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+}
+
+.previewMissing {
+  width: 160px;
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--admin-muted);
+  background: var(--admin-surface);
+  border: 1px dashed var(--admin-border);
+  border-radius: 4px;
+}
+
+/* ── Панель главной страницы ────────────────────────────────────────────────────────────────── */
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.statCard {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  padding: 16px;
+}
+
+.statValue {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.statLabel {
+  display: block;
+  font-size: 13px;
+  color: var(--admin-muted);
+}
+
+.activityList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activityItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--admin-border);
+  font-size: 14px;
+}
+
+.activityItem:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.activityTime {
+  color: var(--admin-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ── Диалог подтверждения ───────────────────────────────────────────────────────────────────── */
+
+.dialogBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(16 24 34 / 45%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.dialog {
+  background: var(--admin-surface);
+  border-radius: 8px;
+  padding: 22px;
+  max-width: 460px;
+  width: 100%;
+}
+
+.dialogTitle {
+  font-size: 17px;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+
+.dialogText {
+  font-size: 14px;
+  color: var(--admin-muted);
+  margin-bottom: 18px;
+}
+
+/* ── Планшет и узкий экран ──────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .splitLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Боковая панель превращается в раскрывающееся меню — кнопка живёт в верхней панели. */
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--admin-border);
+    display: none;
+  }
+
+  .sidebarOpen {
+    display: flex;
+  }
+
+  .menuButton {
+    display: inline-flex;
+  }
+
+  .fieldRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .content,
+  .topbar,
+  .breadcrumbs {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

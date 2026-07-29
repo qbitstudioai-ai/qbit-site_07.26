@@ -29,7 +29,7 @@ test.describe("Step 8 — reduced motion collapses transition timers (AC 1)", ()
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
     const startedAt = Date.now();
-    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.getByRole("button", { name: "Назад к офису" }).click();
 
     // Обе половины "функции сохраняются": контент вернулся в overview И focus вернулся на хотспот,
     // который открывал отдел (docs/11) — раньше и то и другое ждало 700 мс уже отработавшей анимации.
@@ -79,7 +79,7 @@ test.describe("Step 8 — reduced motion collapses transition timers (AC 1)", ()
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
     const startedAt = Date.now();
-    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.getByRole("button", { name: "Назад к офису" }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
 
     expect(Date.now() - startedAt).toBeGreaterThanOrEqual(CLOSE_FLOOR_FULL_MOTION_MS);
@@ -96,6 +96,7 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
   test("with the webp photo layer failing, the department still opens, switches and closes", async ({
     page,
   }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
@@ -118,7 +119,7 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
 
-    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.getByRole("button", { name: "Назад к офису" }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
 
     // Провал загрузки картинки — не исключение JS: необработанных ошибок страницы быть не должно.
@@ -165,6 +166,11 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
     await expect(page.locator("[data-photo-fallback]")).toHaveCount(0);
-    await expect(page.locator("img[src*='.webp']")).toHaveCount(6);
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await expect(rail.locator("img[src*='.webp']")).toHaveCount(5);
+    const scene = page.locator("picture > img").last();
+    await expect
+      .poll(async () => scene.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBeGreaterThan(0);
   });
 });

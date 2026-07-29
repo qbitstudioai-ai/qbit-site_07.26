@@ -14,6 +14,14 @@ describe("HeroCopy", () => {
     expect(headings[0]).toHaveTextContent(copy.headline);
   });
 
+  it("renders the automation eyebrow and only the approved phrase as the headline accent", () => {
+    const { container } = render(
+      <HeroCopy copy={copy} onActivate={() => {}} isHiddenAfterReveal={false} />,
+    );
+    expect(screen.getByText(copy.eyebrow)).toBeInTheDocument();
+    expect(container.querySelector(`.${styles.headline} span`)).toHaveTextContent("с помощью ИИ");
+  });
+
   it("renders the subheadline and all value points", () => {
     render(<HeroCopy copy={copy} onActivate={() => {}} isHiddenAfterReveal={false} />);
     expect(screen.getByText(copy.subheadline)).toBeInTheDocument();
@@ -22,7 +30,7 @@ describe("HeroCopy", () => {
     }
   });
 
-  // Amendment 9: основной CTA ведёт наружу (Telegram-контакт), офис открывает только вторичный.
+  // Коммерческий CTA ведёт в действующий Telegram-контакт, карта открывается существующим handler.
   it("renders primaryCta as an external link and secondaryCta as a link to #office-map", () => {
     render(<HeroCopy copy={copy} onActivate={() => {}} isHiddenAfterReveal={false} />);
 
@@ -55,6 +63,11 @@ describe("HeroCopy", () => {
     expect(onActivate).toHaveBeenCalledTimes(1);
     // fireEvent.click returns false if preventDefault() was called on a cancelable event.
     expect(event).toBe(false);
+  });
+
+  it("renders the short note below both CTAs", () => {
+    render(<HeroCopy copy={copy} onActivate={() => {}} isHiddenAfterReveal={false} />);
+    expect(screen.getByText(copy.ctaNote)).toBeInTheDocument();
   });
 
   it("applies the hiddenAfterReveal class when isHiddenAfterReveal is true", () => {

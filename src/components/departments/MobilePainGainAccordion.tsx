@@ -34,11 +34,17 @@ export function MobilePainGainAccordion({ painPoints }: MobilePainGainAccordionP
             >
               {point.pain}
             </button>
-            {isExpanded && (
-              <p id={gainId} className={styles.gain}>
-                {point.gain}
-              </p>
-            )}
+            {isExpanded ? (
+              <div id={gainId} className={styles.gain}>
+                <p className={styles.gainCopy}>{point.gain}</p>
+                {point.howItWorks ? (
+                  <div className={styles.howItWorks}>
+                    <p className={styles.howItWorksLabel}>Как работает</p>
+                    <p className={styles.howItWorksCopy}>{point.howItWorks}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </li>
         );
       })}

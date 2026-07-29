@@ -1,19 +1,6 @@
-// Server-only: не импортировать напрямую в "use client"-компоненты (см. DECISIONS.md, Step 2) —
-// иначе zod и валидация попадут в client-бандл.
-import rawDepartments from "../../data/departments.json";
-import { departmentsSchema } from "./schema";
-import type { Department, DepartmentId } from "./types";
-
-const departments: Department[] = departmentsSchema.parse(rawDepartments);
-
-export function getDepartments(): Department[] {
-  return departments;
-}
-
-export function getDepartmentIds(): DepartmentId[] {
-  return departments.map((department) => department.id);
-}
-
-export function getDepartmentById(id: DepartmentId): Department | undefined {
-  return departments.find((department) => department.id === id);
-}
+// Server-only: не импортировать напрямую в "use client"-компоненты (см. DECISIONS.md, Step 2).
+//
+// Тексты отделов приходят из базы контента и правятся в админ-панели (`/admin/departments`).
+// `data/departments.json` остался источником первичного заполнения и страховкой на случай пустой
+// базы — см. `src/server/content/departments.ts`.
+export { getDepartmentById, getDepartmentIds, getDepartments } from "@/server/content/departments";

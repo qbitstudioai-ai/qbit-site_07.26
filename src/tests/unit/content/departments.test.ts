@@ -14,6 +14,16 @@ describe("departments adapter", () => {
     expect(ids.slice().sort()).toEqual(DEPARTMENT_IDS.slice().sort());
   });
 
+  it("preserves the source order and exact department names", () => {
+    expect(getDepartments().map(({ id, name }) => ({ id, name }))).toEqual([
+      { id: "support", name: "Поддержка" },
+      { id: "sales", name: "Продажи" },
+      { id: "logistics", name: "Логистика" },
+      { id: "hr", name: "HR" },
+      { id: "executive", name: "Дирекция" },
+    ]);
+  });
+
   it("getDepartmentIds returns the same ids as getDepartments", () => {
     expect(getDepartmentIds().slice().sort()).toEqual(
       getDepartments()
@@ -37,38 +47,18 @@ describe("departments adapter", () => {
     expect(department?.solutionPath).toBe(SOLUTION_PATH_BY_DEPARTMENT_ID[id]);
   });
 
-  // Step 19: «до/после» реализована ТОЛЬКО для пилотного отдела «Продажи». Остальные четыре получат
-  // её на Этапах 4–7 и до тех пор валидны без этих полей — здесь фиксируется именно это состояние,
-  // чтобы преждевременное заполнение (или потеря sales) не прошло молча.
-  it("fills before/after process steps for sales only (Этап 3 pilot)", () => {
-    const sales = getDepartmentById("sales");
-    expect(sales?.beforeSteps, "у sales должны быть шаги «до»").toBeDefined();
-    expect(sales?.automationSteps, "у sales должны быть шаги «после»").toBeDefined();
-    expect(sales!.beforeSteps!.length).toBeGreaterThan(0);
-    expect(sales!.automationSteps!.length).toBeGreaterThan(0);
-
-    for (const id of DEPARTMENT_IDS.filter((departmentId) => departmentId !== "sales")) {
-      const department = getDepartmentById(id);
-      expect(department?.beforeSteps, `у "${id}" пока не должно быть шагов «до»`).toBeUndefined();
-      expect(
-        department?.automationSteps,
-        `у "${id}" пока не должно быть шагов «после»`,
-      ).toBeUndefined();
+  it("contains 25 scenarios, 20 business results, and support-only howItWorks copy", () => {
+    const departments = getDepartments();
+    expect(departments.flatMap((department) => department.painPoints)).toHaveLength(25);
+    expect(departments.flatMap((department) => department.customerBenefits)).toHaveLength(20);
+    for (const department of departments) {
+      expect(department.customerBenefits).toHaveLength(4);
     }
-  });
 
-  // Каждый шаг «до/после» sales — валидный ProcessStep: непустые label/description и, если задан,
-  // status из перечня docs/12. Прямая проверка данных, не только схемы.
-  it("sales before/after steps are well-formed ProcessSteps", () => {
-    const sales = getDepartmentById("sales")!;
-    const allowedStatus = new Set(["normal", "warning", "critical", "success"]);
-    for (const step of [...sales.beforeSteps!, ...sales.automationSteps!]) {
-      expect(step.id.length, "id шага не пустой").toBeGreaterThan(0);
-      expect(step.label.length, "label шага не пустой").toBeGreaterThan(0);
-      expect(step.description.length, "description шага не пустой").toBeGreaterThan(0);
-      if (step.status !== undefined) {
-        expect(allowedStatus.has(step.status), `недопустимый status "${step.status}"`).toBe(true);
-      }
+    const support = getDepartmentById("support")!;
+    expect(support.painPoints.filter((point) => point.howItWorks)).toHaveLength(5);
+    for (const department of departments.filter(({ id }) => id !== "support")) {
+      expect(department.painPoints.some((point) => point.howItWorks)).toBe(false);
     }
   });
 

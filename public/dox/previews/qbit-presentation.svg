@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Первый слайд презентации">
+  <rect width="1280" height="720" fill="#faf6ef"/>
+  <rect x="0" y="0" width="1280" height="8" fill="#8f5722"/>
+  <text x="88" y="150" font-family="Segoe UI, Arial, sans-serif" font-size="18" letter-spacing="3" fill="#8f5722">QBIT-STUDIO-AI</text>
+  <text x="88" y="238" font-family="Segoe UI, Arial, sans-serif" font-size="54" font-weight="700" fill="#1e1a16">Автоматизация</text>
+  <text x="88" y="304" font-family="Segoe UI, Arial, sans-serif" font-size="54" font-weight="700" fill="#1e1a16">бизнес-процессов</text>
+  <text x="88" y="356" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#6f6559">Образец слайда. Реальная презентация загружается через админ-панель.</text>
+  <rect x="88" y="404" width="1104" height="1" fill="#ded6c9"/>
+  <rect x="88" y="448" width="330" height="176" rx="8" fill="#f2ece2" stroke="#ded6c9"/>
+  <rect x="116" y="484" width="118" height="10" rx="5" fill="#c9c0b1"/>
+  <rect x="116" y="514" width="274" height="8" rx="4" fill="#ded6c9"/>
+  <rect x="116" y="538" width="274" height="8" rx="4" fill="#ded6c9"/>
+  <rect x="116" y="562" width="188" height="8" rx="4" fill="#ded6c9"/>
+  <rect x="475" y="448" width="330" height="176" rx="8" fill="#f2ece2" stroke="#ded6c9"/>
+  <rect x="503" y="484" width="146" height="10" rx="5" fill="#c9c0b1"/>
+  <rect x="503" y="514" width="274" height="8" rx="4" fill="#ded6c9"/>
+  <rect x="503" y="538" width="274" height="8" rx="4" fill="#ded6c9"/>
+  <rect x="503" y="562" width="212" height="8" rx="4" fill="#ded6c9"/>
+  <rect x="862" y="448" width="330" height="176" rx="8" fill="#f2ece2" stroke="#ded6c9"/>
+  <rect x="890" y="484" width="102" height="10" rx="5" fill="#c9c0b1"/>
+  <rect x="890" y="514" width="274" height="8" rx="4" fill="#ded6c9"/>
+  <rect x="890" y="538" width="274" height="8" rx="4" fill="#ded6c9"/>
+  <rect x="890" y="562" width="160" height="8" rx="4" fill="#ded6c9"/>
+</svg>

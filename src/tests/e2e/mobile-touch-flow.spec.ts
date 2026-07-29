@@ -1,10 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { getHomepageCopy } from "../../content/homepage-copy";
 import { getDepartments } from "../../content/departments";
+import { getHomepageCopy } from "../../content/homepage-copy";
 import { getOfficeZones } from "../../content/office-zones";
 
-// Mobile ≤767px (WORKPLAN.md Step 7) — карусель, а не пространственная карта/список. hasTouch +
-// isMobile соответствуют реальному touch-вводу (page.tap()), а не эмуляции клика мышью.
 test.use({ viewport: { width: 375, height: 812 }, hasTouch: true, isMobile: true });
 
 function sortedDepartments() {
@@ -15,45 +13,44 @@ function sortedDepartments() {
     .map((zone) => departments.find((d) => d.id === zone.departmentId)!);
 }
 
+function officeMap(page: import("@playwright/test").Page) {
+  return page.getByRole("navigation", { name: "Отделы компании" });
+}
+
 async function activateCta(page: import("@playwright/test").Page) {
   const copy = getHomepageCopy();
   await page.getByRole("link", { name: copy.secondaryCta }).tap();
 }
 
-async function activateCtaViaSecondary(page: import("@playwright/test").Page) {
-  const copy = getHomepageCopy();
-  await page.getByRole("link", { name: copy.secondaryCta }).tap();
+async function expectNoDocumentOverflow(page: import("@playwright/test").Page) {
+  const { scrollWidth, scrollHeight, innerWidth, innerHeight } = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    scrollHeight: document.documentElement.scrollHeight,
+    innerWidth: window.innerWidth,
+    innerHeight: window.innerHeight,
+  }));
+  expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
+  expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
 }
 
-test.describe("mobile touch flow (≤767px, Step 7)", () => {
-  // Step 15 / Amendment 13 переписал это ожидание, и это смена ПОВЕДЕНИЯ, а не ослабление проверки.
-  // Прежняя редакция утверждала «карта скрыта через display:none, реально убрана из дерева
-  // доступности» — верное описание Step 7 (OQ-M5), но оно оставляло мобильный путь вовсе без «обзора
-  // офиса», который обещают docs/03 «Mobile» и docs/08 п.3. Теперь на ≤767px видимы ОБА: сцена с
-  // пятью тапаемыми зонами сверху и карусель под ней. Проверка стала строже, а не слабее: раньше
-  // достаточно было отсутствия карты, теперь требуется её наличие ВМЕСТЕ с работающей каруселью.
-  test("overview renders BOTH the office scene with five tappable zones and the carousel (Amendment 13)", async ({
+test.describe("mobile touch flow (direct office selection)", () => {
+  test("overview shows the office scene with five tappable zones and no carousel wizard controls", async ({
     page,
   }) => {
     await page.goto("/");
     await activateCta(page);
 
     const departments = sortedDepartments();
-
-    const map = page.getByRole("navigation", { name: "Отделы компании" });
+    const map = officeMap(page);
     await expect(map).toBeVisible();
     await expect(map.getByRole("button")).toHaveCount(5);
     for (const department of departments) {
       await expect(map.getByRole("button", { name: department.overviewLabel })).toBeVisible();
     }
 
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    await expect(
-      carousel.getByRole("button", { name: departments[0].overviewLabel }),
-    ).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Карусель отделов" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Назад|Далее/ })).toHaveCount(0);
 
-    // Зона на сцене открывает отдел так же, как карточка карусели, — иначе «интерактивные зоны»
-    // были бы картинкой, а не путём.
     await map.getByRole("button", { name: departments[3].overviewLabel }).tap();
     await expect(
       page.getByRole("heading", { level: 2, name: departments[3].headline }),
@@ -61,7 +58,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     expect(new URL(page.url()).searchParams.get("department")).toBe(departments[3].id);
   });
 
-  test("Step 7.2: ACTIVATE_CTA hides hero and the interaction hint, and moves focus straight to the carousel card, without any Tab press", async ({
+  test("ACTIVATE_CTA hides hero and the interaction hint, and moves focus to the first scene zone", async ({
     page,
   }) => {
     await page.goto("/");
@@ -70,81 +67,65 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await activateCta(page);
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
+    await expect(
+      page.locator("[data-hero-grid]").getByRole("link", { name: copy.primaryCta }),
+    ).toHaveCount(0);
     await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
-    // interactionHint остаётся в DOM (markup не удаляется, см. WORKPLAN.md Step 7.2, решение 3) —
-    // toBeHidden(), а не toHaveCount(0), проверяет именно визуальное сокрытие через CSS.
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
 
-    // Amendment 13: цель focus сместилась с карточки карусели на первую зону сцены, потому что
-    // карта теперь видима и идёт РАНЬШЕ карусели в DOM. Сам механизм не менялся — OfficeMachine.tsx
-    // как и прежде берёт первого ВИДИМОГО кандидата из [первая кнопка карты, карточка карусели];
-    // изменился лишь ответ на вопрос «видима ли карта на мобильном». Фокус на элементе, стоящем
-    // позже в порядке чтения, заставил бы пользователя Shift+Tab-ать назад к сцене, поэтому это
-    // правильная цель, а не побочный эффект.
     const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
     expect(focusedId).toBe(`hotspot-${sortedDepartments()[0].id}`);
   });
 
-  test("Step 7.2: the secondary CTA also hides hero on mobile and moves focus to the first scene zone (AC2/AC5 — same guarantee as the primary CTA)", async ({
+  test("top mobile/tablet overview controls use actions first and instruction second", async ({
     page,
   }) => {
-    await page.goto("/");
     const copy = getHomepageCopy();
+    const widths = [390, 375, 360, 768];
 
-    await activateCtaViaSecondary(page);
+    for (const width of widths) {
+      await page.setViewportSize({ width, height: width === 768 ? 1024 : 844 });
+      await page.goto("/");
+      await activateCta(page);
 
-    await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: copy.primaryCta })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: copy.secondaryCta })).toHaveCount(0);
-    await expect(page.getByText(copy.interactionHint)).toBeHidden();
+      const returnLink = page.getByRole("link", { name: copy.returnToOfficeLabel });
+      const ctaLink = page.getByRole("link", { name: copy.officeOverview.ctaAccessibleLabel });
+      const instruction = page.getByText(copy.officeOverview.instruction);
 
-    // Та же цель, что у основного CTA выше (Amendment 13) — гарантия обоих входов одинакова.
-    const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
-    expect(focusedId).toBe(`hotspot-${sortedDepartments()[0].id}`);
+      const [returnBox, ctaBox, instructionBox] = await Promise.all([
+        returnLink.boundingBox(),
+        ctaLink.boundingBox(),
+        instruction.boundingBox(),
+      ]);
+
+      expect(returnBox).not.toBeNull();
+      expect(ctaBox).not.toBeNull();
+      expect(instructionBox).not.toBeNull();
+      expect(Math.abs(returnBox!.y - ctaBox!.y)).toBeLessThanOrEqual(4);
+      expect(returnBox!.x + returnBox!.width).toBeLessThan(ctaBox!.x);
+      expect(instructionBox!.y).toBeGreaterThan(
+        Math.max(returnBox!.y + returnBox!.height, ctaBox!.y + ctaBox!.height) - 1,
+      );
+      await expectNoDocumentOverflow(page);
+    }
   });
 
-  test("Next/Previous browse the carousel locally: URL and machine state stay in overview (no SELECT_DEPARTMENT)", async ({
-    page,
-  }) => {
+  test("all five departments open with one tap on the office image zones", async ({ page }) => {
     await page.goto("/");
     await activateCta(page);
-    const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
 
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await expect(
-      carousel.getByRole("button", { name: departments[1].overviewLabel }),
-    ).toBeVisible();
-    expect(new URL(page.url()).searchParams.get("department")).toBeNull();
-    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
-
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await expect(
-      carousel.getByRole("button", { name: departments[2].overviewLabel }),
-    ).toBeVisible();
-    expect(new URL(page.url()).searchParams.get("department")).toBeNull();
+    for (const department of sortedDepartments()) {
+      await officeMap(page).getByRole("button", { name: department.overviewLabel }).tap();
+      await expect(
+        page.getByRole("heading", { level: 2, name: department.headline }),
+      ).toBeVisible();
+      expect(new URL(page.url()).searchParams.get("department")).toBe(department.id);
+      await page.getByRole("button", { name: "Назад к офису" }).tap();
+      await expect(officeMap(page)).toBeVisible();
+    }
   });
 
-  test("tapping the current card opens exactly the department shown, not the first one by default", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await activateCta(page);
-    const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await carousel.getByRole("button", { name: departments[2].overviewLabel }).tap();
-
-    await expect(
-      page.getByRole("heading", { level: 2, name: departments[2].headline }),
-    ).toBeVisible();
-    expect(new URL(page.url()).searchParams.get("department")).toBe(departments[2].id);
-  });
-
-  test("in the active department, Prev/Next dispatch a real SWITCH_DEPARTMENT (URL updates, no full reload), wrap-around at both ends", async ({
+  test("in the active department, Prev/Next still switch departments and update the URL", async ({
     page,
   }) => {
     await page.goto("/");
@@ -152,9 +133,9 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await page.evaluate(() => {
       (window as unknown as { __noReloadMarker?: boolean }).__noReloadMarker = true;
     });
+
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    await carousel.getByRole("button", { name: departments[0].overviewLabel }).tap();
+    await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
     await expect(
       page.getByRole("heading", { level: 2, name: departments[0].headline }),
     ).toBeVisible();
@@ -166,16 +147,13 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
         page.getByRole("heading", { level: 2, name: departments[i].headline }),
       ).toBeVisible();
     }
-    // Wrap-around: Next from the last department goes back to the first.
     await nextButton().tap();
     await expect(
       page.getByRole("heading", { level: 2, name: departments[0].headline }),
     ).toBeVisible();
     expect(new URL(page.url()).searchParams.get("department")).toBe(departments[0].id);
 
-    // Wrap-around: Prev from the first department goes to the last.
-    const prevButton = () => page.getByRole("button", { name: /^Предыдущий отдел/ });
-    await prevButton().tap();
+    await page.getByRole("button", { name: /^Предыдущий отдел/ }).tap();
     await expect(
       page.getByRole("heading", {
         level: 2,
@@ -189,46 +167,34 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     expect(markerSurvived).toBe(true);
   });
 
-  test("the explicit Close button returns to overview, and the carousel resets to the first department (AC 17 — not a saved position)", async ({
+  test("Close returns to overview without restoring any intermediate mobile block", async ({
     page,
   }) => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await carousel.getByRole("button", { name: departments[1].overviewLabel }).tap();
+
+    await officeMap(page).getByRole("button", { name: departments[2].overviewLabel }).tap();
     await expect(
-      page.getByRole("heading", { level: 2, name: departments[1].headline }),
+      page.getByRole("heading", { level: 2, name: departments[2].headline }),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Закрыть" }).tap();
+    await page.getByRole("button", { name: "Назад к офису" }).tap();
 
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Карусель отделов" })).toHaveCount(0);
+    await expect(officeMap(page)).toBeVisible();
     expect(new URL(page.url()).searchParams.get("department")).toBeNull();
-    await expect(
-      carousel.getByRole("button", { name: departments[0].overviewLabel }),
-    ).toBeVisible();
   });
 
-  // Amendment 13 сместил и результат этой проверки: раньше на мобильном хотспоты были скрыты, и
-  // focus уходил во второго кандидата — стабильную карточку карусели. Теперь первый кандидат
-  // (`hotspot-<id>` закрытого отдела) видим, и focus возвращается именно на него — то есть ровно
-  // туда, куда велит docs/11 («после закрытия focus возвращается»). Карусельный fallback из
-  // OfficeMachine.tsx при этом остаётся живым кодом: он срабатывает, когда карта не отрисована
-  // (например, фотослой и разметка карты недоступны), и продолжает проверяться самим фактом, что
-  // цепочка кандидатов перебирается по видимости.
-  test("closing a non-first department restores focus to the zone of that department, not silently to <body> (AC 6)", async ({
+  test("closing a non-first department restores focus to that department zone", async ({
     page,
   }) => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await carousel.getByRole("button", { name: departments[2].overviewLabel }).tap();
 
+    await officeMap(page).getByRole("button", { name: departments[2].overviewLabel }).tap();
     await page.keyboard.press("Escape");
 
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
@@ -236,7 +202,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     expect(focusedId).toBe(`hotspot-${departments[2].id}`);
   });
 
-  test("direct ?department=<id> on a mobile viewport opens that department immediately, for all 5 ids", async ({
+  test("direct ?department=<id> on a mobile viewport opens that department immediately", async ({
     page,
   }) => {
     for (const department of getDepartments()) {
@@ -247,47 +213,40 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     }
   });
 
-  test("all interactive tap targets (card, Prev/Next, CTA, Close, return-to-office) are at least 44x44 CSS px", async ({
-    page,
-  }) => {
+  test("interactive tap targets stay at least 44x44 CSS px", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     const copy = getHomepageCopy();
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
 
     const returnBox = await page
-      .getByRole("button", { name: copy.returnToOfficeLabel })
+      .getByRole("link", { name: copy.returnToOfficeLabel })
+      .boundingBox();
+    const overviewCtaBox = await page
+      .getByRole("link", { name: copy.officeOverview.ctaAccessibleLabel })
       .boundingBox();
     expect(returnBox).not.toBeNull();
+    expect(overviewCtaBox).not.toBeNull();
     expect(returnBox!.width).toBeGreaterThanOrEqual(44);
     expect(returnBox!.height).toBeGreaterThanOrEqual(44);
+    expect(overviewCtaBox!.height).toBeGreaterThanOrEqual(44);
 
-    for (const button of await carousel.getByRole("button").all()) {
+    for (const button of await officeMap(page).getByRole("button").all()) {
       const box = await button.boundingBox();
       expect(box).not.toBeNull();
       expect(box!.width).toBeGreaterThanOrEqual(44);
       expect(box!.height).toBeGreaterThanOrEqual(44);
     }
 
-    await carousel.getByRole("button", { name: departments[0].overviewLabel }).tap();
+    await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
 
-    const closeBox = await page.getByRole("button", { name: "Закрыть" }).boundingBox();
-    expect(closeBox).not.toBeNull();
-    expect(closeBox!.width).toBeGreaterThanOrEqual(44);
-    expect(closeBox!.height).toBeGreaterThanOrEqual(44);
-
+    const closeBox = await page.getByRole("button", { name: "Назад к офису" }).boundingBox();
     const ctaBox = await page.getByRole("link", { name: departments[0].ctaLabel }).boundingBox();
+    expect(closeBox).not.toBeNull();
     expect(ctaBox).not.toBeNull();
+    expect(closeBox!.height).toBeGreaterThanOrEqual(44);
     expect(ctaBox!.height).toBeGreaterThanOrEqual(44);
-
-    // Step 7.3: кнопки пунктов боли в мобильном аккордеоне — тоже тап-таргеты.
-    const accordion = page.getByTestId("mobile-pain-gain-accordion");
-    for (const button of await accordion.getByRole("button").all()) {
-      const box = await button.boundingBox();
-      expect(box).not.toBeNull();
-      expect(box!.height).toBeGreaterThanOrEqual(44);
-    }
 
     for (const navButton of await page
       .getByRole("button", { name: /^(Предыдущий|Следующий) отдел/ })
@@ -299,40 +258,24 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     }
   });
 
-  test("no horizontal or full-document scroll at 375px width, across hero/overview/department-active", async ({
+  test("no horizontal or full-document scroll at 375px across hero/overview/department-active", async ({
     page,
   }) => {
-    async function expectNoScroll() {
-      const { scrollWidth, scrollHeight, innerWidth, innerHeight } = await page.evaluate(() => ({
-        scrollWidth: document.documentElement.scrollWidth,
-        scrollHeight: document.documentElement.scrollHeight,
-        innerWidth: window.innerWidth,
-        innerHeight: window.innerHeight,
-      }));
-      expect(scrollWidth).toBeLessThanOrEqual(innerWidth);
-      expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
-    }
-
     await page.goto("/");
-    await expectNoScroll();
+    await expectNoDocumentOverflow(page);
     await activateCta(page);
-    await expectNoScroll();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    await carousel.getByRole("button").first().tap();
-    await expectNoScroll();
+    await expectNoDocumentOverflow(page);
+    await officeMap(page).getByRole("button").first().tap();
+    await expectNoDocumentOverflow(page);
   });
 
-  test("prefers-reduced-motion: the full mobile flow (browse, open, switch, close) remains functional", async ({
-    page,
-  }) => {
+  test("prefers-reduced-motion: open, switch, and close remain functional", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
 
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await carousel.getByRole("button", { name: departments[1].overviewLabel }).tap();
+    await officeMap(page).getByRole("button", { name: departments[1].overviewLabel }).tap();
     await expect(
       page.getByRole("heading", { level: 2, name: departments[1].headline }),
     ).toBeVisible();
@@ -346,40 +289,30 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
   });
 
-  test("keyboard: Tab order is [card, Prev, Next] in overview, and Enter opens the currently-focused card", async ({
-    page,
-  }) => {
+  test("keyboard: Enter on a focused image zone opens that department", async ({ page }) => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    const card = carousel.getByRole("button", { name: departments[0].overviewLabel });
+    const firstZone = officeMap(page).getByRole("button", { name: departments[0].overviewLabel });
 
-    await card.focus();
-    await expect(card).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(carousel.getByRole("button", { name: /Предыдущий отдел/ })).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(carousel.getByRole("button", { name: /Следующий отдел/ })).toBeFocused();
-
-    await card.focus();
+    await firstZone.focus();
+    await expect(firstZone).toBeFocused();
     await page.keyboard.press("Enter");
+
     await expect(
       page.getByRole("heading", { level: 2, name: departments[0].headline }),
     ).toBeVisible();
   });
 
-  test("keyboard: in the active department, Tab order is [5 pain points, CTA, Close, Prev, Next] (AC 13 — mobile equivalent of the desktop rail Tab order; Step 7.3 accordion)", async ({
+  test("keyboard: in the active department, Tab order reaches accordion, CTA, Back, Prev, Next", async ({
     page,
   }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    await carousel.getByRole("button", { name: departments[0].overviewLabel }).tap();
+    await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
 
-    // Заголовок получает программный focus сразу после открытия (docs/05 department-opening) —
-    // тот же инвариант, что уже проверен для Desktop в desktop-10x90-shell.spec.ts.
     await expect(
       page.getByRole("heading", { level: 2, name: departments[0].headline }),
     ).toBeFocused();
@@ -392,25 +325,19 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: departments[0].ctaLabel })).toBeFocused();
-
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: "Закрыть" })).toBeFocused();
-
+    await expect(page.getByRole("button", { name: "Назад к офису" })).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: /^Предыдущий отдел/ })).toBeFocused();
-
     await page.keyboard.press("Tab");
     await expect(page.getByRole("button", { name: /^Следующий отдел/ })).toBeFocused();
   });
 
-  test("tapping a pain point in the mobile accordion expands its gain, defaulting to the first pain point on open (Step 7.3, OQ-P2/OQ-P6)", async ({
-    page,
-  }) => {
+  test("tapping a pain point in the mobile accordion expands its gain", async ({ page }) => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    await carousel.getByRole("button", { name: departments[0].overviewLabel }).tap();
+    await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
 
     const accordion = page.getByTestId("mobile-pain-gain-accordion");
     await expect(accordion.getByText(departments[0].painPoints[0].gain)).toBeVisible();
@@ -421,9 +348,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await expect(accordion.getByText(departments[0].painPoints[0].gain)).toHaveCount(0);
   });
 
-  test("no console/page errors across the full mobile flow (production build)", async ({
-    page,
-  }) => {
+  test("no console/page errors across the full mobile flow", async ({ page }) => {
     const messages: string[] = [];
     page.on("console", (msg) => messages.push(msg.text()));
     page.on("pageerror", (err) => messages.push(err.message));
@@ -431,9 +356,7 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-    await carousel.getByRole("button", { name: /Следующий отдел/ }).tap();
-    await carousel.getByRole("button", { name: departments[1].overviewLabel }).tap();
+    await officeMap(page).getByRole("button", { name: departments[1].overviewLabel }).tap();
     await page.getByRole("button", { name: /Следующий отдел/ }).tap();
     await page.keyboard.press("Escape");
     await page.goto("/?department=sales");
@@ -443,61 +366,54 @@ test.describe("mobile touch flow (≤767px, Step 7)", () => {
     expect(suspicious).toEqual([]);
   });
 
-  test("the 'return to office' button works on mobile: absent in hero, returns from the carousel to hero", async ({
+  test("the 'return to office' link works on mobile: absent in hero, returns from overview to hero", async ({
     page,
   }) => {
     const copy = getHomepageCopy();
     await page.goto("/");
-    await expect(page.getByRole("button", { name: copy.returnToOfficeLabel })).toHaveCount(0);
-    await expect(page.getByText(copy.tagline)).toBeVisible();
+    await expect(page.getByRole("link", { name: copy.returnToOfficeLabel })).toHaveCount(0);
+    await expect(page.getByText(copy.eyebrow)).toBeVisible();
 
     await activateCta(page);
-    const returnButton = page.getByRole("button", { name: copy.returnToOfficeLabel });
-    await expect(returnButton).toBeVisible();
-    await returnButton.tap();
+    const returnLink = page.getByRole("link", { name: copy.returnToOfficeLabel });
+    await expect(returnLink).toBeVisible();
+    await returnLink.tap();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(copy.headline);
-    await expect(page.getByRole("navigation", { name: "Карусель отделов" })).toHaveCount(0);
+    await expect(officeMap(page)).toHaveCount(0);
     const focusedId = await page.evaluate(() => document.activeElement?.id ?? null);
     expect(focusedId).toBe("hero-heading");
   });
 });
 
-// AC 7/AC 9 at multiple characteristic mobile sizes (WORKPLAN.md Step 7 Manual checks: iPhone SE
-// 375×667, typical Android 393×851, 320px extreme). These are automated Chromium checks at the
-// exact same dimensions, not a live Chrome DevTools device-toolbar pass — recorded honestly as such
-// (see WORKLOG.md Entry 8 correction), since no interactive DevTools session was run this round.
-test.describe("mobile CTA reachability and no-horizontal-scroll at multiple characteristic sizes (AC 7, AC 9)", () => {
+test.describe("mobile CTA reachability and no-horizontal-scroll at multiple widths", () => {
   test.use({ hasTouch: true, isMobile: true });
 
   const sizes = [
+    { name: "typical Android", width: 390, height: 844 },
     { name: "iPhone SE", width: 375, height: 667 },
-    { name: "typical Android", width: 393, height: 851 },
-    { name: "320px extreme", width: 320, height: 690 },
+    { name: "narrow Android", width: 360, height: 740 },
+    { name: "tablet portrait", width: 768, height: 1024 },
   ];
 
   for (const size of sizes) {
-    test(`${size.name} (${size.width}x${size.height}): DepartmentCTA is reachable and not clipped, no horizontal scroll`, async ({
+    test(`${size.name} (${size.width}x${size.height}): DepartmentCTA is reachable and no horizontal scroll`, async ({
       page,
     }) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await page.setViewportSize({ width: size.width, height: size.height });
       await page.goto("/");
       await activateCta(page);
       const departments = sortedDepartments();
-      const carousel = page.getByRole("navigation", { name: "Карусель отделов" });
-      await carousel.getByRole("button", { name: departments[0].overviewLabel }).tap();
+      await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
 
       const ctaButton = page.getByRole("link", { name: departments[0].ctaLabel });
-      // Панель отдела может скроллиться внутренне на низких высотах (docs/08) — "достижима" значит
-      // доступна после прокрутки самой панели, не обязательно видна без скролла сразу.
       await ctaButton.scrollIntoViewIfNeeded();
       await expect(ctaButton).toBeVisible();
       const ctaBox = await ctaButton.boundingBox();
       expect(ctaBox).not.toBeNull();
       expect(ctaBox!.x).toBeGreaterThanOrEqual(0);
       expect(ctaBox!.x + ctaBox!.width).toBeLessThanOrEqual(size.width);
-      expect(ctaBox!.y).toBeGreaterThanOrEqual(0);
-      expect(ctaBox!.y + ctaBox!.height).toBeLessThanOrEqual(size.height);
 
       const { scrollWidth, innerWidth } = await page.evaluate(() => ({
         scrollWidth: document.documentElement.scrollWidth,

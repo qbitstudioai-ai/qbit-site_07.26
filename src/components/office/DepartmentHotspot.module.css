@@ -1,147 +1,239 @@
-/* Step 12 (OQ-A2-1 = (a)): хотспот — прозрачная ЗОНА поверх мастер-сцены, а не белая карточка на
-   токен-фоне. Носитель смысла теперь сама сцена, поэтому зона не закрашивает её, а очерчивает
-   участок; читаемость подписи обеспечивает скрим на самой подписи (см. .label/.problem ниже), а не
-   сплошная заливка всей зоны. */
-/* Пол тап-таргета 44×44 (CLAUDE.md Accessibility rules) — Step 15, закрывает finding 2 Step 12 и
-   делает возможной мобильную карту Amendment 13. Размер зоны задан ПРОЦЕНТАМИ от кадра (inline
-   style в DepartmentHotspot.tsx), поэтому он падает вместе с кадром: измерено 105×36px на 1280×400
-   и 114×39px на 375px — оба ниже порога. Пол глобальный, а не мобильный: низкий вьюпорт на desktop
-   даёт ту же проблему. Цена — на очень мелких кадрах самые низкие зоны могут перекрыться на
-   несколько пикселей; тап-таргет важнее пиксельной точности границы, тем более что арт черновой
-   (OQ-A2-2/OQ-A2-7). */
 .hotspot {
+  --corner-length: clamp(18px, 2.4cqw, 30px);
+  --corner-color: rgba(250, 232, 210, 0.68);
+
   position: absolute;
   min-width: 44px;
   min-height: 44px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-1);
+  border: 0;
   background: transparent;
-  /* Двухтоновая рамка: светлая линия + тёмное кольцо снаружи. Граница зоны обязана читаться и на
-     светлом, и на тёмном участке фотографии, а какой именно участок окажется под ней — заранее
-     неизвестно. Один цвет этого не гарантирует, пара контрастных — гарантирует. */
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 0 0 1px rgba(24, 20, 16, 0.55);
-  border-radius: 8px;
+  color: var(--color-surface);
   cursor: pointer;
-  padding: var(--space-2);
+  padding: clamp(3px, 0.8cqw, var(--space-2));
   text-align: center;
-  overflow: hidden;
   transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease;
+    background-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease;
 }
 
-/* Наведение/выбор затемняют зону вместо подсветки: на фотофоне затемнение читается как выделение
-   надёжнее подсветки (фото само по себе светлое местами) и вдобавок ПОДНИМАЕТ контраст подписи. */
-.hotspot:hover,
 .hotspot:focus-visible {
-  background: var(--scrim-soft);
-  border-color: var(--color-accent-warm);
+  outline: 2px solid var(--color-accent-warm);
+  outline-offset: 3px;
 }
 
-/* Фокус поверх фото: к общему акцентному outline (globals.css) добавляется белое кольцо вплотную к
-   рамке. Акцент #8f5722 тёмный — на тёмном участке сцены он один мог бы потеряться; белое кольцо
-   между ним и фото делает индикатор различимым на любом кадре. */
-.hotspot:focus-visible {
-  box-shadow: 0 0 0 3px var(--color-surface);
+.corner {
+  position: absolute;
+  width: var(--corner-length);
+  height: var(--corner-length);
+  border-color: var(--corner-color);
+  border-style: solid;
+  border-width: 0;
+  filter: drop-shadow(0 1px 1px rgba(24, 20, 16, 0.72));
+  pointer-events: none;
+  transition:
+    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 240ms ease,
+    opacity 240ms ease;
 }
 
-/* Подписи лежат на скриме, а не прямо на фото. --scrim-strong рассчитан на ХУДШИЙ случай фотофона:
-   белый текст поверх чисто белого участка фотографии даёт 6.80:1 (см. docs/design-tokens.md), то
-   есть WCAG AA держится независимо от того, какой кусок сцены окажется под подписью. Это и есть
-   способ измерения, которого требует WORKPLAN.md Step 12 AC2: axe помечает text-over-image как
-   incomplete, а не serious, и подтвердить контраст сам не может. */
-/* Step 15: размер подписи считается от ШИРИНЫ КАДРА (container query на .scene), а не от ширины
-   вьюпорта. Зона задана процентами кадра, поэтому именно кадр определяет, сколько места есть под
-   подпись, — и эти две величины расходятся: на 1280×400 вьюпорт desktop-ный, а кадр всего ~310px,
-   и подпись срезалась на 11.5px, не попадая ни в одну медиазапросную ветку.
-   Верхняя граница clamp равна прежним 0.9rem/--space-3, а на desktop-кадре (~1050px) выражение
-   3.2cqw = 33px заведомо больше её — то есть desktop остаётся пиксель-в-пиксель как был, меняются
-   только мелкие кадры. Нижняя граница 0.625rem — предел читаемости, ниже опускаться нельзя даже
-   ради того, чтобы влезть. */
+.cornerTopLeft {
+  top: 0;
+  left: 0;
+  border-top-width: 1px;
+  border-left-width: 1px;
+}
+
+.cornerTopRight {
+  top: 0;
+  right: 0;
+  border-top-width: 1px;
+  border-right-width: 1px;
+}
+
+.cornerBottomLeft {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: 1px;
+  border-left-width: 1px;
+}
+
+.cornerBottomRight {
+  right: 0;
+  bottom: 0;
+  border-right-width: 1px;
+  border-bottom-width: 1px;
+}
+
+.marker {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  max-width: min(92%, 250px);
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(250, 232, 210, 0.22);
+  border-radius: 10px;
+  background: rgba(30, 26, 22, 0.72);
+  box-shadow: 0 7px 20px rgba(24, 20, 16, 0.12);
+  -webkit-backdrop-filter: blur(8px) saturate(0.9);
+  backdrop-filter: blur(8px) saturate(0.9);
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .label {
-  font-weight: 600;
-  font-size: clamp(0.625rem, 3.2cqw, 0.9rem);
-  /* line-height здесь СОЗНАТЕЛЬНО не задан. Промежуточная редакция ставила 1.25 «под перенос строк
-     на мелком кадре» — и этим делала плашку на desktop на 2px выше прежнего (замерено skeptic
-     Phase B раунд 2: 26px против 24px), то есть ломала обещание «desktop не меняется» ради случая,
-     которому `normal` (≈1.15 для системного стека) и так помогает БОЛЬШЕ: он ниже, а не выше. */
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(3px, 0.6cqw, 7px);
+  padding: clamp(3px, 0.55cqw, 6px) clamp(7px, 1.2cqw, 13px);
   color: var(--color-surface);
-  background: var(--scrim-strong);
-  padding: clamp(1px, 0.5cqw, var(--space-1)) clamp(3px, 1.4cqw, var(--space-3));
-  border-radius: 6px;
+  font-size: clamp(0.625rem, 3.2cqw, 0.875rem);
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
-/* Свёрнутое состояние обнуляет и вертикальный padding, а не только max-height. Причина: padding не
-   сжимается вместе с max-height — со скрим-плашкой (Step 12) свёрнутое описание продолжало занимать
-   ~8px и рисовать тёмную полоску под подписью. Глазу она незаметна из-за opacity: 0, но место
-   занимает и в измерениях элемент считается видимым. */
+.chevron {
+  display: inline-flex;
+  align-items: center;
+  color: #efbd83;
+  font-size: 1.15em;
+  line-height: 1;
+  transform: translateX(0);
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .problem {
-  font-size: 0.75rem;
-  color: var(--color-surface);
-  background: var(--scrim-strong);
-  padding: 0 var(--space-2);
-  border-radius: 6px;
-  opacity: 0;
+  display: block;
+  max-width: 100%;
   max-height: 0;
   overflow: hidden;
+  padding: 0 clamp(7px, 1.2cqw, 13px);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: clamp(0.625rem, 2.25cqw, var(--font-size-xs));
+  line-height: 1.35;
+  opacity: 0;
+  transform: translateY(-3px);
   transition:
-    opacity 0.15s ease,
-    max-height 0.15s ease,
-    padding 0.15s ease;
+    max-height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* :focus-visible, а НЕ :focus. Разница здесь не косметическая: после ACTIVATE_CTA фокус переносится
-   программно на первый хотспот (OfficeMachine.tsx, Step 7.2), чтобы он не потерялся на <body> при
-   скрытии hero. При программном переносе браузер ставит :focus, но НЕ :focus-visible — рамка не
-   рисуется. С прежним селектором это выглядело как баг: у «Поддержки» сама собой всплывала подпись
-   «Отвечать быстрее и разгрузить первую линию», без наведённого курсора и без видимой причины
-   (замерено: :focus = true, :focus-visible = false, outline-style = none). Теперь описание
-   раскрывается ровно тогда же, когда видна рамка фокуса, — клавиатурный сценарий не пострадал. */
+.problemArrow {
+  display: inline-block;
+  margin-left: 0.35em;
+  color: #efbd83;
+}
+
+.hotspot:hover,
+.hotspot:focus-visible {
+  background: rgba(247, 220, 187, 0.12);
+}
+
+.hotspot:hover .corner,
+.hotspot:focus-visible .corner {
+  --corner-color: rgba(255, 221, 180, 0.98);
+
+  width: calc(var(--corner-length) + 5px);
+  height: calc(var(--corner-length) + 5px);
+}
+
+.hotspot:hover .marker,
+.hotspot:focus-visible .marker {
+  border-color: rgba(239, 189, 131, 0.58);
+  background: rgba(30, 26, 22, 0.82);
+  box-shadow: 0 10px 24px rgba(24, 20, 16, 0.18);
+  transform: translateY(-1px);
+}
+
+.hotspot:focus-visible .marker {
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 5px var(--color-accent-warm),
+    0 10px 24px rgba(24, 20, 16, 0.18);
+}
+
+.hotspot:hover .chevron,
+.hotspot:focus-visible .chevron {
+  transform: translateX(2px);
+}
+
 .hotspot:hover .problem,
 .hotspot:focus-visible .problem {
+  max-height: 5.5rem;
+  padding: 0 clamp(7px, 1.2cqw, 13px) clamp(6px, 0.8cqw, 9px);
   opacity: 1;
-  max-height: 4rem;
-  padding: var(--space-1) var(--space-2);
+  transform: translateY(0);
 }
 
-/* Step 7.5: touch не гарантирует hover (docs/08 "Tablet 768–1279": "hover не обязателен") — проблема
-   отдела показывается безусловно. Граница взята одна широкая (max-width: 1279px), а не диапазон
-   768–1279: на ≤767px родительская .map уже полностью скрыта (OfficeSemanticMap.module.css, Step 7),
-   поэтому правило там безвредно, а одно правило надёжнее двух вручную синхронизируемых. Desktop
-   (≥1280px) не затронут по построению — hover-раскрытие там остаётся как в Step 3. */
 @media (max-width: 1279px) {
-  .problem {
-    opacity: 1;
-    max-height: 4rem;
-    padding: var(--space-1) var(--space-2);
+  .marker {
+    max-width: 96%;
+  }
+
+  .label {
+    min-height: 22px;
   }
 }
 
-/* Step 15 / Amendment 13: на ≤767px карта снова видима, но кадр там ~327×218 — описание отдела в
-   зоне 114×44px не помещается физически и было бы молча обрезано `overflow: hidden` у .hotspot.
-   Поэтому на мобильном описание возвращается в свёрнутое состояние (как на desktop), а полный
-   `overviewProblem` показывает карусель под сценой — она и остаётся основным touch-путём.
-   Свёрнутое состояние — это opacity/max-height, а НЕ display:none: элемент остаётся в дереве
-   доступности, поэтому `aria-describedby` на хотспоте продолжает работать и описание доступно
-   скринридеру, хотя визуально скрыто. Раскрытие по :focus-visible (правило выше) при этом
-   сохраняется — клавиатурный путь на мобильном вьюпорте не теряется. */
 @media (max-width: 767px) {
-  .problem {
-    opacity: 0;
-    max-height: 0;
-    padding: 0 var(--space-2);
+  .hotspot {
+    --corner-length: 11px;
+
+    padding: 2px;
   }
 
-  /* Размер подписи здесь НЕ переопределяется: её считает container query от ширины кадра
-     (см. .label выше). Прежняя фиксированная 0.6875rem закрывала только портретный телефон и всё
-     равно оставляла срез ~2px на 640×360 — брейкпоинт по вьюпорту описывал не ту величину.
-     Остаётся только padding самого хотспота: он отдаёт подписи те несколько пикселей, которые на
-     мелком кадре решают. */
-  .hotspot {
-    padding: var(--space-1);
+  .marker {
+    border-radius: 8px;
+  }
+
+  .label {
+    min-height: 20px;
+    padding: 2px 5px;
+  }
+
+  .problem {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    max-height: none;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .hotspot:hover .problem,
+  .hotspot:focus-visible .problem {
+    width: 1px;
+    height: 1px;
+    max-height: none;
+    padding: 0;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .corner,
+  .marker,
+  .chevron,
+  .problem {
+    transform: none !important;
+  }
+
+  .hotspot:hover .corner,
+  .hotspot:focus-visible .corner {
+    width: var(--corner-length);
+    height: var(--corner-length);
   }
 }

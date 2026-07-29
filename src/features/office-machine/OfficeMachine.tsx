@@ -3,16 +3,14 @@
 import { useEffect, useMemo, useReducer, useRef } from "react";
 import { Header } from "@/components/homepage/Header";
 import { HeroCopy } from "@/components/homepage/HeroCopy";
+import { HeroInfoPanel } from "@/components/homepage/HeroInfoPanel";
+import { HeroOfficeVisual } from "@/components/homepage/HeroOfficeVisual";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
 import type { Department, HomepageCopy, OfficeZone } from "@/content/types";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import styles from "./OfficeMachine.module.css";
 import { initOfficeMachineState, officeMachineReducer, type OfficeSectionId } from "./reducer";
-import {
-  MOBILE_CAROUSEL_CARD_ID,
-  OVERVIEW_MAP_FIRST_CONTROL,
-  sectionHeadingId,
-} from "./focusTargets";
+import { OVERVIEW_MAP_FIRST_CONTROL, sectionHeadingId } from "./focusTargets";
 import { buildOfficeSections, closeReturnCandidateIds } from "./sections";
 import { useDepartmentUrlSync } from "./url-sync";
 
@@ -153,10 +151,7 @@ export function OfficeMachine({
     // попадает на первую зону сцены на всех ширинах. Обратный порядок отправил бы пользователя в
     // конец экрана, откуда до сцены пришлось бы возвращаться Shift+Tab.
     if (state.view === "overview" && previousView === "hero") {
-      const candidates = [
-        document.querySelector<HTMLElement>(OVERVIEW_MAP_FIRST_CONTROL),
-        document.getElementById(MOBILE_CAROUSEL_CARD_ID),
-      ];
+      const candidates = [document.querySelector<HTMLElement>(OVERVIEW_MAP_FIRST_CONTROL)];
       const target = candidates.find(
         (el): el is HTMLElement => el !== null && el.offsetParent !== null,
       );
@@ -189,15 +184,42 @@ export function OfficeMachine({
 
   return (
     <>
-      <Header tagline={copy.tagline} onReturnHome={handleReturnToHero} />
+      <Header
+        links={copy.heroLinks}
+        phoneLabel={copy.headerPhone}
+        phoneHref={copy.headerPhoneHref}
+        phoneAccessibleLabel={copy.headerPhoneAccessibleLabel}
+        onReturnHome={handleReturnToHero}
+      />
       <main className={styles.main}>
-        <HeroCopy
-          copy={copy}
-          onActivate={handleActivateCta}
-          isHiddenAfterReveal={state.view !== "hero"}
-        />
+        {/* Раскладка hero (Amendment 26): офисный visual проходит широким нижним слоем под продающим
+            блоком и двумя floating-карточками. На узких ширинах — одна колонка в том же порядке.
+            heroGrid скрывается ЦЕЛИКОМ после входа в офис (heroGridHidden), иначе как flex-элемент
+            main он держал бы место и не давал OfficeExperience занять экран. HeroCopy получает тот
+            же флаг сокрытия для no-JS-совместимости и существующей unit-проверки. */}
+        <div
+          data-hero-grid
+          className={
+            state.view !== "hero" ? `${styles.heroGrid} ${styles.heroGridHidden}` : styles.heroGrid
+          }
+        >
+          <div className={styles.heroVisualCell}>
+            <HeroOfficeVisual />
+          </div>
+          <div className={styles.heroCopyCell}>
+            <HeroCopy
+              copy={copy}
+              onActivate={handleActivateCta}
+              isHiddenAfterReveal={state.view !== "hero"}
+            />
+          </div>
+          <div className={styles.heroInfoCell}>
+            <HeroInfoPanel copy={copy.heroInfoPanel} contactHref={copy.contactHref} />
+          </div>
+        </div>
         <OfficeExperience
           interactionHint={copy.interactionHint}
+          officeOverview={copy.officeOverview}
           returnToOfficeLabel={copy.returnToOfficeLabel}
           contactHref={copy.contactHref}
           taskCopy={copy.taskSection}

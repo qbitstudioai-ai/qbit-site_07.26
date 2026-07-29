@@ -33,7 +33,7 @@ test.describe("Step 12 — overview renders the master office scene", () => {
 
     // Верхний слой: на обзорном экране слой всегда один, но адресоваться к «текущей сцене»
     // единообразно надёжнее — crossfade Step 16 живёт в ветке department-active.
-    const sceneImage = page.locator("picture > img").last();
+    const sceneImage = page.locator("[data-scene-crossfade] picture > img").last();
     await expect(sceneImage).toBeVisible();
 
     // Картинка не просто в DOM — она реально декодирована браузером (битая дала бы naturalWidth 0).
@@ -96,7 +96,7 @@ test.describe("Step 12 — overview renders the master office scene", () => {
     // живущий через оба состояния офиса, и карта отвечает только за зоны поверх него. Проверяемое
     // требование то же — «вместо битой картинки ровно один детерминированный плейсхолдер», — и
     // область поиска по-прежнему точечная (стопка слоёв), а не «где-нибудь на странице».
-    await expect(page.locator("picture")).toHaveCount(0);
+    await expect(page.locator("[data-scene-crossfade] picture")).toHaveCount(0);
     await expect(page.locator("[data-scene-crossfade] [data-photo-fallback]")).toHaveCount(1);
 
     // Отдел по-прежнему открывается: коммерческий путь не зависит от фотослоя.
@@ -112,7 +112,7 @@ test.describe("Step 12 — overview renders the master office scene", () => {
     await page.goto("/");
     await openOverview(page);
 
-    const scene = page.locator("picture").first().locator("..");
+    const scene = page.locator("[data-scene-crossfade]");
     const sceneBox = (await scene.boundingBox())!;
 
     for (const zone of getOfficeZones()) {

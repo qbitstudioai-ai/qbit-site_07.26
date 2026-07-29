@@ -19,3 +19,16 @@ DECISIONS.md
 WORKLOG.md
 WORKPLAN.md
 MANIFEST.json
+
+# Отчёты аудита 2026-07-27 — та же категория, что и файлы выше: процессная документация, а не код.
+# Широкие таблицы находок здесь читаемее в исходной вёрстке, чем после переноса строк Prettier.
+SECURITY_AUDIT.md
+TECHNICAL_AUDIT.md
+PRE_RELEASE_CHECKLIST.md
+
+# Архив завершённых задач — история, не код; Prettier его не трогает.
+archive/
+
+# Исследовательские статьи и механически сгенерированный модуль должны сохранять исходный текст.
+src/content/blog/
+src/features/blog/articles.generated.ts

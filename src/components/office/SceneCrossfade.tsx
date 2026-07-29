@@ -199,7 +199,7 @@ export function SceneCrossfade({ sceneId, sizes, photoClassName }: SceneCrossfad
       if (!isRevealingTop) return styles.layerPending;
       // Сцена уже была на экране (ветка возврата): ни движения, ни проявления — просто остаётся.
       // Осознанный компромисс: если этот слой в момент возврата ещё уезжал (`.layerReceding`), он
-      // мгновенно вернётся с 1.045 в 1. Это в разы мягче, чем моргнуть в пустоту, и достижимо
+      // мгновенно вернётся с 1.008 в 1. Это в разы мягче, чем моргнуть в пустоту, и достижимо
       // только кликом «назад в тот же отдел» в пределах примерно 800 мс.
       return reveal.animate ? styles.layerIncoming : styles.layerSettled;
     }

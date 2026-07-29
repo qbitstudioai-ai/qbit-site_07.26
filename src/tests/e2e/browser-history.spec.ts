@@ -35,7 +35,7 @@ test.describe("Step 9 — browser history behaviour (deliberate replaceState des
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
     expect(new URL(page.url()).searchParams.get("department")).toBe("hr");
 
-    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.getByRole("button", { name: "Назад к офису" }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
     expect(new URL(page.url()).searchParams.get("department")).toBeNull();
 

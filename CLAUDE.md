@@ -62,6 +62,16 @@ This protocol is mandatory. It replaced a heavier per-step planning cycle on 202
 section is the single source of truth for the process** — do not restate it in `docs/`, skills, or
 subagent files; point back here instead.
 
+### 0. Live journals vs archive
+
+`WORKPLAN.md`, `WORKLOG.md`, and `DECISIONS.md` in the repo root hold ONLY active work (current
+milestone). Everything for completed steps and older decisions has been moved to `archive/`
+(`archive/WORKPLAN.archive.md`, `archive/WORKLOG.archive.md`, `archive/DECISIONS.archive.md`).
+
+**Do NOT read the `archive/` files unless the user explicitly asks for them.** Work from the slim live
+files. When you finish a milestone, move its completed steps/entries out to the matching archive file
+(via shell line-range moves, not by reading them into context) so the live files stay small.
+
 ### 1. One Master Plan
 
 `WORKPLAN.md` is created once by the `planner` subagent, covering the whole project (or the whole

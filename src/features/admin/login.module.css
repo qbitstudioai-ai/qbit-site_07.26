@@ -1,0 +1,68 @@
+/* Форма входа. Оформление сдержанное — это служебный экран, а не витрина сайта. */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 380px;
+  margin-top: 24px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-graphite-900, #1c2430);
+}
+
+.input {
+  padding: 10px 12px;
+  border: 1px solid #d8dce3;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1c2430;
+  font: inherit;
+}
+
+.input:focus-visible {
+  outline: 2px solid #1f4b8f;
+  outline-offset: 1px;
+}
+
+/* Область под сообщение зарезервирована всегда: появление ошибки не должно сдвигать кнопку под
+   курсором в момент повторного нажатия. */
+.status {
+  min-height: 24px;
+}
+
+.error {
+  font-size: 13.5px;
+  color: #a32020;
+}
+
+.submit {
+  align-self: flex-start;
+  padding: 10px 22px;
+  border: 1px solid #1f4b8f;
+  border-radius: 6px;
+  background: #1f4b8f;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:hover:not(:disabled) {
+  background: #17396d;
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

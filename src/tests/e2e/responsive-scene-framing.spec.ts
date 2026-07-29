@@ -31,7 +31,7 @@ async function openOverview(page: Page) {
 /** Ширина производной, которую браузер РЕАЛЬНО выбрал (currentSrc), а не та, что лежит в srcset. */
 async function servedWidth(page: Page): Promise<number> {
   // Верхний слой crossfade — текущая сцена (Step 16, см. department-scene.spec.ts).
-  const img = page.locator("picture > img").last();
+  const img = page.locator("[data-scene-crossfade] picture > img").last();
   await expect(img).toBeVisible();
   await expect
     .poll(async () => img.evaluate((i: HTMLImageElement) => i.naturalWidth))
@@ -136,7 +136,7 @@ test.describe("Step 15 — кадрирование overview-сцены по б�
       await page.goto("/");
       await openOverview(page);
 
-      const scene = page.locator("picture").first().locator("..");
+      const scene = page.locator("[data-scene-crossfade]");
       const sceneBox = (await scene.boundingBox())!;
 
       // Сам кадр: 3:2 при любой ширине. Допуск 1% — субпиксельное округление, но не смена пропорции.
@@ -205,7 +205,7 @@ test.describe("Step 15 — кадрирование overview-сцены по б�
       await page.goto("/");
       await openOverview(page);
 
-      const sceneBox = (await page.locator("picture").first().locator("..").boundingBox())!;
+      const sceneBox = (await page.locator("[data-scene-crossfade]").boundingBox())!;
       expect(
         sceneBox.y + sceneBox.height,
         `нижний край кадра ${(sceneBox.y + sceneBox.height).toFixed(0)}px при высоте вьюпорта ${size.height}px`,
@@ -303,13 +303,16 @@ test.describe("Step 15 — сцена отдела на планшете вид�
     { name: "tablet 768 портрет", width: 768, height: 1024 },
     { name: "tablet 1024 альбом", width: 1024, height: 768 },
   ]) {
-    test(`${size.name}: CTA и «Закрыть» достижимы и не перекрыты сценой`, async ({ page }) => {
+    test(`${size.name}: CTA и «Назад к офису» достижимы и не перекрыты сценой`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await page.setViewportSize({ width: size.width, height: size.height });
       await page.goto(`/?department=${sales.id}`);
 
       for (const control of [
         page.getByRole("link", { name: sales.ctaLabel }),
-        page.getByRole("button", { name: "Закрыть" }),
+        page.getByRole("button", { name: "Назад к офису" }),
       ]) {
         // Панель может скроллиться внутренне на низких высотах (docs/08) — «достижима» значит
         // доступна после прокрутки самой панели, тот же критерий, что в mobile-touch-flow.spec.ts.

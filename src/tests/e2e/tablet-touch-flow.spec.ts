@@ -5,7 +5,8 @@ import { getOfficeZones } from "../../content/office-zones";
 
 // Tablet 768–1279px (WORKPLAN.md Step 7.5) — в отличие от Mobile (карусель), здесь сохраняется та же
 // пространственная карта офиса и та же 10/90-подобная раскладка, что на Desktop, только с более
-// широким rail и без hover-gating. hasTouch без isMobile: диапазон определяется CSS-шириной
+// широким rail. Интерактивность до касания обозначают название, chevron и угловые маркеры:
+// пояснение не обязано быть постоянно раскрыто. hasTouch без isMobile: диапазон определяется CSS-шириной
 // viewport, а не meta viewport (тот же принцип, что в Steps 3–7).
 test.use({ viewport: { width: 1024, height: 768 }, hasTouch: true });
 
@@ -33,7 +34,7 @@ async function openSalesFromMap(page: import("@playwright/test").Page) {
 }
 
 test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
-  test("AC1: overview renders the spatial office map, not the mobile carousel (which is out of the a11y tree)", async ({
+  test("AC1: overview renders the spatial office map, not the removed mobile carousel", async ({
     page,
   }) => {
     await page.goto("/");
@@ -46,13 +47,13 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     }
 
     // Карусель скрыта через display:none на ≥768px — реально убрана из дерева доступности.
-    await expect(page.getByRole("navigation", { name: "Карусель отделов" })).toBeHidden();
+    await expect(page.getByRole("navigation", { name: "Карусель отделов" })).toHaveCount(0);
   });
 
   // Оба края диапазона, а не только 1024: правило CSS общее для 768–1279, но "общее по построению"
   // — это допущение, а проверка обязана быть измерением (WORKPLAN.md Step 7.5, Risks).
   for (const width of [768, 1279]) {
-    test(`AC2: at ${width}px, overviewProblem is visible and fully readable for every hotspot without hover or focus (touch does not guarantee hover)`, async ({
+    test(`AC2: at ${width}px, every hotspot exposes its name, chevron, corner markers and accessible description without relying on hover`, async ({
       page,
     }) => {
       await page.setViewportSize({ width, height: 1024 });
@@ -61,18 +62,20 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
 
       const map = page.getByRole("navigation", { name: "Отделы компании" });
       for (const department of departments) {
+        const hotspot = map.getByRole("button", { name: department.overviewLabel });
         const problem = map.locator(`#department-problem-${department.id}`);
-        await expect(problem).toHaveText(department.overviewProblem);
-        await expect(problem).toBeVisible();
+        await expect(problem).toContainText(department.hoverDescription);
+        await expect(hotspot.locator("[data-corner-marker]")).toHaveCount(4);
+        await expect(hotspot.getByText("›")).toBeVisible();
+        await expect(hotspot).toHaveAttribute(
+          "aria-describedby",
+          `department-problem-${department.id}`,
+        );
 
-        // opacity/max-height — тот самый механизм hover-gating (Step 3), снятый этим шагом.
+        // Touch открывает отдел одним нажатием; пояснение остаётся в доступном описании, но
+        // визуально не превращает карту в пять постоянно раскрытых карточек.
         const opacity = await problem.evaluate((el) => Number(getComputedStyle(el).opacity));
-        expect(opacity, `${department.id} opacity at ${width}px`).toBe(1);
-
-        // max-height: 4rem + overflow: hidden у .hotspot — раскрытый текст обязан помещаться
-        // целиком, а не быть молча обрезанным на узком портретном планшете.
-        const clipped = await problem.evaluate((el) => el.scrollHeight > el.clientHeight);
-        expect(clipped, `${department.id} problem text clipped at ${width}px`).toBe(false);
+        expect(opacity, `${department.id} opacity at ${width}px`).toBe(0);
       }
     });
   }
@@ -158,33 +161,30 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     await page.setViewportSize({ width: 767, height: 800 });
     await page.goto("/");
     await activateCta(page);
-    await expect(carousel).toBeVisible();
     await expect(map).toBeVisible();
+    await expect(carousel).toHaveCount(0);
 
     // 768px — Tablet: карта, карусель скрыта.
     await page.setViewportSize({ width: 768, height: 800 });
     await expect(map).toBeVisible();
-    await expect(carousel).toBeHidden();
+    await expect(carousel).toHaveCount(0);
 
     // 1279px — всё ещё Tablet.
     await page.setViewportSize({ width: 1279, height: 800 });
     await expect(map).toBeVisible();
-    await expect(carousel).toBeHidden();
+    await expect(carousel).toHaveCount(0);
 
-    // 1280px — Desktop: карта остаётся, hover-gating .problem возвращается (в отличие от Tablet).
-    // expect.poll, а не единичное чтение: у .problem есть transition opacity 0.15s (Step 3), поэтому
-    // сразу после resize computed-значение застаётся на полпути (измерено: 0.887) — опрашивается
-    // именно осевшее состояние, ослабления проверки здесь нет.
+    // 1280px — Desktop: карта остаётся; пояснение так же раскрывается только при hover/focus.
     await page.setViewportSize({ width: 1280, height: 800 });
     await expect(map).toBeVisible();
-    await expect(carousel).toBeHidden();
+    await expect(carousel).toHaveCount(0);
     const problem = map.locator(`#department-problem-${sales.id}`);
     const settledOpacity = () => problem.evaluate((el) => Number(getComputedStyle(el).opacity));
     await expect.poll(settledOpacity).toBe(0);
 
-    // 1279px — та же подсказка раскрыта без hover: правило действительно ограничено диапазоном.
+    // 1279px — Tablet: пояснение тоже спокойно скрыто; интерактивность несут chevron и углы.
     await page.setViewportSize({ width: 1279, height: 800 });
-    await expect.poll(settledOpacity).toBe(1);
+    await expect.poll(settledOpacity).toBe(0);
   });
 
   test("AC5: tapping a rail item switches the department directly — no intermediate overview, no full reload", async ({
@@ -218,7 +218,7 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     await activateCta(page);
     await openSalesFromMap(page);
 
-    await page.getByRole("button", { name: "Закрыть" }).tap();
+    await page.getByRole("button", { name: "Назад к офису" }).tap();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
     expect(new URL(page.url()).searchParams.get("department")).toBeNull();
@@ -242,9 +242,8 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     }
   });
 
-  test("AC9: keyboard — Tab order is [5 pain points, CTA, Close, 4 rail items], identical to desktop, confirmed at tablet width", async ({
-    page,
-  }) => {
+  test("AC9: keyboard — Tab order is [5 pain points, CTA, Back, rail items]", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
     await activateCta(page);
     await openSalesFromMap(page);
@@ -261,7 +260,7 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     await expect(page.getByRole("link", { name: sales.ctaLabel })).toBeFocused();
 
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: "Закрыть" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Назад к офису" })).toBeFocused();
 
     for (const department of otherDepartmentsInRailOrder) {
       await page.keyboard.press("Tab");
@@ -301,7 +300,7 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     await openSalesFromMap(page);
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).tap();
-    await page.getByRole("button", { name: "Закрыть" }).tap();
+    await page.getByRole("button", { name: "Назад к офису" }).tap();
     await page.goto("/?department=logistics");
     await page.goto("/?department=does-not-exist");
 
@@ -327,6 +326,7 @@ test.describe("tablet tap targets and no-document-scroll at characteristic sizes
     test(`AC7: ${size.name} (${size.width}x${size.height}) — hotspots, rail items, CTA and Close are all at least 44x44 CSS px`, async ({
       page,
     }) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await page.setViewportSize({ width: size.width, height: size.height });
       await page.goto("/");
       await activateCta(page);
@@ -354,7 +354,7 @@ test.describe("tablet tap targets and no-document-scroll at characteristic sizes
       expect(ctaBox!.width).toBeGreaterThanOrEqual(44);
       expect(ctaBox!.height).toBeGreaterThanOrEqual(44);
 
-      const closeBox = await page.getByRole("button", { name: "Закрыть" }).boundingBox();
+      const closeBox = await page.getByRole("button", { name: "Назад к офису" }).boundingBox();
       expect(closeBox).not.toBeNull();
       expect(closeBox!.width).toBeGreaterThanOrEqual(44);
       expect(closeBox!.height).toBeGreaterThanOrEqual(44);

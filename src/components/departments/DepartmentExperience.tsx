@@ -2,9 +2,8 @@ import { useState } from "react";
 import { CarouselNavControls } from "@/components/office/CarouselNavControls";
 import type { Department, DepartmentId } from "@/content/types";
 import type { OfficeMachineView } from "@/features/office-machine/reducer";
-import { BeforeAfterSequence } from "./BeforeAfterSequence";
+import { CustomerBenefits } from "./CustomerBenefits";
 import { DepartmentCopy } from "./DepartmentCopy";
-import { DepartmentCTA } from "./DepartmentCTA";
 import { MobilePainGainAccordion } from "./MobilePainGainAccordion";
 import { PainGainPanel } from "./PainGainPanel";
 import styles from "./DepartmentExperience.module.css";
@@ -16,14 +15,14 @@ interface DepartmentExperienceProps {
   /** Единый контакт сайта — тот же, что у основного CTA в hero (Amendment 10). */
   contactHref: string;
   onSelectDepartment: (departmentId: DepartmentId) => void;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 // Реальная ~90%-область активного отдела (Step 6), полностью заменяет временный
-// ActiveDepartmentPanel из Step 5 (см. WORKPLAN.md Step 6 Expected files). BeforeAfterSequence
-// отложен был решением OQ-C (DECISIONS.md 2026-07-15) до Этапа 3 и подключён здесь на Step 20
-// (только для отделов с заполненными шагами процесса). DepartmentScene по-прежнему отдельного
-// компонента не имеет — фон отдела рисует общий сцен-слой (SceneCrossfade, Step 18).
+// ActiveDepartmentPanel из Step 5 (см. WORKPLAN.md Step 6 Expected files). По Amendment 31
+// BeforeAfterSequence удалён именно из рабочего экрана отдела, чтобы сохранить одноэкранную
+// композицию; независимый компонент и его данные остаются в проекте. DepartmentScene по-прежнему
+// отдельного компонента не имеет — фон отдела рисует общий сцен-слой (SceneCrossfade, Step 18).
 export function DepartmentExperience({
   department,
   machineView,
@@ -55,10 +54,9 @@ export function DepartmentExperience({
   // Первая редакция завершала каскад чистым CSS: `.experience:has(button:focus-visible) { animation:
   // none }`. Условие обратимо, а возврат `animation` по спецификации запускает анимацию ЗАНОВО —
   // вместе с `backwards`-fill, который снова держит opacity 0 всю задержку. Замер: после полностью
-  // отыгранного каскада обычный Tab к рельсу гасил CTA и «Закрыть» ещё на 3 секунды, и так сколько
-  // угодно раз. То есть правило, написанное ради клавиатурных пользователей, било именно по ним, и
-  // хуже, чем буквальная реализация: та прятала кнопки один раз при открытии, эта — многократно
-  // посреди работы.
+  // отыгранного каскада обычный Tab к рельсу повторно гасил прежний блок действий ещё на 3 секунды,
+  // и так сколько угодно раз. То есть правило, написанное ради клавиатурных пользователей, било
+  // именно по ним.
   const [cascadeDone, setCascadeDone] = useState(false);
 
   // Защёлка ставится по одному из трёх событий, что наступит раньше:
@@ -117,33 +115,29 @@ export function DepartmentExperience({
           карта/карусель, Step 7). */}
       <PainGainPanel key={`desktop-${department.id}`} painPoints={department.painPoints} />
       <MobilePainGainAccordion key={`mobile-${department.id}`} painPoints={department.painPoints} />
-      {/* Последовательность «до/после» (Step 20) — между болями и кнопками. Рендерится ТОЛЬКО у
-          отдела с заполненными шагами процесса (сегодня «Продажи», пилот Этапа 3; остальные — на
-          Этапах 4–7), поэтому интеграция обобщаема и не ломает отделы без этих данных.
-          В КАСКАД НЕ ВХОДИТ намеренно (Amendment 16: «каскад оставить как есть»): не несёт классов
-          .staged/.stagedHold, поэтому тайминги существующих блоков (copy 0с, боли 1с, пояснение 2с,
-          кнопки — якорь 3с) не меняются. Своя трансформация «сейчас → после» — самостоятельный
-          motion внутри компонента, критический контент от неё не зависит. */}
-      {department.beforeSteps && department.automationSteps ? (
-        <BeforeAfterSequence
-          beforeSteps={department.beforeSteps}
-          automationSteps={department.automationSteps}
-          headingId={`before-after-heading-${department.id}`}
-        />
-      ) : null}
-      {/* Блок кнопок. Со Step 17 (Amendment 17) он ВИДИМ С ПЕРВОГО КАДРА и в каскад не входит:
-          CTA и «Закрыть» кликабельны и достижимы клавиатурой всё время (CLAUDE.md «CTA remains easy
-          to reach», docs/07 про критические кнопки после анимации).
-          `onAnimationEnd` здесь — не остаток: на нём держится защёлка `data-cascade-done`. Анимация
-          у блока намеренно ничего не меняет (`staged-hold`, opacity 1→1) и существует только как
-          якорь времени — разбор в stagedReveal.module.css. Снимете анимацию — развалится починка
-          «текст ответа гаснет при ресайзе». */}
-      <div className={`${styles.actions} ${styles.stageActions}`} onAnimationEnd={latchCascade}>
-        <DepartmentCTA label={department.ctaLabel} href={contactHref} />
-        <button type="button" className={styles.close} onClick={onClose}>
-          Закрыть
+      <CustomerBenefits
+        benefits={
+          department.customerBenefits?.length
+            ? department.customerBenefits
+            : department.painPoints.map((point) => point.gain)
+        }
+        ctaLabel={department.ctaLabel}
+        contactHref={contactHref}
+      />
+      {onClose ? (
+        <button type="button" className={styles.mobileBack} onClick={onClose}>
+          <span aria-hidden="true">←</span>
+          Назад к офису
         </button>
-      </div>
+      ) : null}
+      {/* Невидимый якорь завершает общий каскад без центрального блока действий. Видимая CTA теперь
+          появляется последней внутри заранее зарезервированного CustomerBenefits, а возврат в офис
+          находится над rail. */}
+      <div
+        className={`${styles.cascadeAnchor} ${styles.stageActions}`}
+        aria-hidden="true"
+        onAnimationEnd={latchCascade}
+      />
       {/* Видимо только на ≤767px (CSS в CarouselNavControls.module.css) — на Desktop/Tablet
           переключение между отделами идёт через DepartmentNavigationRail (rail) в соседней области. */}
       <CarouselNavControls

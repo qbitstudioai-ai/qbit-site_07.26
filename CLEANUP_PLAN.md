@@ -1,0 +1,119 @@
+# CLEANUP_PLAN — безопасная очистка репозитория
+
+Дата: 2026-07-28. Ветка: `master`. Коммит не создаётся.
+
+Принцип: удаляется только то, что (а) полностью воспроизводится командой сборки/тестов,
+(б) не упоминается ни в коде, ни в конфигурации, ни в документации по пути,
+(в) не содержит пользовательских данных. Всё сомнительное остаётся.
+
+## Проверки, выполненные до удаления
+
+- `git status --short` — 205 записей (изменённые/удалённые отслеживаемые + untracked).
+- Поиск ссылок по всему дереву (без `node_modules`) на: `artifacts/`, `reports/`, `prompts/`,
+  `final-*`, `test-results`, `playwright-report`.
+- Прочитаны `.gitignore`, `.prettierignore`, `package.json`, `eslint.config.mjs`.
+- Проверено отсутствие запущенных процессов `node` и слушателей на портах 3100/3200/3311/3313 —
+  удаление `.next/` ничего не ломает на лету.
+
+---
+
+## 1. Удалить (категория «точно безопасно»)
+
+| Объект | Размер | Почему безопасно |
+| --- | --- | --- |
+| `.next/` | 874 025 827 Б (~833 МиБ) | Каталог сборки Next.js. В `.gitignore` и `.prettierignore`. Полностью восстанавливается `npm run build` (dev-часть — `npm run dev`). Исходников не содержит. |
+| `playwright-report/` | 1 094 284 Б | HTML-отчёт последнего прогона E2E. В `.gitignore`/`.prettierignore`, генерируется `npm run test:e2e`. |
+| `test-results/` | 45 Б (только `.last-run.json`) | Рабочий каталог Playwright. В `.gitignore`. Скриншоты, на которые ссылается `WORKLOG.md` (`test-results/hero-polish/...`), в нём уже отсутствуют — каталог пуст по факту. |
+| `tsconfig.tsbuildinfo` | 178 888 Б | Инкрементальный кэш `tsc`. Покрыт правилом `*.tsbuildinfo` в `.gitignore`, пересоздаётся `npm run typecheck`. |
+| `.tmp-prod.log` | 117 Б | Вывод запуска `next start` («Ready in 521ms»). Правило `*.log` в `.gitignore`. Ссылок нет. |
+| `.blog-prod-3311.log` | 117 Б | То же — лог тестового запуска сервера на порту 3311. |
+| `.blog-prod-3311.err.log` | 0 Б | Пустой stderr того же запуска. |
+| `.blog-published-3313.log` | 117 Б | Лог запуска сервера на порту 3313. |
+| `.blog-published-3313.err.log` | 0 Б | Пустой stderr. |
+| `final-*.png` в корне (15 файлов) | 11 119 487 Б | Скриншоты viewport'ов от 2026-07-23. Скрипт `scripts/capture-hero-polish.mjs:14` пишет их в `test-results/hero-scenarios/`, а `WORKLOG.md:670,728` ссылается на `test-results/hero-redesign/` и `test-results/hero-polish/`. Копии в корне — побочный результат ручного прогона, по пути их никто не читает. Пересоздаются `node scripts/capture-hero-polish.mjs`. |
+
+Полный список PNG: `final-1024x768.png`, `final-1024x768-postscript.png`,
+`final-1024x768-scenarios.png`, `final-1280x800.png`, `final-1440x900.png`, `final-1920x920.png`,
+`final-390x844.png`, `final-390x844-full.png`, `final-390x844-postscript.png`,
+`final-390x844-scenarios.png`, `final-390x844-visual.png`, `final-768x1024.png`,
+`final-768x1024-full.png`, `final-768x1024-postscript.png`, `final-768x1024-scenarios.png`.
+
+**Итого к удалению: 886 418 882 Б ≈ 845 МиБ.**
+
+---
+
+## 2. Оставить
+
+### 2.1. Прямо запрещено инструкцией
+
+`src/`, `public/` (включая `blog/`, `contacts/`, `dox/`, `faq/`, `how-we-work/`, `og/`, `products/`,
+`logo.svg`), `data/` (включая `data/seed/` — исходные тексты первичного заполнения),
+`var/` (SQLite `content.db`, `content.db-shm`, `content.db-wal` и `var/uploads/documents/` —
+8 загруженных файлов), `scripts/` (16 файлов, 6 из них подключены как npm-скрипты),
+`package.json`, `package-lock.json`, `tsconfig.json`, `next.config.ts`, `playwright.config.ts`,
+`vitest.config.ts`, `eslint.config.mjs`, `.prettierrc.json`, `.env.local`, `.env.example`,
+`.gitattributes`, `.gitignore`, `.prettierignore`, миграции/seed (`scripts/db-migrate.mjs`,
+`scripts/db-seed.mjs`), все тесты (`src/tests/**`, включая `src/tests/fixtures/seedContent.ts`).
+
+`var/content.db-shm` и `var/content.db-wal` — служебные файлы WAL-режима SQLite, а не мусор:
+удаление `-wal` при незакрытой транзакции теряет данные. Не трогаем.
+
+### 2.2. Сомнительное — оставлено по принципу «лучше оставить»
+
+| Объект | Размер | Почему оставлено |
+| --- | --- | --- |
+| `artifacts/` | ~143 МиБ | Выглядит как свалка скриншотов и логов, но на него ссылаются как на доказательную базу `WORKLOG.md` (десятки мест), `WORKPLAN.md:634`, `TECHNICAL_AUDIT.md:76`, `SECURITY`-/`SEO_GEO_AUDIT.md`, `MOBILE_AUDIT.md:174`, `PRE_RELEASE_CHECKLIST.md:215`. Удаление разорвало бы ссылки аудитов. Кандидат на архивацию отдельным решением пользователя. |
+| `node_modules/` | — | По условию задачи удаляется только ради места. Место освобождено и без него. Восстановление: `npm ci` (строго по `package-lock.json`). |
+| `reports/blog-seo-geo-audit.md` | 88 КиБ | Результат аудита, MD-документ. Доказательств ненужности нет. |
+| `prompts/` (5 файлов) | 7 КиБ | Процессные промпты, явно перечислены в `.prettierignore`. |
+| `archive/` | ~1,4 МиБ | Архив завершённых шагов, на который опирается протокол в `CLAUDE.md`. |
+| `references/` | — | Визуальные референсы, источник истины по `CLAUDE.md`. Включая untracked `references/office-overview/02-hero-chaos-to-office.png`. |
+| Все корневые MD (`ADMIN_PANEL.md`, `MOBILE_*.md`, `SEO_GEO_*.md`, `SECURITY_AUDIT.md`, `TECHNICAL_AUDIT.md`, `PRE_RELEASE_CHECKLIST.md`, `WORKLOG.md`, `WORKPLAN.md`, `DECISIONS.md`, `README.md`, `CLAUDE.md`, `MANIFEST.json`) | — | Решения, аудиты и инструкции. Удаление запрещено без доказательства ненужности. |
+| `.claude/` (агенты, скиллы, команды, `settings.json`, `scheduled_tasks.lock`) | — | Конфигурация рабочего процесса. |
+| `next-env.d.ts` | 253 Б | Хотя и в `.gitignore`, требуется TypeScript'ом; удаление ломает `npm run typecheck` до следующего `next build`. |
+
+---
+
+## 3. Перенести в архив
+
+Ничего. Единственный реальный кандидат (`artifacts/`, ~143 МиБ) оставлен без изменений:
+перенос сломал бы относительные ссылки из `WORKLOG.md` и отчётов аудита. Решение об его
+архивации должен принять пользователь отдельно.
+
+---
+
+## 4. Что запрещено и не использовалось
+
+`git clean`, `git reset`, массовые рекурсивные удаления по шаблону вне перечисленного списка.
+Коммит не создаётся.
+
+---
+
+## 5. Проверки после удаления — выполнены
+
+| Команда | Результат |
+| --- | --- |
+| `npm run typecheck` | exit 0, ошибок нет |
+| `npm run test` | 41 файл / 395 тестов — passed |
+| `npm run test:e2e` | 406 passed, 1 skipped (2.7 мин); Playwright сам собрал production и поднял порт 3200 |
+| `npm run build` | exit 0, «Compiled successfully», полный роут-лист как до очистки |
+
+## 6. Факт исполнения
+
+Удалено 24 объекта, 886 418 882 Б (845 МиБ). После обязательных проверок артефакты сборки
+восстановились в объёме 36 МиБ (`.next` — 33 МиБ вместо прежних 833 МиБ: в старом каталоге
+накопился устаревший кэш; `playwright-report` — 2 МиБ; `test-results` — 1 МиБ;
+`tsconfig.tsbuildinfo` — 167 КиБ). **Чистая экономия ≈ 809 МиБ.**
+
+Целостность подтверждена:
+
+- отслеживаемых файлов не удалено — в `git status` остались те же 4 удаления, что были до начала
+  работы (`MobileDepartmentCarousel.tsx/.module.css`, `before-after.spec.ts`,
+  `mobile-department-carousel.test.tsx` — результат предыдущих задач, не очистки);
+- `var/content.db` — md5 `efa2699e5d8c5278bf4c87d588178117` до и после, размер 294 912 Б,
+  mtime 2026-07-26 21:34 не изменился;
+- `var/uploads/documents/` — все 8 файлов на месте, mtime 2026-07-26 20:13;
+- `public/`, `data/`, `src/`, `docs/`, `references/`, `scripts/` не затронуты;
+- единственное добавление в untracked — сам `CLEANUP_PLAN.md`.
+
+Коммит не создан.

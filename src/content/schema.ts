@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { DepartmentId } from "./types";
 
-export const DEPARTMENT_IDS = ["sales", "support", "executive", "hr", "logistics"] as const;
+export const DEPARTMENT_IDS = ["support", "sales", "logistics", "hr", "executive"] as const;
 
 export const SOLUTION_PATH_BY_DEPARTMENT_ID: Record<DepartmentId, string> = {
   sales: "/solutions/sales",
@@ -21,6 +21,7 @@ const nonEmptyStringArray = z.array(nonEmptyString).min(1);
 const painPointSchema = z.object({
   pain: nonEmptyString,
   gain: nonEmptyString,
+  howItWorks: nonEmptyString.optional(),
 });
 
 // Step 19: шаг процесса «до»/«после» (docs/12 «ProcessStep»). status ограничен перечнем docs/12 —
@@ -40,9 +41,11 @@ export const departmentSchema = z
     name: nonEmptyString,
     overviewLabel: nonEmptyString,
     overviewProblem: nonEmptyString,
+    hoverDescription: nonEmptyString.optional(),
     headline: nonEmptyString,
     problem: nonEmptyString,
     painPoints: z.array(painPointSchema).length(5),
+    customerBenefits: z.array(nonEmptyString).length(4),
     // Step 19: ОПЦИОНАЛЬНЫ (заполнены только для «Продаж», пилот Этапа 3 — остальные отделы на
     // Этапах 4–7). min(1) при наличии: пустой массив «до/после» бессмыслен. Парность «оба или ни
     // одного» проверяется в superRefine ниже — половинчатая «до/после» невалидна.
@@ -72,7 +75,11 @@ export const departmentSchema = z
         message: `department "${department.id}": beforeSteps и automationSteps задаются вместе (либо оба, либо ни одного)`,
       });
     }
-  });
+  })
+  .transform((department) => ({
+    ...department,
+    hoverDescription: department.hoverDescription ?? department.overviewProblem,
+  }));
 
 export const departmentsSchema = z
   .array(departmentSchema)
@@ -87,6 +94,12 @@ export const departmentsSchema = z
     const missing = [...expected].filter((id) => !uniqueIds.has(id));
     if (missing.length > 0) {
       ctx.addIssue({ code: "custom", message: `missing department ids: ${missing.join(", ")}` });
+    }
+    if (ids.some((id, index) => id !== DEPARTMENT_IDS[index])) {
+      ctx.addIssue({
+        code: "custom",
+        message: `department order must be: ${DEPARTMENT_IDS.join(", ")}`,
+      });
     }
   });
 
@@ -104,9 +117,52 @@ export const taskSectionCopySchema = z.object({
   tooShortMessage: nonEmptyString,
 });
 
+const heroLinkSchema = z.object({
+  label: nonEmptyString,
+  href: nonEmptyString,
+});
+
+const heroProjectScenarioSchema = z.object({
+  metricPrefix: nonEmptyString.optional(),
+  metric: nonEmptyString,
+  unit: nonEmptyString,
+  qualifier: nonEmptyString.optional(),
+  title: nonEmptyString,
+  description: nonEmptyString,
+  detail: nonEmptyString.optional(),
+  effectLabel: nonEmptyString,
+});
+
+const heroInfoPanelSchema = z.object({
+  title: nonEmptyString,
+  subtitle: nonEmptyString,
+  scenarios: z.array(heroProjectScenarioSchema).min(1),
+  postscript: z.object({
+    label: nonEmptyString,
+    text: nonEmptyString,
+    ariaLabel: nonEmptyString,
+  }),
+});
+
+const officeOverviewStorySchema = z.object({
+  title: nonEmptyString,
+  paragraphs: nonEmptyStringArray,
+});
+
+const officeOverviewSchema = z.object({
+  instruction: nonEmptyString,
+  ctaAccessibleLabel: nonEmptyString,
+  leftStory: officeOverviewStorySchema,
+  rightStory: officeOverviewStorySchema,
+});
+
 export const homepageCopySchema = z.object({
+  eyebrow: nonEmptyString,
   headline: nonEmptyString,
   subheadline: nonEmptyString,
+  headerPhone: nonEmptyString,
+  headerPhoneHref: nonEmptyString,
+  headerPhoneAccessibleLabel: nonEmptyString,
   primaryCta: nonEmptyString,
   // ЕДИНЫЙ адрес контакта (Telegram) для всех CTA сайта: основной CTA в hero и CTA внутри каждого
   // отдела ("Разобрать работу поддержки" и т.д.). Одно поле, а не по адресу на кнопку — контакт у
@@ -117,9 +173,13 @@ export const homepageCopySchema = z.object({
   // должна падать на валидации контента, а не превращаться в битую ссылку у посетителя.
   contactHref: z.string().url(),
   secondaryCta: nonEmptyString,
+  ctaNote: nonEmptyString,
   interactionHint: nonEmptyString,
+  officeOverview: officeOverviewSchema,
   valuePoints: nonEmptyStringArray,
-  tagline: nonEmptyString,
+  heroLinks: z.array(heroLinkSchema).min(1),
+  heroInfoPanel: heroInfoPanelSchema,
+  tagline: nonEmptyString.optional(),
   returnToOfficeLabel: nonEmptyString,
   taskSection: taskSectionCopySchema,
 });

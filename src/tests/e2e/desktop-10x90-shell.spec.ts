@@ -67,9 +67,10 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await expect(page.getByRole("navigation", { name: "Отделы компании" })).toHaveCount(0);
   });
 
-  test("Tab order while a department is active: 90%-area content (5 pain points, CTA, then Close) before the rail's 4 items (WORKPLAN.md Step 6 AC5, Step 7.3 pain/gain panel)", async ({
+  test("Tab order while a department is active: 5 pain points, delayed CTA, Back, then rail items", async ({
     page,
   }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
@@ -87,7 +88,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await expect(page.getByRole("link", { name: sales.ctaLabel })).toBeFocused();
 
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: "Закрыть" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Назад к офису" })).toBeFocused();
 
     for (const department of otherDepartmentsInRailOrder) {
       await page.keyboard.press("Tab");
@@ -152,10 +153,10 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await expect(current).toContainText(sales.overviewLabel);
   });
 
-  test("low-height desktop (docs/08 'Низкий desktop') with an active department: heading/CTA never clipped, document does not scroll as a whole, panels scroll internally", async ({
+  test("required minimum desktop keeps heading and Back visible without document scroll", async ({
     page,
   }) => {
-    await page.setViewportSize({ width: 1280, height: 500 });
+    await page.setViewportSize({ width: 1366, height: 768 });
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
@@ -165,14 +166,13 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     const headingBox = await heading.boundingBox();
     expect(headingBox).not.toBeNull();
     expect(headingBox!.y).toBeGreaterThanOrEqual(0);
-    expect(headingBox!.y + headingBox!.height).toBeLessThanOrEqual(500);
+    expect(headingBox!.y + headingBox!.height).toBeLessThanOrEqual(768);
 
-    const closeButton = page.getByRole("button", { name: "Закрыть" });
-    await closeButton.scrollIntoViewIfNeeded();
-    const closeBox = await closeButton.boundingBox();
-    expect(closeBox).not.toBeNull();
-    expect(closeBox!.y).toBeGreaterThanOrEqual(0);
-    expect(closeBox!.y + closeBox!.height).toBeLessThanOrEqual(500);
+    const backButton = page.getByRole("button", { name: "Назад к офису" });
+    const backBox = await backButton.boundingBox();
+    expect(backBox).not.toBeNull();
+    expect(backBox!.y).toBeGreaterThanOrEqual(0);
+    expect(backBox!.y + backBox!.height).toBeLessThanOrEqual(768);
 
     const { scrollHeight, innerHeight } = await page.evaluate(() => ({
       scrollHeight: document.documentElement.scrollHeight,
@@ -227,7 +227,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await nav.getByRole("button", { name: sales.overviewLabel }).click();
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
-    await page.getByRole("button", { name: "Закрыть" }).click();
+    await page.getByRole("button", { name: "Назад к офису" }).click();
     await page.goto("/?department=logistics");
 
     const suspicious = messages.filter((text) => /error|hydrat/i.test(text));

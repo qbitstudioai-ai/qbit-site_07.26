@@ -15,7 +15,6 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         departments={departments}
         contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
-        onClose={() => {}}
       />,
     );
     const heading = screen.getByRole("heading", { level: 2, name: department.headline });
@@ -31,7 +30,6 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         departments={departments}
         contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
-        onClose={() => {}}
       />,
     );
     expect(screen.getByText(department.problem)).toBeInTheDocument();
@@ -53,7 +51,6 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         departments={departments}
         contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
-        onClose={() => {}}
       />,
     );
     const panelElement = screen.getByTestId("pain-gain-panel");
@@ -87,6 +84,42 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
     expect(accessible?.textContent).toHaveLength(thirdPain.gain.length);
   });
 
+  it("launches one measured impulse only for a different pain and keeps only the latest run", () => {
+    render(
+      <DepartmentExperience
+        department={department}
+        machineView="department-active"
+        departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
+        onSelectDepartment={() => {}}
+      />,
+    );
+    const panel = screen.getByTestId("pain-gain-panel");
+    const pains = within(panel).getAllByRole("button");
+
+    fireEvent.click(pains[0]);
+    expect(panel.querySelector("[data-pain-solution-impulse]")).not.toBeInTheDocument();
+
+    fireEvent.click(pains[2]);
+    expect(panel.querySelectorAll("[data-pain-solution-impulse]")).toHaveLength(1);
+    expect(panel.querySelector("[data-pain-solution-impulse]")).toHaveAttribute(
+      "data-impulse-source",
+      "2",
+    );
+
+    fireEvent.click(pains[4]);
+    expect(panel.querySelectorAll("[data-pain-solution-impulse]")).toHaveLength(1);
+    const latest = panel.querySelector("[data-pain-solution-impulse]");
+    expect(latest).toHaveAttribute("data-impulse-source", "4");
+    const latestRun = latest?.getAttribute("data-impulse-run");
+
+    fireEvent.click(pains[4]);
+    expect(panel.querySelector("[data-pain-solution-impulse]")).toHaveAttribute(
+      "data-impulse-run",
+      latestRun,
+    );
+  });
+
   it("expanding a pain point in the mobile accordion shows exactly its gain, collapsing the previous one (Step 7.3, OQ-P6)", () => {
     render(
       <DepartmentExperience
@@ -95,7 +128,6 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         departments={departments}
         contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
-        onClose={() => {}}
       />,
     );
     const accordion = within(screen.getByTestId("mobile-pain-gain-accordion"));
@@ -105,28 +137,37 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
     expect(accordion.queryByText(department.painPoints[0].gain)).not.toBeInTheDocument();
   });
 
-  // Amendment 10: CTA отдела — внешняя ссылка на Telegram-контакт, а не кнопка-заглушка.
-  it("renders the department CTA as an external contact link, plus a close button that calls onClose", () => {
-    const onClose = vi.fn();
+  it("renders source-provided howItWorks copy after the matching support solution only", () => {
+    const support = departments.find((candidate) => candidate.id === "support")!;
     render(
+      <DepartmentExperience
+        department={support}
+        machineView="department-active"
+        departments={departments}
+        contactHref="https://t.me/Promt_Pavel"
+        onSelectDepartment={() => {}}
+      />,
+    );
+
+    const howItWorks = support.painPoints[0].howItWorks!;
+    expect(screen.getAllByText("Как работает")).toHaveLength(2);
+    expect(screen.getAllByText(howItWorks)).toHaveLength(2);
+  });
+
+  // Amendment 10: CTA отдела — внешняя ссылка на Telegram-контакт, а не кнопка-заглушка.
+  it("reserves the business-result slot and removes the central close action", () => {
+    const { container } = render(
       <DepartmentExperience
         department={department}
         machineView="department-active"
         departments={departments}
         contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
-        onClose={onClose}
       />,
     );
-    const cta = screen.getByRole("link", { name: department.ctaLabel });
-    expect(cta).toHaveAttribute("href", "https://t.me/Promt_Pavel");
-    expect(cta).toHaveAttribute("target", "_blank");
-    // rel обязателен при target="_blank": без noopener открытая вкладка получает window.opener.
-    expect(cta).toHaveAttribute("rel", expect.stringContaining("noopener"));
-    expect(cta).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
-
-    fireEvent.click(screen.getByRole("button", { name: "Закрыть" }));
-    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(container.querySelector("[data-customer-benefits]")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Закрыть" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: department.ctaLabel })).not.toBeInTheDocument();
   });
 
   it("exposes an accessible region named after the department's overviewLabel", () => {
@@ -137,55 +178,31 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         departments={departments}
         contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
-        onClose={() => {}}
       />,
     );
     expect(screen.getByRole("region", { name: department.overviewLabel })).toBeInTheDocument();
   });
 
-  // Step 20: «до/после» рендерится ТОЛЬКО у отдела с заполненными шагами процесса. Сегодня это
-  // «Продажи» (пилот Этапа 3); отдел без данных не должен получать пустой блок.
-  it("renders the BeforeAfterSequence for a department that has process steps (sales)", () => {
-    render(
+  it("does not restore the rejected BeforeAfterSequence for sales", () => {
+    const { container } = render(
       <DepartmentExperience
         department={department}
         machineView="department-active"
         departments={departments}
         contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={() => {}}
-        onClose={() => {}}
-      />,
-    );
-    expect(screen.getByRole("region", { name: "Как меняется работа" })).toBeInTheDocument();
-    // Оба состояния присутствуют.
-    expect(screen.getByText("Сейчас")).toBeInTheDocument();
-    expect(screen.getByText("После автоматизации")).toBeInTheDocument();
-  });
-
-  it("does NOT render the BeforeAfterSequence for a department without process steps", () => {
-    const withoutSteps = departments.find(
-      (d) => d.beforeSteps === undefined && d.automationSteps === undefined,
-    );
-    expect(withoutSteps, "ожидался отдел без шагов процесса (все, кроме sales)").toBeDefined();
-    render(
-      <DepartmentExperience
-        department={withoutSteps!}
-        machineView="department-active"
-        departments={departments}
-        contactHref="https://t.me/Promt_Pavel"
-        onSelectDepartment={() => {}}
-        onClose={() => {}}
       />,
     );
     expect(screen.queryByRole("region", { name: "Как меняется работа" })).not.toBeInTheDocument();
+    expect(container.querySelector("[data-customer-benefits]")).toBeInTheDocument();
   });
 
   it("renders CarouselNavControls (Step 7) after the actions block, with wrap-around prev/next relative to the departments array", () => {
     const onSelectDepartment = vi.fn();
-    // sales — первый в data/departments.json (см. src/content/departments.ts) — не единственный
-    // осмысленный случай, но граничный (prev должен обернуться на последний элемент массива).
-    const previousDepartment = departments[departments.length - 1];
-    const nextDepartment = departments[1];
+    const currentIndex = departments.findIndex((candidate) => candidate.id === department.id);
+    const previousDepartment =
+      departments[(currentIndex - 1 + departments.length) % departments.length];
+    const nextDepartment = departments[(currentIndex + 1) % departments.length];
 
     render(
       <DepartmentExperience
@@ -194,7 +211,6 @@ describe("DepartmentExperience (Step 6 — replaces the temporary Step 5 ActiveD
         departments={departments}
         contactHref="https://t.me/Promt_Pavel"
         onSelectDepartment={onSelectDepartment}
-        onClose={() => {}}
       />,
     );
 

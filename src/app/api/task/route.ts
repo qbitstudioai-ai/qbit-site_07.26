@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { taskRequestSchema } from "@/features/task-request/validation";
+import { createRateLimiter } from "@/server/net/publicRateLimit";
 
 /**
  * Приём заявки «Ваша задача» и доставка её в Telegram (Step 12.7).
@@ -17,46 +18,20 @@ import { taskRequestSchema } from "@/features/task-request/validation";
 export const dynamic = "force-dynamic";
 
 /**
- * Грубый лимит частоты в памяти процесса. Сознательно простой и сознательно НЕ выдаётся за
- * полноценную защиту: при нескольких инстансах у каждого будет свой счётчик, а перезапуск его
- * обнуляет. Задача — отсечь примитивный флуд с одного адреса, а не выдержать целенаправленную
- * атаку (см. WORKPLAN.md Step 12.7, Out of scope: капча и полноценный антиспам).
+ * Грубый лимит частоты в памяти процесса — см. `createRateLimiter`. Сознательно НЕ выдаётся за
+ * полноценную защиту (WORKPLAN.md Step 12.7, Out of scope: капча и полноценный антиспам).
+ *
+ * Собственная копия разбора `x-forwarded-for` отсюда убрана: она читала заголовок безусловно, и
+ * лимит обходился сменой значения на каждый запрос (аудит 2026-07-27).
  */
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_REQUESTS = 3;
-const recentRequests = new Map<string, number[]>();
+const isRateLimited = createRateLimiter({
+  windowMs: 60_000,
+  maxPerAddress: 3,
+  maxShared: 30,
+});
 
-function isRateLimited(clientKey: string): boolean {
-  const now = Date.now();
-  const previous = recentRequests.get(clientKey) ?? [];
-  const withinWindow = previous.filter((at) => now - at < RATE_LIMIT_WINDOW_MS);
-
-  if (withinWindow.length >= RATE_LIMIT_MAX_REQUESTS) {
-    recentRequests.set(clientKey, withinWindow);
-    return true;
-  }
-
-  withinWindow.push(now);
-  recentRequests.set(clientKey, withinWindow);
-
-  // Карта не должна расти бесконечно на долгоживущем процессе.
-  if (recentRequests.size > 1000) {
-    for (const [key, timestamps] of recentRequests) {
-      if (timestamps.every((at) => now - at >= RATE_LIMIT_WINDOW_MS)) {
-        recentRequests.delete(key);
-      }
-    }
-  }
-
-  return false;
-}
-
-function clientKeyOf(request: Request): string {
-  // За прокси/CDN реальный адрес приходит заголовком. Берём первый адрес цепочки x-forwarded-for.
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return request.headers.get("x-real-ip") ?? "unknown";
-}
+/** Потолок тела запроса. Заявка — это текст, 64 КБ хватает с большим запасом. */
+const MAX_TASK_BODY_BYTES = 64 * 1024;
 
 export async function POST(request: Request) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -72,13 +47,25 @@ export async function POST(request: Request) {
     );
   }
 
-  if (isRateLimited(clientKeyOf(request))) {
+  if (isRateLimited(request.headers)) {
     return NextResponse.json({ ok: false, reason: "rate-limited" }, { status: 429 });
+  }
+
+  // Ограничение размера тела — как в `/api/contact` и `readJsonBody`. Здесь его не было: лимит
+  // частоты смягчал последствия, но 30 стомегабайтных тел в минуту процесс переваривает плохо
+  // (найдено code review 2026-07-27).
+  const declaredLength = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_TASK_BODY_BYTES) {
+    return NextResponse.json({ ok: false, reason: "payload-too-large" }, { status: 413 });
   }
 
   let payload: unknown;
   try {
-    payload = await request.json();
+    const rawBody = await request.text();
+    if (Buffer.byteLength(rawBody, "utf8") > MAX_TASK_BODY_BYTES) {
+      return NextResponse.json({ ok: false, reason: "payload-too-large" }, { status: 413 });
+    }
+    payload = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ ok: false, reason: "invalid-json" }, { status: 400 });
   }
@@ -94,7 +81,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true }, { status: 200 });
   }
 
-  const text = `Заявка с сайта Allqbit — «Ваша задача»\n\n${parsed.data.message}`;
+  const text = `Заявка с сайта QBit-Studio-Ai — «Ваша задача»\n\n${parsed.data.message}`;
 
   try {
     const telegramResponse = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {

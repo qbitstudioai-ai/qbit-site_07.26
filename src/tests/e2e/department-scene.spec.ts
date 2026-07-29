@@ -7,7 +7,7 @@ import { getDepartments } from "../../content/departments";
 // браузере и не доказывается ни unit-тестом, ни разметкой:
 //   AC1/AC7 — каждый отдел показывает свою сцену, и переключение реально МЕНЯЕТ ЗАГРУЖЕННЫЙ ФАЙЛ
 //             (а не только атрибут в DOM);
-//   AC3    — грузится только сцена активного отдела, не все шесть;
+//   AC3    — все сцены отделов прогреваются адаптивными производными без тяжёлых оригиналов;
 //   AC4    — при отказе фотослоя контент, кнопки и CTA остаются рабочими;
 //   AC6    — сцена видна не менее чем на половине 90%-области (прежняя белая подложка закрывала ~85%).
 //
@@ -21,9 +21,6 @@ const departments = getDepartments();
 // поэтому имя нельзя проверять как `sales-1280.avif` (то же предупреждение — overview-scene.spec.ts).
 const derivativeOf = (sceneId: string) =>
   new RegExp(`${sceneId}-(768|1280|1536)\\.[^/]*\\.(avif|webp)$`);
-
-const ANY_SCENE =
-  /(overview|sales|support|executive|hr|logistics)-(768|1280|1536)\.[^/]*\.(avif|webp)$/;
 
 async function openOffice(page: Page) {
   await page.getByRole("link", { name: getHomepageCopy().secondaryCta }).click();
@@ -122,11 +119,10 @@ test.describe("Step 13 — each department gets its own scene", () => {
     ).toBe(true);
   });
 
-  test("opening one department requests that scene only — not all six (AC3)", async ({ page }) => {
-    // Собираются ВСЕ запросы изображений, а не только совпавшие с ANY_SCENE: иначе проверка на
-    // отсутствие .png ниже была бы мёртвой — в отфильтрованный по (avif|webp)$ массив .png не мог бы
-    // попасть в принципе, и ассерт никогда бы не упал (найдено skeptic Phase B). Тот же приём, что
-    // в overview-scene.spec.ts.
+  test("opening the office preloads one responsive derivative for every department scene", async ({
+    page,
+  }) => {
+    // Собираются ВСЕ запросы изображений: иначе проверка на отсутствие .png ниже была бы мёртвой.
     const imageRequests: string[] = [];
     page.on("request", (request) => {
       if (request.resourceType() === "image") imageRequests.push(request.url());
@@ -143,18 +139,21 @@ test.describe("Step 13 — each department gets its own scene", () => {
     await expect(page.getByRole("heading", { level: 2, name: support.headline })).toBeVisible();
     await currentSceneFile(page);
 
-    // overview-сцена законно уже загружена: это фон обзорного экрана, с которого пришёл пользователь
-    // (Step 12). Проверяется отсутствие ЧУЖИХ отделов — за них платить при открытии одного нельзя.
-    const foreign = imageRequests.filter((url) =>
-      ["sales", "executive", "hr", "logistics"].some((id) => derivativeOf(id).test(url)),
-    );
-    expect(foreign, `запрошены сцены чужих отделов: ${foreign.join(", ")}`).toEqual([]);
+    // Amendment 31 требует прогреть сцены всех отделов. Запросы идут с low priority в idle-окне,
+    // поэтому ждём сам сетевой факт, а не привязываемся к очередности относительно активного кадра.
+    await expect
+      .poll(() =>
+        departments.every((department) =>
+          imageRequests.some((url) => derivativeOf(department.id).test(url)),
+        ),
+      )
+      .toBe(true);
 
-    // Сцена активного отдела при этом действительно запрошена — иначе проверка выше проходила бы и
-    // на экране вовсе без фотослоя.
-    expect(imageRequests.filter((url) => ANY_SCENE.test(url))).toContainEqual(
-      expect.stringMatching(derivativeOf("support")),
-    );
+    // Адаптивный srcset обязан выбрать одну производную на отдел, а не скачать все три ширины.
+    for (const department of departments) {
+      const sceneRequests = imageRequests.filter((url) => derivativeOf(department.id).test(url));
+      expect(sceneRequests, `непредсказуемая предзагрузка сцены ${department.id}`).toHaveLength(1);
+    }
 
     // И оригиналы PNG (3.1–3.6 МБ) браузер не трогает ни при каких условиях.
     expect(imageRequests.filter((url) => url.endsWith(".png"))).toEqual([]);
@@ -260,11 +259,12 @@ test.describe("Step 13 — each department gets its own scene", () => {
     const panel = page.getByRole("region", { name: hr.overviewLabel });
     await expect(page.getByRole("heading", { level: 2, name: hr.headline })).toBeVisible();
     await expect(panel.getByText(hr.problem)).toBeVisible();
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await expect(panel.getByRole("link", { name: hr.ctaLabel })).toBeVisible();
-    await expect(panel.getByRole("button", { name: "Закрыть" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Назад к офису" })).toBeVisible();
 
     // Битой картинки не остаётся — на её месте детерминированный плейсхолдер (контракт Step 8).
-    await expect(page.locator("picture")).toHaveCount(0);
+    await expect(page.locator("[data-scene-crossfade] picture")).toHaveCount(0);
 
     // Переключение отделов работает и без фотослоя: коммерческий путь от сцены не зависит.
     const logistics = departments.find((d) => d.id === "logistics")!;

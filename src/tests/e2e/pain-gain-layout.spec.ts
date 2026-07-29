@@ -20,7 +20,8 @@ const gainOf = (page: Page) => page.getByTestId("pain-gain-panel").locator("p[ar
 // Тесты целятся в конкретный слой, а не в <p>: его textContent содержит оба и равен тексту дважды.
 const gainVisualOf = (page: Page) => gainOf(page).locator("[data-typed-visual]");
 const gainAccessibleOf = (page: Page) => gainOf(page).locator("[data-typed-accessible]");
-const painListOf = (page: Page) => page.getByTestId("pain-gain-panel").locator("ul");
+const painListOf = (page: Page) => page.getByTestId("pain-gain-panel").locator("section").first();
+const gainCardOf = (page: Page) => page.getByTestId("pain-gain-panel").locator("[data-gain-panel]");
 
 // Размеры, на которых проверяется раскладка. 1600×900 — комфортный desktop; 1366×768 — самое
 // распространённое ноутбучное разрешение; 1280×800 — нижняя граница desktop-раскладки; 1024×768 —
@@ -89,7 +90,7 @@ test.describe("Amendment 12 — окно пояснения справа от с
       await openDepartment(page, department.id);
 
       const painBox = (await painListOf(page).boundingBox())!;
-      const gainBox = (await gainOf(page).boundingBox())!;
+      const gainBox = (await gainCardOf(page).boundingBox())!;
 
       // Справа, а не под списком: левый край пояснения правее правого края списка болей.
       expect(
@@ -123,7 +124,7 @@ test.describe("Amendment 12 — окно пояснения справа от с
       await expect
         .poll(async () => (await gainVisualOf(page).textContent())?.length ?? 0)
         .toBe(point.gain.length);
-      boxes.push((await gainOf(page).boundingBox())!);
+      boxes.push((await gainCardOf(page).boundingBox())!);
     }
 
     const first = boxes[0];
@@ -220,7 +221,8 @@ test.describe("Amendment 12 — окно пояснения справа от с
   // не воспроизводится вовсе.
   test("заголовок отдела не обведён рамкой при открытии по прямому адресу", async ({ page }) => {
     await page.goto("/?department=sales");
-    const heading = page.getByRole("heading", { level: 2, name: departments[0].headline });
+    const sales = departments.find((department) => department.id === "sales")!;
+    const heading = page.getByRole("heading", { level: 2, name: sales.headline });
     await expect(heading).toBeVisible();
 
     // Фокус на заголовке сохраняется — это объявление контекста скринридеру, его убирать нельзя.
@@ -238,29 +240,58 @@ test.describe("Amendment 12 — окно пояснения справа от с
     expect(await heading.evaluate((node) => (node as HTMLElement).tabIndex)).toBe(-1);
   });
 
-  // Step 14: графика логотипа как ФУНКЦИЯ, а не украшение (docs/02). Две точки применения внутри
-  // панели: маркер выбранной боли и коннектор «боль → результат» между колонками.
-  test("маркеры логотипа стоят в функциональных местах и не объявляются скринридеру", async ({
+  // Amendment 32: графика остаётся функцией — маркер показывает выбранную боль, а одноразовый
+  // измеряемый импульс связывает именно её с решением.
+  test("активная боль запускает измеряемый импульс к решению, а маркеры не объявляются скринридеру", async ({
     page,
   }) => {
     const department = await openDepartment(page, "sales");
     const panel = page.getByTestId("pain-gain-panel");
 
-    // Коннектор стоит МЕЖДУ колонками: правее списка болей и левее окна пояснения. Если он окажется
-    // где-то ещё, он перестанет указывать переход и станет украшением — ровно то, что docs/02
-    // запрещает.
-    const painBox = (await painListOf(page).boundingBox())!;
-    const gainBox = (await gainOf(page).boundingBox())!;
-    const connectorBox = (await panel.locator("[data-connector]").boundingBox())!;
-    expect(connectorBox.x).toBeGreaterThanOrEqual(painBox.x + painBox.width - 1);
-    expect(connectorBox.x + connectorBox.width).toBeLessThanOrEqual(gainBox.x + 1);
+    await expect(panel.locator("[data-pain-solution-impulse]")).toHaveCount(0);
+    const selected = panel.getByRole("button", { name: department.painPoints[3].pain });
+    await selected.click();
+    const impulse = panel.locator("[data-pain-solution-impulse]");
+    await expect(impulse).toHaveCount(1);
+    await expect(impulse).toHaveAttribute("data-impulse-source", "3");
+
+    /**
+     * Замер делается ПОСЛЕ того, как положение кнопки установилось.
+     *
+     * У кнопки есть `:hover { transform: translateX(2px) }` с переходом 200 мс, а курсор наводит
+     * сам клик. Геометрия импульса снимается синхронно в обработчике, то есть до конца перехода;
+     * догоняет её пересчёт по `transitionend` в `PainGainPanel`. Сравнение сразу после клика
+     * заставало систему в середине этого движения и давало расхождение до 2 px — то самое, из-за
+     * которого спек падал.
+     *
+     * Допуск НЕ ослаблен и остаётся 0,5 px: ждём устойчивого состояния, а не разрешаем промах.
+     */
+    const startOffset = async () => {
+      const panelBox = (await panel.boundingBox())!;
+      const sourceBox = (await selected.boundingBox())!;
+      const startX = await impulse.evaluate((node) =>
+        Number(node.getAttribute("data-impulse-start-x")),
+      );
+      return Math.abs(panelBox.x + startX - (sourceBox.x + sourceBox.width));
+    };
+    await expect.poll(startOffset, { timeout: 900 }).toBeLessThan(0.5);
+
+    const panelBox = (await panel.boundingBox())!;
+    const sourceBox = (await selected.boundingBox())!;
+    const gainBox = (await gainCardOf(page).boundingBox())!;
+    const coordinates = await impulse.evaluate((node) => ({
+      startY: Number(node.getAttribute("data-impulse-start-y")),
+      endX: Number(node.getAttribute("data-impulse-end-x")),
+    }));
+    expect(panelBox.y + coordinates.startY).toBeCloseTo(sourceBox.y + sourceBox.height / 2, 0);
+    expect(panelBox.x + coordinates.endX).toBeCloseTo(gainBox.x + 1, 0);
 
     // Маркер выбранной боли стоит только у выбранного пункта — иначе форма не отличала бы состояние.
     const markersInList = painListOf(page).locator("svg");
     await expect(markersInList).toHaveCount(1);
 
     // Переключение переносит маркер, а не добавляет второй.
-    await panel.getByRole("button", { name: department.painPoints[3].pain }).click();
+    await panel.getByRole("button", { name: department.painPoints[2].pain }).click();
     await expect(markersInList).toHaveCount(1);
 
     // Вся графика декоративна: смысл несут aria-pressed и aria-live, а не глифы.
@@ -270,7 +301,7 @@ test.describe("Amendment 12 — окно пояснения справа от с
 
     // И имя кнопки не зависит от состояния — маркер в него не просачивается.
     await expect(
-      panel.getByRole("button", { name: department.painPoints[3].pain }),
+      panel.getByRole("button", { name: department.painPoints[2].pain }),
     ).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -278,7 +309,7 @@ test.describe("Amendment 12 — окно пояснения справа от с
     await openDepartment(page, "logistics");
 
     const painBox = (await painListOf(page).boundingBox())!;
-    const gainBox = (await gainOf(page).boundingBox())!;
+    const gainBox = (await gainCardOf(page).boundingBox())!;
 
     // Прежняя раскладка ставила пояснение ПОД списком — то есть его верх был ниже низа списка.
     // Этот тест падал бы на прежней вёрстке и не даёт ей вернуться незамеченной.
@@ -301,8 +332,8 @@ test.describe("Step 15.5 — каскад появления блоков экр
         // хешированным именам CSS-модулей поймала бы любой соседний класс с той же подстрокой
         // (замечание skeptic Phase B).
         copy: opacityOf(document.querySelector('[class*="stageCopy"]')),
-        pains: opacityOf(panel?.querySelector("ul")),
-        gain: opacityOf(panel?.querySelector("p")),
+        pains: opacityOf(panel?.querySelector("section")),
+        gain: opacityOf(panel?.querySelector("[data-gain-panel]")),
         actions: opacityOf(document.querySelector('[class*="stageActions"]')),
       };
     });
@@ -326,8 +357,8 @@ test.describe("Step 15.5 — каскад появления блоков экр
             w.__cascade![name] = performance.now() - t0;
         };
         at("copy", document.querySelector('[class*="stageCopy"]'));
-        at("pains", panel?.querySelector("ul"));
-        at("gain", panel?.querySelector("p"));
+        at("pains", panel?.querySelector("section"));
+        at("gain", panel?.querySelector("[data-gain-panel]"));
         at("actions", document.querySelector('[class*="stageActions"]'));
         if (Object.keys(w.__cascade!).length === 4) clearInterval(timer);
       }, 40);
@@ -359,15 +390,15 @@ test.describe("Step 15.5 — каскад появления блоков экр
         el ? getComputedStyle(el).animationDelay : null;
       return {
         copy: delayOf(document.querySelector('[class*="stageCopy"]')),
-        pains: delayOf(panel?.querySelector("ul")),
-        gain: delayOf(panel?.querySelector("p")),
+        pains: delayOf(panel?.querySelector("section")),
+        gain: delayOf(panel?.querySelector("[data-gain-panel]")),
         actions: delayOf(document.querySelector('[class*="stageActions"]')),
       };
     });
-    expect(delays.copy).toBe("0s");
-    expect(delays.pains).toBe("1s");
-    expect(delays.gain).toBe("2s");
-    expect(delays.actions).toBe("3s");
+    expect(delays.copy).toBe("0.08s");
+    expect(delays.pains).toBe("0.7s");
+    expect(delays.gain).toBe("1.4s");
+    expect(delays.actions).toBe("2s");
 
     // Ожидание привязано к ПОЯСНЕНИЮ — последней анимируемой ступени (Amendment 17: кнопки видимы
     // с первого кадра, поэтому сигналом конца каскада служить не могут).
@@ -420,28 +451,21 @@ test.describe("Step 15.5 — каскад появления блоков экр
       .toBe(1);
   });
 
-  // CLAUDE.md «Critical content must not depend on animation completion» и «CTA remains easy to
-  // reach»: каскад анимирует ТОЛЬКО видимость, поэтому CTA и «Закрыть» обязаны работать до его
-  // конца. Это главный сторож на решение не делать блоки условным рендером.
-  test("CTA и «Закрыть» достижимы клавиатурой и срабатывают ещё до конца каскада", async ({
-    page,
-  }) => {
+  test("«Назад к офису» доступна до конца каскада, а CTA ещё не показана", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     const department = await openDepartment(page, "sales");
 
     // Проверяется именно НЕЗАВЕРШЁННЫЙ каскад — иначе тест ничего не охраняет. Признаком служит
     // пояснение: со Step 17 кнопки видимы с первого кадра и признаком незавершённости быть не могут.
     expect((await OPACITY_OF(page)).gain).toBeLessThan(1);
-    // И одновременно кнопки уже видимы — инвариант Amendment 17.
+    // Якорь каскада остаётся видимым по вычисленному состоянию, но CTA ждёт результат 10 секунд.
     expect((await OPACITY_OF(page)).actions).toBe(1);
+    await expect(page.getByRole("link", { name: department.ctaLabel })).toHaveCount(0);
 
-    // Клавиатурная достижимость: пять болей, затем CTA, затем «Закрыть». Это и есть смысл отказа от
-    // условного рендера — контролы в Tab-порядке с первого кадра, а не после анимации.
+    // После пяти болей первым доступным путём выхода становится «Назад к офису».
     for (let i = 0; i < department.painPoints.length; i++) await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("link", { name: department.ctaLabel })).toBeFocused();
-    await page.keyboard.press("Tab");
-    await expect(page.getByRole("button", { name: "Закрыть" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Назад к офису" })).toBeFocused();
 
     // И кнопка реально срабатывает. `click({ force: true })` здесь НЕ используется сознательно
     // (замечание skeptic Phase B): force обходит actionability-проверки Playwright целиком и
@@ -627,54 +651,14 @@ test.describe("Step 17 — швы каскада, найденные milestone r
   // Проверяются ОБА условия сразу, покадрово: мишень никогда не бывает невидимой И никогда не
   // перестаёт принимать указатель. Второе — сторож против повторного внесения `pointer-events: none`,
   // правки, которая выглядит очевидной и ломает приёмку двух шагов.
-  test("блок кнопок виден и кликабелен в течение всего каскада", async ({ page }) => {
+  test("до результата нет невидимой CTA, а Back остаётся кликабельной", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await openDepartment(page, "sales");
-
-    let worstOpacity = 1;
-    for (let i = 0; i < 40; i++) {
-      const sample = await page.evaluate(() => {
-        // Область ОБЯЗАТЕЛЬНО ограничена панелью отдела: в документе есть ещё CTA hero с тем же
-        // href, она к каскаду отношения не имеет — без ограничения замер брал её и был бы зелёным
-        // при любой реализации.
-        const cta = document.querySelector(
-          "[data-cascade-done] a[href^='https://t.me']",
-        ) as HTMLElement | null;
-        if (!cta) return null;
-        let opacity = 1;
-        let node: HTMLElement | null = cta;
-        while (node) {
-          opacity *= Number(getComputedStyle(node).opacity);
-          node = node.parentElement;
-        }
-        // Step 20: со времени добавления BeforeAfterSequence экран отдела «Продажи» стал выше панели
-        // и прокручивается внутри себя, поэтому CTA может оказаться ниже сгиба. Сторож проверяет НЕ
-        // «CTA в начальном вьюпорте», а что она НЕ погашена и НЕ перестала принимать указатель
-        // (регресс `pointer-events: none`/opacity, Step 15/17) — для этого приводим её в вид и
-        // мерим уже там. Прокрутка сохраняет смысл проверки; без неё elementFromPoint за пределами
-        // вьюпорта вернул бы null и сторож ложно «упал» бы на честной прокрутке, а не на регрессе.
-        cta.scrollIntoView({ block: "center" });
-        const rect = cta.getBoundingClientRect();
-        const hit = document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2);
-        const pointerEvents = getComputedStyle(cta).pointerEvents;
-        return {
-          opacity,
-          clickable: (cta === hit || cta.contains(hit)) && pointerEvents !== "none",
-        };
-      });
-      expect(sample, "CTA не найдена").not.toBeNull();
-      worstOpacity = Math.min(worstOpacity, sample!.opacity);
-      expect(
-        sample!.clickable,
-        "CTA перестала принимать указатель — регресс Step 15/Step 16 AC3",
-      ).toBe(true);
-      await page.waitForTimeout(90);
-    }
-
-    expect(
-      worstOpacity,
-      `CTA была практически невидимой (${worstOpacity}) — по ней можно кликнуть вслепую`,
-    ).toBeGreaterThan(0.95);
+    const department = await openDepartment(page, "sales");
+    await expect(page.getByRole("link", { name: department.ctaLabel })).toHaveCount(0);
+    const back = page.getByRole("button", { name: "Назад к офису" });
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
   });
 
   // Находка motion Major 3: `.panel` переключается медиазапросом через `display`, а повторный показ

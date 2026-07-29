@@ -1,0 +1,47 @@
+[
+  {
+    "id": "telegram-group",
+    "kind": "telegram",
+    "label": "Группа в Telegram",
+    "value": "t.me/qbit_studioai",
+    "href": "https://t.me/qbit_studioai",
+    "accessibleLabel": "Группа в Telegram: t.me/qbit_studioai",
+    "isExternal": true,
+    "isPublished": true,
+    "sortOrder": 10
+  },
+  {
+    "id": "telegram-personal",
+    "kind": "telegram-primary",
+    "label": "Личный Telegram",
+    "value": "@Promt_Pavel",
+    "href": "https://t.me/Promt_Pavel",
+    "accessibleLabel": "Личный Telegram: @Promt_Pavel",
+    "isExternal": true,
+    "isPublished": true,
+    "sortOrder": 20
+  },
+  {
+    "id": "phone",
+    "kind": "phone",
+    "label": "Телефон",
+    "value": "+7 937 534-65-75",
+    "href": "tel:+79375346575",
+    "accessibleLabel": "Позвонить по номеру +7 937 534-65-75.",
+    "headerLabel": "+7 (937) 534-65-75",
+    "isExternal": false,
+    "isPublished": true,
+    "sortOrder": 30
+  },
+  {
+    "id": "email",
+    "kind": "email",
+    "label": "Email",
+    "value": "group@allqbit.ru",
+    "href": "mailto:group@allqbit.ru",
+    "accessibleLabel": "Написать на group@allqbit.ru",
+    "isExternal": false,
+    "isPublished": true,
+    "sortOrder": 40
+  }
+]

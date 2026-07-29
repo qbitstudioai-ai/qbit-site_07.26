@@ -20,6 +20,7 @@ const validDepartment = {
     { pain: "a4", gain: "b4" },
     { pain: "a5", gain: "b5" },
   ],
+  customerBenefits: ["primary", "extra 1", "extra 2", "extra 3"],
   ctaLabel: "cta",
   solutionPath: "/solutions/sales",
   reference: "references/sales/02-sales-department.png",
@@ -83,6 +84,23 @@ describe("departmentSchema — invalid fixtures", () => {
     ] as unknown as typeof validDepartment.painPoints;
     expect(
       departmentSchema.safeParse(makeDepartment("sales", { painPoints: brokenPainPoints })).success,
+    ).toBe(false);
+  });
+
+  it("accepts an optional non-empty howItWorks field", () => {
+    const painPoints = validDepartment.painPoints.map((point, index) =>
+      index === 0 ? { ...point, howItWorks: "step 1 → step 2" } : point,
+    );
+    expect(departmentSchema.safeParse(makeDepartment("support", { painPoints })).success).toBe(
+      true,
+    );
+  });
+
+  it("rejects a department without exactly four business results", () => {
+    expect(
+      departmentSchema.safeParse(
+        makeDepartment("sales", { customerBenefits: ["primary", "extra 1", "extra 2"] }),
+      ).success,
     ).toBe(false);
   });
 
@@ -161,7 +179,7 @@ describe("departmentSchema — invalid fixtures", () => {
 });
 
 describe("departmentsSchema — invalid fixtures", () => {
-  const allFive = ["sales", "support", "executive", "hr", "logistics"].map((id) =>
+  const allFive = ["support", "sales", "logistics", "hr", "executive"].map((id) =>
     makeDepartment(id),
   );
 
@@ -181,6 +199,10 @@ describe("departmentsSchema — invalid fixtures", () => {
 
   it("accepts exactly the canonical 5 departments", () => {
     expect(departmentsSchema.safeParse(allFive).success).toBe(true);
+  });
+
+  it("rejects the canonical departments in a different order", () => {
+    expect(departmentsSchema.safeParse(allFive.slice().reverse()).success).toBe(false);
   });
 });
 

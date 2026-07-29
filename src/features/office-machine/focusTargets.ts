@@ -3,8 +3,8 @@
  *
  * До этого модуля связь между машиной и презентационным слоем держалась на пяти строковых литералах,
  * записанных в разных файлах: `department-heading-<id>` производил `DepartmentCopy`/
- * `TaskSectionExperience`, `hotspot-<id>` — `DepartmentHotspot`, `mobile-department-carousel-card` —
- * `MobileDepartmentCarousel`, селектор карты — `OfficeSemanticMap`, а искала их все `OfficeMachine`.
+ * `TaskSectionExperience`, `hotspot-<id>` — `DepartmentHotspot`, селектор карты —
+ * `OfficeSemanticMap`, а искала их все `OfficeMachine`.
  * Ни одна связка не проверялась компилятором: разъехавшаяся схема id молча ломала перенос фокуса, и
  * узнать об этом можно было только из e2e — если он до этого места доходил.
  *
@@ -23,9 +23,6 @@ export const sectionHeadingId = (sectionId: string) => `department-heading-${sec
 
 /** Кнопка-зона отдела на сцене overview — цель возврата фокуса после закрытия отдела. */
 export const hotspotId = (departmentId: string) => `hotspot-${departmentId}`;
-
-/** Карточка мобильной карусели. Стабильна: после сброса на первый отдел id всегда отрисован. */
-export const MOBILE_CAROUSEL_CARD_ID = "mobile-department-carousel-card";
 
 /** Кнопка входа в раздел «Ваша задача» на overview — цель возврата фокуса после его закрытия. */
 export const TASK_ENTRY_BUTTON_ID = "task-entry-button";

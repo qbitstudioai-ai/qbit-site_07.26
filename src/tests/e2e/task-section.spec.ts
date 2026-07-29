@@ -14,22 +14,40 @@ async function openOverview(page: Page) {
   await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
 }
 
+async function waitForTaskClientHandlers(page: Page) {
+  const closeButton = page.getByRole("button", { name: "Закрыть" });
+  await expect
+    .poll(
+      () =>
+        closeButton.evaluate((element) =>
+          Object.keys(element).some((key) => key.startsWith("__reactProps$")),
+        ),
+      { message: "task controls should be hydrated before testing a window keydown listener" },
+    )
+    .toBe(true);
+  await closeButton.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
+  );
+}
+
 test.describe("Step 12.7 — раздел «Ваша задача»", () => {
-  test("открывается с обзорного экрана и закрывается обратно", async ({ page }) => {
+  test("CTA обзорного экрана ведёт напрямую в Telegram и не открывает форму", async ({ page }) => {
     await page.goto("/");
     await openOverview(page);
 
-    await page.getByRole("button", { name: task.overviewCtaLabel }).click();
-    await expect(page.getByRole("heading", { level: 2, name: task.headline })).toBeVisible();
-    await expect(page.getByText(task.intro)).toBeVisible();
-
-    await page.getByRole("button", { name: "Закрыть" }).click();
-    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
+    const cta = page.getByRole("link", { name: copy.officeOverview.ctaAccessibleLabel });
+    await expect(cta).toHaveAttribute("href", copy.contactHref);
+    await expect(cta).toHaveAttribute("target", "_blank");
+    await expect(page.getByRole("heading", { level: 2, name: task.headline })).toHaveCount(0);
   });
 
   test("доступен по прямому адресу ?section=task и закрывается по Escape", async ({ page }) => {
     await page.goto("/?section=task");
     await expect(page.getByRole("heading", { level: 2, name: task.headline })).toBeVisible();
+    await waitForTaskClientHandlers(page);
 
     await page.keyboard.press("Escape");
     await expect(page.getByRole("heading", { level: 2, name: task.headline })).toHaveCount(0);
@@ -49,12 +67,9 @@ test.describe("Step 12.7 — раздел «Ваша задача»", () => {
       page,
     }) => {
       await page.setViewportSize({ width, height });
-      await page.goto("/");
-      await page.getByRole("link", { name: getHomepageCopy().secondaryCta }).click();
-
-      const entry = page.locator("#task-entry-button");
-      await entry.click();
+      await page.goto("/?section=task");
       await expect(page.getByRole("heading", { level: 2, name: task.headline })).toBeVisible();
+      await waitForTaskClientHandlers(page);
 
       await page.keyboard.press("Escape");
       await expect(page.getByRole("heading", { level: 2, name: task.headline })).toHaveCount(0);

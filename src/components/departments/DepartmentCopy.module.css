@@ -10,9 +10,13 @@
 .copy {
   flex-shrink: 0;
   padding: var(--space-3) var(--space-4);
-  border-radius: 8px;
-  background: var(--scrim-panel);
-  box-shadow: var(--elevation-3);
+  border: 1px solid rgba(255, 255, 255, 0.68);
+  border-radius: var(--department-surface-radius, 12px);
+  background: linear-gradient(135deg, rgba(255, 253, 249, 0.94), rgba(247, 242, 234, 0.88));
+  box-shadow:
+    0 14px 34px rgba(22, 17, 11, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: var(--department-surface-filter, blur(14px) saturate(110%));
 }
 
 /* Amendment 12: заголовок выравнивается по колонке БОЛЕЙ, а не растягивается над обеими окнами.
@@ -27,10 +31,13 @@
 }
 
 .heading {
-  font-size: 1.375rem;
+  margin: 0 0 var(--space-2);
+  max-width: 42ch;
+  font-size: clamp(1.625rem, 1.7vw, 2rem);
   font-weight: 700;
+  line-height: 1.24;
+  letter-spacing: -0.02em;
   color: var(--color-graphite-900);
-  margin-bottom: var(--space-2);
 }
 
 /* Заголовок отдела НЕ показывает рамку фокуса — и это не отказ от доступности, а исправление
@@ -49,25 +56,58 @@
    полностью: фокус по-прежнему ставится, меняется лишь его отрисовка.
    Правило обязано быть явным, а не просто удалённым: в globals.css есть глобальный
    `:focus-visible { outline: 3px solid ... }`, и без переопределения рамка вернулась бы оттуда.
-   Все интерактивные контролы экрана (пункты болей, CTA, «Закрыть», рельс) свою рамку сохраняют. */
+   Все интерактивные контролы экрана (пункты болей, CTA, «Назад к офису», рельс) свою рамку
+   сохраняют. */
 .heading:focus-visible,
 .heading:focus {
   outline: none;
 }
 
 .problem {
+  margin: 0;
+  max-width: 66ch;
   color: var(--color-graphite-700);
-  margin-bottom: var(--space-3);
+  font-size: 0.9375rem;
+  line-height: 1.46;
+}
+
+@media (min-width: 768px) and (max-height: 900px) {
+  .copy {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .heading {
+    margin-bottom: var(--space-1);
+    font-size: 1.25rem;
+    line-height: 1.18;
+  }
+
+  .problem {
+    font-size: 0.8125rem;
+    line-height: 1.34;
+  }
+}
+
+@media (min-width: 768px) and (max-height: 800px) {
+  .heading {
+    font-size: 1rem;
+    line-height: 1.16;
+  }
+
+  .problem {
+    font-size: 0.6875rem;
+    line-height: 1.3;
+  }
 }
 
 @media (max-height: 700px) {
   .heading {
-    font-size: 1.125rem;
+    font-size: 1rem;
     margin-bottom: var(--space-1);
   }
 
   .problem {
-    margin-bottom: var(--space-2);
+    font-size: 0.6875rem;
   }
 }
 
@@ -78,6 +118,6 @@
   }
 
   .problem {
-    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
   }
 }

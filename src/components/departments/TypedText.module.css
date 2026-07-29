@@ -11,6 +11,27 @@
   opacity: 1;
 }
 
+.cursor {
+  display: inline-block;
+  width: 1px;
+  height: 1.02em;
+  margin-left: 2px;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--color-accent-warm) 76%, transparent);
+  opacity: 0.82;
+  vertical-align: -0.14em;
+  transform: scaleY(0.92);
+  transform-origin: center;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.cursorComplete {
+  opacity: 0;
+  transform: scaleY(0.72);
+}
+
 /* Доступная копия текста: видна скринридеру, не видна глазом.
    Именно `clip-path` + 1px габарит, а НЕ `display: none` и не `visibility: hidden` — оба последних
    убрали бы узел из дерева доступности, то есть уничтожили бы ровно то, ради чего эта копия

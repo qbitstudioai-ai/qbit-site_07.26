@@ -26,9 +26,39 @@ export function DepartmentHotspot({ zone, department, onSelect }: DepartmentHots
       aria-describedby={problemId}
       onClick={() => onSelect(department.id)}
     >
-      <span className={styles.label}>{department.overviewLabel}</span>
-      <span id={problemId} className={styles.problem}>
-        {department.overviewProblem}
+      <span
+        className={`${styles.corner} ${styles.cornerTopLeft}`}
+        aria-hidden="true"
+        data-corner-marker="top-left"
+      />
+      <span
+        className={`${styles.corner} ${styles.cornerTopRight}`}
+        aria-hidden="true"
+        data-corner-marker="top-right"
+      />
+      <span
+        className={`${styles.corner} ${styles.cornerBottomLeft}`}
+        aria-hidden="true"
+        data-corner-marker="bottom-left"
+      />
+      <span
+        className={`${styles.corner} ${styles.cornerBottomRight}`}
+        aria-hidden="true"
+        data-corner-marker="bottom-right"
+      />
+      <span className={styles.marker}>
+        <span className={styles.label}>
+          {department.overviewLabel}
+          <span className={styles.chevron} aria-hidden="true">
+            ›
+          </span>
+        </span>
+        <span id={problemId} className={styles.problem}>
+          {department.hoverDescription}
+          <span className={styles.problemArrow} aria-hidden="true">
+            →
+          </span>
+        </span>
       </span>
     </button>
   );

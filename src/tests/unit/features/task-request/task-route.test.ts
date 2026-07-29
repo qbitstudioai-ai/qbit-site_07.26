@@ -130,8 +130,9 @@ describe("POST /api/task", () => {
     await expect(response.json()).resolves.toEqual({ ok: false, reason: "delivery-failed" });
   });
 
-  it("подряд идущие запросы с одного адреса упираются в лимит частоты", async () => {
+  it("за доверенным прокси подряд идущие запросы с одного адреса упираются в лимит", async () => {
     configureBot();
+    vi.stubEnv("TRUST_PROXY", "1");
     fetchMock.mockResolvedValue(new Response("{}", { status: 200 }));
 
     const headers = { "x-forwarded-for": "10.0.0.6" };
@@ -142,6 +143,42 @@ describe("POST /api/task", () => {
 
     expect(statuses.slice(0, 3)).toEqual([200, 200, 200]);
     expect(statuses[3]).toBe(429);
+  });
+
+  /**
+   * Регрессия на обход лимита подменой заголовка (аудит 2026-07-27).
+   *
+   * Раньше `x-forwarded-for` читался безусловно и брался ПЕРВЫЙ элемент цепочки — тот, что прислал
+   * клиент. Новое значение на каждый запрос заводило новый счётчик, и лимит не достигался никогда.
+   */
+  it("подмена X-Forwarded-For на каждый запрос не обходит лимит", async () => {
+    configureBot();
+    vi.stubEnv("TRUST_PROXY", "1");
+    fetchMock.mockResolvedValue(new Response("{}", { status: 200 }));
+
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      // Клиент подставляет свой адрес первым; реальный дописывает прокси в конец.
+      const headers = { "x-forwarded-for": `1.2.3.${attempt}, 10.0.0.7` };
+      statuses.push((await postTask({ message: VALID_MESSAGE }, headers)).status);
+    }
+
+    expect(statuses).toContain(429);
+  });
+
+  it("без доверенного прокси заголовок не учитывается: работает общее ведро", async () => {
+    configureBot();
+    vi.stubEnv("TRUST_PROXY", "");
+    fetchMock.mockResolvedValue(new Response("{}", { status: 200 }));
+
+    const statuses: number[] = [];
+    for (let attempt = 0; attempt < 31; attempt += 1) {
+      const headers = { "x-forwarded-for": `9.9.9.${attempt}` };
+      statuses.push((await postTask({ message: VALID_MESSAGE }, headers)).status);
+    }
+
+    // Порог общего ведра — 30: подмена адреса его не сдвигает.
+    expect(statuses[30]).toBe(429);
   });
 
   it("не разглашает токен в теле ответа при ошибке доставки", async () => {

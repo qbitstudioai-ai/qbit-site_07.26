@@ -26,11 +26,8 @@ export function OfficeSemanticMap({
       <ul id="office-map" className={styles.zoneList}>
         {zones.map((zone) => {
           const department = departments.find((d) => d.id === zone.departmentId);
-          if (!department) {
-            throw new Error(
-              `OfficeSemanticMap: no department found for zone.departmentId="${zone.departmentId}"`,
-            );
-          }
+          // Отдел снят с публикации — зона не рисуется. Падать из-за этого главная не должна.
+          if (!department) return null;
           return (
             <li key={zone.departmentId} className={styles.zoneItem}>
               <DepartmentHotspot
