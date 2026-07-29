@@ -127,6 +127,96 @@ export interface ProductLocationInput {
 }
 
 /**
+ * Верхняя граница длины meta description. 160 — не догма поисковой системы, а практический предел:
+ * дальше выдача обрезает строку сама, и обрезает механически — посреди слова.
+ */
+export const PRODUCT_DESCRIPTION_MAX_LENGTH = 160;
+
+/** Нижняя граница. Короче — описание перестаёт отвечать на вопрос «что это и что оно делает». */
+export const PRODUCT_DESCRIPTION_MIN_LENGTH = 120;
+
+/** Разбивает текст на ЦЕЛЫЕ предложения. Нужен, чтобы описание никогда не обрывалось на полуслове. */
+function splitIntoSentences(text: string): string[] {
+  return (text.match(/[^.!?]+[.!?]+/g) ?? [text]).map((sentence) => sentence.trim());
+}
+
+/** Нарастающие префиксы из целых предложений: «первое», «первое + второе», … */
+function sentencePrefixes(text: string): string[] {
+  const result: string[] = [];
+  let accumulated = "";
+
+  for (const sentence of splitIntoSentences(text)) {
+    accumulated = accumulated ? `${accumulated} ${sentence}` : sentence;
+    result.push(accumulated);
+  }
+
+  return result;
+}
+
+/**
+ * Убирает из начала описания повтор названия продукта.
+ *
+ * Все десять описаний написаны по одному шаблону: «{Название} — это система, которая …».
+ * В выдаче название уже стоит строкой выше, в `<title>`, поэтому первые 30–47 символов описания
+ * не сообщают ничего нового и вытесняют то, что сообщает. Срезаем их только если описание
+ * действительно начинается с названия — иначе текст возвращается нетронутым.
+ */
+function withoutTitlePrefix(summary: string, fullTitle: string): string {
+  if (!summary.startsWith(fullTitle)) return summary;
+
+  const rest = summary
+    .slice(fullTitle.length)
+    .replace(/^\s*[—–-]\s*/, "")
+    .replace(/^это\s+система,\s+которая\s+/i, "");
+
+  if (!rest) return summary;
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+}
+
+/**
+ * Собирает meta description продукта длиной не больше {@link PRODUCT_DESCRIPTION_MAX_LENGTH}.
+ *
+ * Как выбирается вариант. Составляется набор кандидатов — из полного описания и из описания без
+ * повтора названия, каждый в виде нарастающих префиксов по целым предложениям, с ценой и без неё.
+ * Берётся САМЫЙ ДЛИННЫЙ кандидат, который укладывается в предел: длина здесь прямо означает
+ * количество полезных сведений, а верхняя граница уже гарантирует, что строка не будет обрезана
+ * выдачей.
+ *
+ * Что это даёт по требованиям задания:
+ *
+ * - строка никогда не рвётся посреди фразы — кандидаты состоят только из целых предложений;
+ * - текст дословно совпадает с видимым описанием продукта, ничего не сочиняется;
+ * - цена попадает в описание, только если помещается целиком, а не «сколько влезло».
+ *
+ * Видимый текст продукта эта функция не трогает — она собирает исключительно значение `<meta>`.
+ */
+export function buildProductDescription(input: {
+  fullTitle: string;
+  summary: string;
+  firstPrice?: string;
+}): string {
+  const summary = input.summary.trim();
+  const priceTail = input.firstPrice ? ` Стоимость — ${input.firstPrice}.` : "";
+
+  const candidates: string[] = [];
+  for (const base of [
+    ...sentencePrefixes(summary),
+    ...sentencePrefixes(withoutTitlePrefix(summary, input.fullTitle)),
+  ]) {
+    if (priceTail) candidates.push(base + priceTail);
+    candidates.push(base);
+  }
+
+  const fitting = candidates
+    .filter((candidate) => candidate.length <= PRODUCT_DESCRIPTION_MAX_LENGTH)
+    .sort((a, b) => b.length - a.length);
+
+  // Запасной вариант — первое предложение как есть. Срабатывает только если ОДНО предложение
+  // длиннее предела: обрезать его молча нельзя, а пустое описание хуже длинного.
+  return fitting[0] ?? splitIntoSentences(summary)[0] ?? summary;
+}
+
+/**
  * Собирает продукт из редактируемых полей: подставляет фотографии и SEO-строки.
  *
  * SEO собирается, а не редактируется отдельно, намеренно: title и description обязаны совпадать с
@@ -151,9 +241,11 @@ export function buildProductLocation(input: ProductLocationInput): ProductLocati
     },
     seo: {
       title: `${input.fullTitle} — стоимость разработки и внедрения | QBit-Studio-Ai`,
-      description: firstPrice
-        ? `${input.content.summary} Стоимость — ${firstPrice}.`
-        : input.content.summary,
+      description: buildProductDescription({
+        fullTitle: input.fullTitle,
+        summary: input.content.summary,
+        firstPrice,
+      }),
     },
   };
 }

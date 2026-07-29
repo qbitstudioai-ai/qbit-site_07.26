@@ -18,6 +18,39 @@ vi.mock("@/server/content/products", () => ({
   getProducts: () => seedProductLocations,
 }));
 
+/**
+ * Даты изменения подменяются заведомо известными значениями.
+ *
+ * Так проверяется само требование: `lastmod` берётся из слоя данных, а не из часов в момент
+ * отрисовки. Прежняя проверка «дата не равна сегодняшней» это требование лишь имитировала и
+ * оказалась неверной по существу — страница, отредактированная сегодня, ОБЯЗАНА иметь сегодняшнюю
+ * дату. Она и упала 2026-07-29 на `/documents`, у которого `updated_at` был настоящим и сегодняшним.
+ *
+ * `latestDate` оставлен настоящим: он чистый и участвует в вычислении даты раздела «Блог».
+ */
+const STUB_DATES = {
+  homepage: new Date("2026-07-01T10:00:00.000Z"),
+  productsIndex: new Date("2026-07-02T10:00:00.000Z"),
+  documents: new Date("2026-07-03T10:00:00.000Z"),
+  contacts: new Date("2026-07-04T10:00:00.000Z"),
+  blogPage: new Date("2026-07-05T10:00:00.000Z"),
+  product: new Date("2026-07-06T10:00:00.000Z"),
+};
+
+vi.mock("@/server/content/lastModified", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/content/lastModified")>();
+  return {
+    latestDate: actual.latestDate,
+    homepageLastModified: () => STUB_DATES.homepage,
+    productsIndexLastModified: () => STUB_DATES.productsIndex,
+    documentsLastModified: () => STUB_DATES.documents,
+    contactsLastModified: () => STUB_DATES.contacts,
+    blogIndexPageContentLastModified: () => STUB_DATES.blogPage,
+    productLastModifiedBySlug: () =>
+      new Map(seedProductLocations.map((product) => [product.slug, STUB_DATES.product])),
+  };
+});
+
 const { default: robots } = await import("@/app/robots");
 const { default: sitemap } = await import("@/app/sitemap");
 
@@ -95,17 +128,53 @@ describe("sitemap.xml", () => {
     }
   });
 
-  it("проставляет lastModified только там, где есть настоящая дата изменения", () => {
-    // Проверка против соблазна поставить `new Date()` каждой строке: тогда карта сообщала бы, что
-    // весь сайт меняется при каждой сборке, и сигнал обесценился бы целиком.
-    const today = new Date().toISOString().slice(0, 10);
-    const stamped = entries.filter((entry) => entry.lastModified);
+  /** Календарный день из значения любого допустимого вида: `Date`, ISO-строка, `"2026-07-26"`. */
+  const day = (value: string | Date) =>
+    value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
 
-    expect(stamped.length).toBeLessThan(entries.length);
-    for (const entry of stamped) {
-      const value = String(entry.lastModified);
-      expect(value).not.toBe(today);
-      expect(value).toMatch(/^\d{4}-\d{2}-\d{2}/);
+  const entryFor = (url: string) => entries.find((entry) => entry.url === url);
+
+  it("берёт lastModified из слоя данных, а не из часов в момент отрисовки", () => {
+    expect(day(entryFor(SITE_URL)!.lastModified!)).toBe("2026-07-01");
+    expect(day(entryFor(`${SITE_URL}/products`)!.lastModified!)).toBe("2026-07-02");
+    expect(day(entryFor(`${SITE_URL}/documents`)!.lastModified!)).toBe("2026-07-03");
+    expect(day(entryFor(`${SITE_URL}/contacts`)!.lastModified!)).toBe("2026-07-04");
+
+    for (const product of seedProductLocations) {
+      expect(
+        day(entryFor(`${SITE_URL}/products/${product.slug}`)!.lastModified!),
+        product.slug,
+      ).toBe("2026-07-06");
+    }
+  });
+
+  it("у раздела «Блог» берёт позднейшую из даты раздела и дат статей", () => {
+    // Прежнее `blogPosts[0]?.modifiedAt` брало первую строку списка, а список отсортирован по
+    // `sort_order`: правка старого материала не двигала дату раздела вовсе.
+    const published = seedBlogPosts.filter((post) => !post.draft);
+    const newest = published
+      .map((post) => day(post.modifiedAt))
+      .sort()
+      .at(-1)!;
+    const expected = ["2026-07-05", newest].sort().at(-1)!;
+
+    expect(day(entryFor(`${SITE_URL}/blog`)!.lastModified!)).toBe(expected);
+  });
+
+  it("оставляет без lastModified страницу, у которой настоящей даты нет", () => {
+    // `/how-we-work` целиком лежит в коде, в базе у неё нет ни строки. Дата сборки или «сегодня»
+    // на её месте были бы выдумкой, поэтому поля не должно быть вовсе.
+    expect(entryFor(`${SITE_URL}/how-we-work`)!.lastModified).toBeUndefined();
+    expect(entries.filter((entry) => entry.lastModified).length).toBeLessThan(entries.length);
+  });
+
+  it("проставляет только разбираемые календарные даты", () => {
+    for (const entry of entries.filter((item) => item.lastModified)) {
+      const value = day(entry.lastModified!);
+      expect(value, `${entry.url}: не календарная дата`).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(Number.isNaN(new Date(value).getTime()), `${entry.url}: дата не разбирается`).toBe(
+        false,
+      );
     }
   });
 });

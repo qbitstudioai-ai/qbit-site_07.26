@@ -850,7 +850,14 @@
   top: 0;
   bottom: 0;
   left: clamp(20px, 7vw, 96px);
-  z-index: 3;
+  /*
+    4, а не 3, и это не косметика. Панель переехала в разметке выше слоёв поверхностей
+    (`.office-surface-layer`, z-index 3), чтобы <h1> шёл раньше <h3> заметок корковой доски.
+    У равных `z-index` порядок отрисовки задаёт позиция в документе — при z-index 3 панель после
+    переноса ушла бы ПОД корковую доску и обзорную панель. Явное 4 сохраняет ровно тот вид,
+    который был до переноса.
+  */
+  z-index: 4;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -905,7 +912,9 @@
   position: absolute;
   right: 54px;
   top: 50%;
-  z-index: 3;
+  /* 5: индикатор шёл в документе ПОСЛЕ панели маршрута и рисовался поверх неё. Панель переехала
+     выше и получила z-index 4 — чтобы прежнее соотношение сохранилось, здесь нужно значение выше. */
+  z-index: 5;
   display: grid;
   grid-template-columns: auto 3px;
   gap: 12px;
@@ -950,7 +959,9 @@
   position: absolute;
   right: 34px;
   top: 50%;
-  z-index: 3;
+  /* 5 по той же причине, что и у `.office-progress`: точки маршрута идут в документе после панели
+     маршрута и рисуются поверх неё. */
+  z-index: 5;
   display: grid;
   gap: 12px;
   transform: translateY(-50%);
@@ -975,7 +986,9 @@
   position: absolute;
   left: 50%;
   bottom: 34px;
-  z-index: 3;
+  /* 5 по той же причине, что и у `.office-progress`: подсказка стояла в документе после панели
+     маршрута и рисовалась поверх неё. */
+  z-index: 5;
   color: rgba(232, 240, 245, 0.58);
   font-size: 13px;
   letter-spacing: 0.04em;

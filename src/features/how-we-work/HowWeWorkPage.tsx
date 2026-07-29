@@ -144,13 +144,26 @@ export function HowWeWorkPage() {
     [],
   );
 
-  const [activeIndex, setActiveIndex] = useState(0);
+  /**
+   * Сцена и НОМЕР ЕЁ ВКЛЮЧЕНИЯ — одно состояние, а не два.
+   *
+   * `activation` строго возрастает при каждом переходе, даже если посетитель вернулся в ту же
+   * сцену. Он нужен, чтобы отличить «сцену 0 показали впервые» от «сцену 0 показали снова», и
+   * благодаря этому ступенчатое появление акцента больше не требует ручного сброса состояния
+   * внутри эффекта (см. эффект таймеров ниже).
+   *
+   * Почему одно состояние, а не два соседних: индекс и номер включения обязаны меняться ОДНИМ
+   * обновлением. Двумя вызовами `setState` они бы на один рендер разъехались, и появление
+   * акцента моргнуло бы.
+   */
+  const [scene, setScene] = useState({ index: 0, activation: 0 });
+  const activeIndex = scene.index;
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [laptopTypedText, setLaptopTypedText] = useState("");
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
-  const [accentReadyScene, setAccentReadyScene] = useState<number | null>(null);
-  const [accentContentReadyScene, setAccentContentReadyScene] = useState<number | null>(null);
+  const [accentReadyToken, setAccentReadyToken] = useState<string | null>(null);
+  const [accentContentReadyToken, setAccentContentReadyToken] = useState<string | null>(null);
   const scrollLockUntilRef = useRef(0);
   const transitionTimerRef = useRef<number | undefined>(undefined);
   const wheelAccumulatorRef = useRef(0);
@@ -181,12 +194,12 @@ export function HowWeWorkPage() {
     (direction: 1 | -1) => {
       if (window.performance.now() < scrollLockUntilRef.current) return;
 
-      setActiveIndex((index) => {
-        const nextIndex = Math.max(0, Math.min(scenes.length - 1, index + direction));
-        if (nextIndex === index) return index;
+      setScene((current) => {
+        const nextIndex = Math.max(0, Math.min(scenes.length - 1, current.index + direction));
+        if (nextIndex === current.index) return current;
 
         startTransitionLock(direction);
-        return nextIndex;
+        return { index: nextIndex, activation: current.activation + 1 };
       });
     },
     [scenes.length, startTransitionLock],
@@ -199,7 +212,7 @@ export function HowWeWorkPage() {
 
       const nextDirection = nextIndex > activeIndex ? 1 : -1;
       startTransitionLock(nextDirection);
-      setActiveIndex(nextIndex);
+      setScene((current) => ({ index: nextIndex, activation: current.activation + 1 }));
     },
     [activeIndex, startTransitionLock],
   );
@@ -226,28 +239,48 @@ export function HowWeWorkPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      setAccentReadyScene(activeIndex);
-      setAccentContentReadyScene(activeIndex);
-      return;
-    }
+  /**
+   * Ступенчатое появление акцента сцены.
+   *
+   * Раньше этот эффект начинался с трёх синхронных `setState` — «при reduced motion пометить
+   * готовым сразу», иначе «сбросить оба состояния в null». Каждый такой вызов означает лишний
+   * каскадный рендер сразу после первого (правило `react-hooks/set-state-in-effect`), а сброс
+   * ещё и дублировал в состоянии то, что уже выражено сменой сцены.
+   *
+   * Устранена ПРИЧИНА, а не симптом. Готовность больше не хранится как «номер готовой сцены»,
+   * а сравнивается с ТОКЕНОМ текущего показа: номер включения сцены плюс режим движения.
+   * Токен строго уникален для каждого показа, поэтому:
+   *
+   * - сброс не нужен вовсе — старый токен не может совпасть с новым;
+   * - возврат в ту же сцену до срабатывания таймера честно проигрывает появление заново
+   *   (окно реально достижимо: блокировка перехода 1120 мс короче задержки акцента 1500 мс);
+   * - переключение системной настройки «уменьшить движение» тоже меняет токен, то есть
+   *   поведение совпадает с прежним и здесь.
+   *
+   * При reduced motion таймеры не заводятся, а готовность выводится прямо из настройки — акцент
+   * виден сразу, как и раньше.
+   */
+  const revealToken = `${scene.activation}:${prefersReducedMotion ? "reduced" : "full"}`;
 
-    setAccentReadyScene(null);
-    setAccentContentReadyScene(null);
+  // При reduced motion акцент виден сразу — таймеры в этом режиме не заводятся вовсе.
+  const isAccentReady = prefersReducedMotion || accentReadyToken === revealToken;
+  const isAccentContentReady = prefersReducedMotion || accentContentReadyToken === revealToken;
+
+  useEffect(() => {
+    if (prefersReducedMotion) return;
 
     const accentTimer = window.setTimeout(() => {
-      setAccentReadyScene(activeIndex);
+      setAccentReadyToken(revealToken);
     }, ACCENT_REVEAL_DELAY);
     const contentTimer = window.setTimeout(() => {
-      setAccentContentReadyScene(activeIndex);
+      setAccentContentReadyToken(revealToken);
     }, ACCENT_CONTENT_DELAY);
 
     return () => {
       window.clearTimeout(accentTimer);
       window.clearTimeout(contentTimer);
     };
-  }, [activeIndex, prefersReducedMotion]);
+  }, [revealToken, prefersReducedMotion]);
 
   useEffect(() => {
     const shouldLetTargetScroll = (target: EventTarget | null, deltaY: number) => {
@@ -361,7 +394,7 @@ export function HowWeWorkPage() {
     async function typeLaptopText() {
       setLaptopTypedText("");
 
-      if (activeIndex !== 1 || accentContentReadyScene !== activeIndex) return;
+      if (activeIndex !== 1 || !isAccentContentReady) return;
 
       if (prefersReducedMotion) {
         setLaptopTypedText(laptopTerminalText);
@@ -414,10 +447,7 @@ export function HowWeWorkPage() {
       cancelled = true;
       if (timeoutId) window.clearTimeout(timeoutId);
     };
-  }, [accentContentReadyScene, activeIndex, prefersReducedMotion]);
-
-  const isAccentReady = accentReadyScene === activeIndex;
-  const isAccentContentReady = accentContentReadyScene === activeIndex;
+  }, [isAccentContentReady, activeIndex, prefersReducedMotion]);
 
   return (
     <section
@@ -450,6 +480,27 @@ export function HowWeWorkPage() {
             style={{ backgroundImage: `url(${scene.mobileImage})` }}
           />
         ))}
+      </div>
+
+      {/*
+        Панель с <h1> стоит здесь, а НЕ ниже слоёв поверхностей, где она была раньше.
+        Причина: заметки корковой доски содержат по <h3>, и при прежнем порядке документ доходил
+        до четырёх <h3> раньше, чем до единственного <h1> страницы (зафиксировано снимком
+        production 2026-07-29).
+
+        Порядок ОТРИСОВКИ при этом не изменился и больше не зависит от позиции в DOM: панель,
+        подсказка колеса и индикатор прогресса получили явные `z-index` (4 и 5 против 3 у слоёв
+        поверхностей) — см. HowWeWorkPage.module.css. Без этих значений перенос увёл бы панель под
+        корковую доску, потому что у равных `z-index` побеждает то, что идёт ниже по документу.
+      */}
+      <div
+        className={styles["office-route-panel"]}
+        aria-live="polite"
+        key={scenes[activeIndex].label}
+      >
+        <p className={styles["eyebrow"]}>{scenes[activeIndex].label}</p>
+        <h1>{scenes[activeIndex].title}</h1>
+        <p>{scenes[activeIndex].description}</p>
       </div>
 
       <div
@@ -598,16 +649,6 @@ export function HowWeWorkPage() {
         </span>
         <span>Вернуться</span>
       </Link>
-
-      <div
-        className={styles["office-route-panel"]}
-        aria-live="polite"
-        key={scenes[activeIndex].label}
-      >
-        <p className={styles["eyebrow"]}>{scenes[activeIndex].label}</p>
-        <h1>{scenes[activeIndex].title}</h1>
-        <p>{scenes[activeIndex].description}</p>
-      </div>
 
       <div className={styles["office-wheel-hint"]} aria-hidden="true">
         Колесико мыши переключает локации

@@ -142,7 +142,6 @@ export function ProductInformation({
           data-active={isMobile || activeTab === "overview"}
           className={styles.tabPanel}
         >
-          <h2 className={styles.fallbackPanelTitle}>{pageCopy.tabs.overview}</h2>
           <header className={styles.productHeader}>
             <p className={styles.productEyebrow}>
               Продукт {String(product.order).padStart(2, "0")}
@@ -170,6 +169,16 @@ export function ProductInformation({
               Все варианты стоимости <span aria-hidden="true">→</span>
             </button>
           </header>
+          {/*
+            Заголовок панели «Обзор» стоит ПОСЛЕ <header> с <h1>, а не перед ним.
+            Он показывается только без JavaScript (`html.js .fallbackPanelTitle { display: none }`),
+            когда вкладки скрыты и все панели идут стопкой: там ему нужна собственная подпись, как
+            у остальных панелей. Но пока он стоял первым, документ начинался с <h2> и лишь потом
+            доходил до <h1> продукта — порядок заголовков был нарушен на всех десяти карточках
+            (зафиксировано снимком production 2026-07-29). С JavaScript элемент невидим, поэтому
+            перенос ничего не меняет визуально.
+          */}
+          <h2 className={styles.fallbackPanelTitle}>{pageCopy.tabs.overview}</h2>
           <section>
             <h2>{pageCopy.sectionHeadings.applies}</h2>
             <p>{product.content.applies}</p>

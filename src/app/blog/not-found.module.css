@@ -1,0 +1,123 @@
+/*
+ * Оформление 404 раздела «Блог».
+ *
+ * Собственный модуль, а не переиспользование `BlogExperience.module.css`: та сетка рассчитана на
+ * рельс со списком статей и панель материала, которых здесь нет. Общими остаются ровно те детали,
+ * по которым посетитель узнаёт раздел, — фотография рабочего стола, её затемнение и типографика.
+ */
+
+.scene {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  height: 100%;
+  padding: clamp(24px, 4vw, 64px);
+  overflow: hidden;
+  background: #241d17;
+}
+
+.background,
+.background img,
+.photoShade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.background {
+  z-index: -3;
+}
+
+.background img {
+  object-fit: cover;
+  object-position: center 53%;
+}
+
+.photoShade {
+  z-index: -2;
+  background:
+    linear-gradient(90deg, rgba(22, 18, 14, 0.3), transparent 38%),
+    linear-gradient(180deg, rgba(20, 16, 12, 0.08), rgba(20, 16, 12, 0.28));
+  pointer-events: none;
+}
+
+.card {
+  display: flex;
+  max-width: 560px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(12px, 1.6vh, 18px);
+  padding: clamp(26px, 3.4vw, 44px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
+  background: rgba(24, 19, 15, 0.82);
+  backdrop-filter: blur(14px);
+  color: #f4efe8;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--color-accent-warm, #d9a441);
+  font-size: 0.7rem;
+  font-weight: 760;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.card h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  line-height: 1.15;
+}
+
+.card p {
+  margin: 0;
+  color: rgba(244, 239, 232, 0.82);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: var(--color-accent-warm, #d9a441);
+  color: #1c1712;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform 160ms ease;
+}
+
+.backLink:hover {
+  transform: translateY(-1px);
+}
+
+.backLink:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backLink {
+    transition: none;
+  }
+
+  .backLink:hover {
+    transform: none;
+  }
+}
+
+@media (max-width: 800px) {
+  .scene {
+    min-height: 70vh;
+    place-items: center start;
+  }
+}

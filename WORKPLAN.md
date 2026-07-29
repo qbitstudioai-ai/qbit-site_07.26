@@ -1364,3 +1364,143 @@ scope, оформляется Amendment):
 - Status: `COMPLETED` (локальные проверки пройдены; независимый skeptic не вызывался — пользователь
   потребовал реализацию сразу, доставка не проверена вживую до задания
   `N8N_CONTACT_WEBHOOK_URL`).
+
+## Plan Amendment SEO-01 — первый пакет технических SEO-исправлений (2026-07-29)
+
+- Reason: запрос пользователя после внешнего снимка production
+  (`allqbit-production-snapshot-2026-07-29.zip`). Снимок зафиксировал три подтверждённых дефекта
+  разметки и две недоработки, перечисленные пользователем как «первый пакет».
+- Old scope:
+  - на карточке продукта `<h2>Обзор</h2>` (no-JS fallback) стоит в DOM ПЕРЕД `<h1>` продукта;
+  - на `/how-we-work` четыре `<h3>` заметок корковой доски стоят в DOM ПЕРЕД единственным `<h1>`;
+  - `sitemap.xml` проставляет `lastModified` только у `/faq`, `/blog` и статей;
+  - description продуктов собирается как `summary` + цена и доходит до ~300 символов;
+  - `/blog/<неизвестный-slug>` отдаёт 404 без `<h1>` и с общим `<title>`.
+- New scope (один связный шаг `SEO-01`, пять правок):
+  1. `ProductInformation.tsx` — перенос no-JS заголовка панели ПОСЛЕ `<header>` с `<h1>`.
+  2. `HowWeWorkPage.tsx` + `HowWeWorkPage.module.css` — перенос `office-route-panel` в DOM выше
+     слоёв поверхностей; порядок отрисовки сохраняется явными `z-index`, а не позицией в DOM.
+  3. `sitemap.ts` + серверный слой — `lastModified` из настоящих `updated_at` базы.
+  4. `products.ts` — отдельное SEO-описание 120–160 символов + тест длины.
+  5. `src/app/blog/not-found.tsx` — сегментная 404 блога.
+  6. Правка Caddy для `www → non-www` — только подготовлена текстом, на сервер НЕ применяется.
+- Impact: `src/features/products/ProductInformation.tsx`,
+  `src/features/products/ProductsExperience.module.css` (если потребуется),
+  `src/features/how-we-work/HowWeWorkPage.tsx`, `src/features/how-we-work/HowWeWorkPage.module.css`,
+  `src/app/sitemap.ts`, `src/server/content/*.ts`, `src/features/products/products.ts`,
+  `src/app/blog/not-found.tsx`, тесты, `SEO_FIX_BATCH_01_REPORT.md`.
+- Out of scope (прямой запрет пользователя): редиректы старых URL, изменение кеширования,
+  оптимизация изображений и JS, подключение аналитики, изменение дизайна, деплой.
+- Нумерация: `SEO-01`, а не «44». Номер 44 уже занят шагом «final research publication»
+  (см. начало файла и запись в `WORKLOG.md` от 2026-07-25) — сквозная нумерация в этом проекте
+  уже давала коллизии на 42 и 43, и ещё одна сделала бы журнал неоднозначным.
+- Почему один шаг, а не пять: пользователь поставил пакет как единое задание, правки независимы и
+  проверяются одним прогоном. Skeptic вызывается один раз по всему диффу — не пропускается.
+- User approval: получено (постановка задачи 2026-07-29).
+- Rollback: `git checkout -- ` по перечисленным файлам; `not-found.tsx` удалить.
+
+### Step SEO-01 — первый пакет технических SEO-исправлений
+
+- Acceptance criteria:
+  - на каждой публичной странице ровно один `<h1>`, и он идёт в DOM раньше любых `<h2>`/`<h3>`;
+  - визуальный результат не изменился (сверка скриншотов до/после);
+  - `sitemap.xml` содержит `lastmod` только там, где есть настоящая дата из базы;
+  - ни один product description не длиннее 160 символов, все не короче 120;
+  - `/blog/<неизвестный-slug>` — 404, один `<h1>` «Статья не найдена», `noindex`;
+  - правка Caddy показана, но не применена;
+  - `typecheck`, `lint`, `test`, `build`, затронутые e2e — зелёные.
+- Status: `COMPLETED` (skeptic PASS, раунд 3, 2026-07-29)
+
+## Plan Amendment SEO-02 — устранение блокирующей ошибки линта (2026-07-29)
+
+- Reason: запрос пользователя. `npm run lint` оставался красным одной предсуществующей ошибкой,
+  и это блокировало деплой пакета `SEO-01`.
+- Old scope: `HowWeWorkPage.tsx` держал готовность акцента в двух состояниях «номер готовой сцены»
+  и сбрасывал их ТРЕМЯ синхронными `setState` в теле эффекта — каскадные рендеры,
+  `react-hooks/set-state-in-effect`.
+- New scope: только `HowWeWorkPage.tsx` — индекс сцены и номер её включения объединены в одно
+  состояние `scene`; готовность сравнивается с токеном показа (`activation` + режим движения)
+  вместо номера сцены; синхронные `setState` из эффекта убраны. Правило не отключается,
+  `eslint-disable` не вводится.
+- Деплой и применение Caddy вынесены в отдельный шаг `SEO-03`. Причина — находка независимого
+  ревью: половина прежних критериев (редиректы, 23 адреса, заголовки в production) физически
+  проверяема только ПОСЛЕ выкатки, и одним вердиктом такой шаг не закрывается. Объём работ при
+  разделении не меняется: и правка линта, и деплой поручены пользователем в одной постановке.
+- Out of scope (прямой запрет пользователя): оптимизация скорости, аналитика, редиректы старых URL,
+  изменение кеширования, новые видимые тексты, изменения дизайна.
+- User approval: получено (постановка задачи 2026-07-29).
+- Rollback: `git checkout -- src/features/how-we-work/HowWeWorkPage.tsx`.
+
+### Step SEO-02 — устранение ошибки линта
+
+- Acceptance criteria:
+  - `npm run lint` — exit 0, без `eslint-disable` и без правки конфигурации ESLint;
+  - поведение и анимации `/how-we-work` не изменились, проверено на desktop и mobile,
+    включая краевой случай возврата в сцену в окне между блокировкой перехода (1120 мс) и
+    задержкой акцента (1500 мс);
+  - весь quality gate зелёный: `format:check`, `lint`, `typecheck`, `test`, `build`, весь Playwright.
+- Status: `COMPLETED` (skeptic PASS, 2026-07-29)
+
+## Plan Amendment SEO-03 — деплой пакета и применение редиректа Caddy (2026-07-29)
+
+- Reason: постановка пользователя от 2026-07-29 — «после успешной проверки задеплой SEO-пакет №1»
+  и «примени редирект Caddy». Выделено из `SEO-02` по находке независимого ревью.
+- Scope: выкатка на production кода шагов `SEO-01` и `SEO-02`; применение подготовленного
+  редиректа `www → non-www` в `Caddyfile` через `caddy validate` + `caddy reload`.
+- Out of scope (прямой запрет пользователя): оптимизация скорости, аналитика, редиректы старых URL,
+  изменение кеширования, новые видимые тексты, изменения дизайна.
+- User approval: получено (постановка задачи 2026-07-29).
+
+### Состояние production ДО деплоя — опорные точки отката
+
+| Что | Значение |
+| --- | --- |
+| commit | `469e90520c349cbb28d7338f3f8b7f5eb8413a04` |
+| Docker image ID | `sha256:83a425ebc838757b74850dc91957f4c7b0909d7972d300afaa1fabd3c5e64c31` |
+| образ собран | 2026-07-29T11:27:51+03:00 |
+| контейнер | `a93f84b3e97f`, запущен 2026-07-29T08:33:02Z |
+| BUILD_ID | `oEDuygj9UpGTJTR-B_0di` |
+| `Caddyfile` sha256 | `7bf55465852f268cbc3f5a075248c23b130d75bb1e31a9da3278a031f92a8f61` |
+| `Caddyfile` mtime | 2026-06-06 06:56:45 +0300 |
+| свободно на `/opt` | 51 ГБ |
+
+### Rollback (записан ДО выкатки)
+
+Код:
+
+```bash
+cd /opt/allqbit
+git reset --hard 469e90520c349cbb28d7338f3f8b7f5eb8413a04
+docker tag sha256:83a425ebc838757b74850dc91957f4c7b0909d7972d300afaa1fabd3c5e64c31 allqbit-site:latest
+docker compose up -d --force-recreate allqbit-site
+```
+
+Прежний образ НЕ удаляется при деплое — новый получает тот же тег `allqbit-site:latest`, старый
+остаётся доступен по своему ID. Проверить наличие перед откатом: `docker images --no-trunc | grep 83a425eb`.
+
+Caddy:
+
+```bash
+cp /opt/supabase/volumes/proxy/caddy/Caddyfile.bak-2026-07-29 /opt/supabase/volumes/proxy/caddy/Caddyfile
+docker exec supabase-caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+docker exec supabase-caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+```
+
+**Важно про общий прокси.** `supabase-caddy` обслуживает не только сайт, но и домены боевого
+Supabase на этой же машине. Поэтому: правка только в блоке `allqbit.ru`, обязательный
+`caddy validate` ДО применения, `reload` (без простоя) вместо `restart`, и резервная копия
+`Caddyfile` создаётся до любой записи. Неверный конфиг положил бы и Supabase — это и есть главный
+риск шага.
+
+### Step SEO-03 — деплой и Caddy
+
+- Acceptance criteria:
+  - деплой прошёл, контейнер `healthy`, новый BUILD_ID отличается от `oEDuygj9UpGTJTR-B_0di`;
+  - все четыре варианта `www`/`non-www` × `http`/`https` для `/test?x=1` заканчиваются на
+    `https://allqbit.ru/test?x=1`; с `https://www` — ровно один переход;
+  - 23 адреса `sitemap.xml` отвечают 200, canonical ведёт на non-www;
+  - `sitemap.xml` и `robots.txt` открываются;
+  - на карточках продуктов `H1` раньше `H2`, на `/how-we-work` `H1` раньше `H3`;
+  - ошибок консоли в браузере нет, визуализация не изменилась;
+  - домены Supabase продолжают отвечать после `reload`.
+- Status: `IN_PROGRESS`

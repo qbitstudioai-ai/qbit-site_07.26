@@ -45,7 +45,12 @@ describe("product location configuration", () => {
       expect(product.layout.panelMaxWidth).toBeGreaterThanOrEqual(400);
       expect(["left", "right"]).toContain(product.layout.panelPosition);
       expect(product.seo.title).toContain(product.fullTitle);
-      expect(product.seo.description).toContain(product.content.summary);
+      // Описание БОЛЬШЕ не содержит `summary` целиком: с 2026-07-29 оно собирается из целых
+      // предложений видимого текста и укладывается в 160 символов, иначе выдача обрезала его
+      // посреди слова. Здесь остаётся проверка того, что относится к «конфигурации продукта», —
+      // описание есть и оно непустое. Длина, происхождение текста и обращение с ценой проверяются
+      // отдельным тестом `product-description.test.ts`.
+      expect(product.seo.description.length).toBeGreaterThan(0);
     }
   });
 
