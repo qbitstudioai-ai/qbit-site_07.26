@@ -14,6 +14,8 @@ artifacts/
 .env
 .env.local
 .env.*.local
+# Заполненный файл секретов сервера. В git попадает только образец .env.production.example.
+.env.production
 CLAUDE.local.md
 .claude/settings.local.json
 .claude/scheduled_tasks.lock

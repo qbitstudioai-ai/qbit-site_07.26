@@ -62,6 +62,16 @@ const NO_STORE = { key: "Cache-Control", value: "no-store, no-cache, must-revali
 const FILES_CSP = { key: "Content-Security-Policy", value: "sandbox; default-src 'none'" };
 
 const nextConfig: NextConfig = {
+  /**
+   * Сборка в самодостаточный сервер (`.next/standalone/server.js`): Next трассирует реально
+   * используемые модули и кладёт рядом только их. В образ уезжает около 150 МБ вместо примерно
+   * гигабайта `node_modules`, а деплой не требует `npm ci` на сервере.
+   *
+   * Следствие, о котором нужно помнить: `.next/static` и `public/` в standalone НЕ попадают —
+   * их копирует Dockerfile отдельно. Без этих двух строк сайт поднимется без стилей и картинок.
+   */
+  output: "standalone",
+
   // Версия фреймворка в заголовке помогает подбирать эксплойты и не даёт ничего взамен.
   poweredByHeader: false,
 
