@@ -16,6 +16,7 @@
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:seed": "node scripts/db-seed.mjs",
     "admin:hash-password": "node scripts/hash-admin-password.mjs",
+    "indexnow:submit-current": "node --no-warnings scripts/indexnow-submit-current.mjs",
     "assets:images": "node scripts/generate-office-images.mjs",
     "assets:scenes": "node scripts/generate-scene-catalog.mjs",
     "assets:documents": "node scripts/generate-documents-assets.mjs",

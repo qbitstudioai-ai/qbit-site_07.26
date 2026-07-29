@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { articlePlacementHref } from "@/content/article-placements";
 import { handleUnexpected, jsonError, readJsonBody, requireSession } from "@/server/api/guard";
 import { revalidateSection } from "@/server/api/revalidate";
 import { articleSchema, reorderSchema } from "@/server/api/schemas";
+import { submitIndexNow } from "@/server/indexnow/client";
+import { articleCreateIndexNowUrls, BLOG_URL } from "@/server/indexnow/urls";
 import {
   createArticle,
   isArticleSlugTaken,
@@ -35,6 +37,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     try {
       reorderArticles(body.data.order);
       revalidateSection("/blog");
+      after(async () => {
+        await submitIndexNow([BLOG_URL]);
+      });
       return NextResponse.json({ articles: listAllArticles() });
     } catch (error) {
       return handleUnexpected(error, "изменение порядка статей");
@@ -59,6 +64,12 @@ export async function POST(request: Request): Promise<NextResponse> {
     });
 
     revalidateSection(articlePlacementHref(article.placement));
+    const indexNowUrls = articleCreateIndexNowUrls(article);
+    if (indexNowUrls.length > 0) {
+      after(async () => {
+        await submitIndexNow(indexNowUrls);
+      });
+    }
     return NextResponse.json({ article }, { status: 201 });
   } catch (error) {
     return handleUnexpected(error, "создание статьи");

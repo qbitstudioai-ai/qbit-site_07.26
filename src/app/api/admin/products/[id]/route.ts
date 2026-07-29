@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { handleUnexpected, jsonError, readJsonBody, requireSession } from "@/server/api/guard";
 import { revalidateSection, revalidateSiteWide } from "@/server/api/revalidate";
 import { productUpdateSchema } from "@/server/api/schemas";
+import { submitIndexNow } from "@/server/indexnow/client";
+import { productUpdateIndexNowUrls } from "@/server/indexnow/urls";
 import { getProductById, isProductSlugTaken, updateProduct } from "@/server/repositories/products";
 
 /**
@@ -56,6 +58,9 @@ export async function PUT(
 
     revalidateSection("/products");
     revalidateSiteWide();
+    after(async () => {
+      await submitIndexNow(productUpdateIndexNowUrls(existing, product));
+    });
     return NextResponse.json({ product });
   } catch (error) {
     return handleUnexpected(error, `сохранение продукта ${id}`);

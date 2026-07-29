@@ -1,8 +1,10 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { articlePlacementHref } from "@/content/article-placements";
 import { handleUnexpected, jsonError, readJsonBody, requireSession } from "@/server/api/guard";
 import { revalidateSection } from "@/server/api/revalidate";
 import { articleSchema } from "@/server/api/schemas";
+import { submitIndexNow } from "@/server/indexnow/client";
+import { articleDeleteIndexNowUrls, articleUpdateIndexNowUrls } from "@/server/indexnow/urls";
 import {
   deleteArticle,
   getArticleById,
@@ -58,6 +60,9 @@ export async function PUT(
     // Сбрасываются оба раздела: если статью перенесли, старый список тоже обязан обновиться.
     revalidateSection(articlePlacementHref(existing.placement));
     revalidateSection(articlePlacementHref(article.placement));
+    after(async () => {
+      await submitIndexNow(articleUpdateIndexNowUrls(existing, article));
+    });
     return NextResponse.json({ article });
   } catch (error) {
     return handleUnexpected(error, `сохранение статьи ${id}`);
@@ -78,6 +83,9 @@ export async function DELETE(
   try {
     deleteArticle(id);
     revalidateSection(articlePlacementHref(existing.placement));
+    after(async () => {
+      await submitIndexNow(articleDeleteIndexNowUrls(existing));
+    });
     return NextResponse.json({ ok: true });
   } catch (error) {
     return handleUnexpected(error, `удаление статьи ${id}`);

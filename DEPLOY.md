@@ -127,6 +127,39 @@ crontab -e
 
 ## Обновление
 
+### IndexNow
+
+IndexNow использует один ключ для `allqbit.ru`. Сгенерируйте строку длиной 32-64 символа
+из латинских букв, цифр и дефиса, создайте `public/<INDEXNOW_KEY>.txt` с одним только
+ключом и укажите то же значение в `/opt/allqbit-data/production.env`:
+
+```bash
+INDEXNOW_KEY=<INDEXNOW_KEY>
+INDEXNOW_HOST=allqbit.ru
+INDEXNOW_ENDPOINT=https://api.indexnow.org/indexnow
+```
+
+После деплоя сначала проверьте файл подтверждения. Ответ должен содержать только ключ:
+
+```bash
+curl -fsS "https://allqbit.ru/${INDEXNOW_KEY}.txt"
+```
+
+Затем один раз отправьте текущие URL из production-контейнера. Скрипт сам проверяет
+TXT-файл, ожидает 23 canonical URL в sitemap, проверяет пять постоянных legacy-редиректов,
+удаляет дубликаты и завершится с ненулевым кодом при ошибке:
+
+```bash
+docker compose exec allqbit-site npm run indexnow:submit-current
+```
+
+Результат отправки проверяется в Bing Webmaster Tools в разделе IndexNow. Появление URL
+может быть не мгновенным, а успешный приём не гарантирует индексацию. IndexNow сообщает
+поисковику об изменениях и не заменяет `https://allqbit.ru/sitemap.xml`.
+
+Автоматические уведомления выполняются сервером после успешного сохранения через `after()`.
+Ошибка или таймаут IndexNow записываются в серверный лог, но не меняют ответ админского API.
+
 ```bash
 cd /opt/allqbit && ./deploy.sh
 ```

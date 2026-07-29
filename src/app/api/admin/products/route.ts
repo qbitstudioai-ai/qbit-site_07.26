@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { handleUnexpected, readJsonBody, requireSession } from "@/server/api/guard";
 import { revalidateSection } from "@/server/api/revalidate";
 import { reorderSchema } from "@/server/api/schemas";
+import { submitIndexNow } from "@/server/indexnow/client";
+import { productReorderIndexNowUrls } from "@/server/indexnow/urls";
 import { listAllProducts, reorderProducts } from "@/server/repositories/products";
 
 /** Список продуктов для админ-панели и изменение порядка отображения. */
@@ -25,6 +27,9 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     reorderProducts(body.data.order);
     revalidateSection("/products");
+    after(async () => {
+      await submitIndexNow(productReorderIndexNowUrls());
+    });
     return NextResponse.json({ products: listAllProducts() });
   } catch (error) {
     return handleUnexpected(error, "изменение порядка продуктов");

@@ -66,6 +66,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/
 # скопирован выше) — как источник файлов документов.
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/src/server/db/schema.mjs ./src/server/db/schema.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/src/server/indexnow/core.ts ./src/server/indexnow/core.ts
+COPY --from=builder --chown=nextjs:nodejs /app/src/lib/legacyRedirects.ts ./src/lib/legacyRedirects.ts
 COPY --from=builder --chown=nextjs:nodejs /app/data ./data
 
 # Кэш перерисованных страниц. Каталог создаётся заранее и с нужным владельцем: процесс работает не
