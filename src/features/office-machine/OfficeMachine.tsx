@@ -7,6 +7,7 @@ import { HeroInfoPanel } from "@/components/homepage/HeroInfoPanel";
 import { HeroOfficeVisual } from "@/components/homepage/HeroOfficeVisual";
 import { OfficeExperience } from "@/components/office/OfficeExperience";
 import type { Department, HomepageCopy, OfficeZone } from "@/content/types";
+import type { ContactChannel } from "@/features/contacts/contactData";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 import styles from "./OfficeMachine.module.css";
 import { initOfficeMachineState, officeMachineReducer, type OfficeSectionId } from "./reducer";
@@ -37,6 +38,7 @@ interface OfficeMachineProps {
   copy: HomepageCopy;
   departments: Department[];
   officeZones: OfficeZone[];
+  contactChannels: ContactChannel[];
   initialRevealed: boolean;
   initialSectionId: OfficeSectionId | null;
 }
@@ -45,6 +47,7 @@ export function OfficeMachine({
   copy,
   departments,
   officeZones,
+  contactChannels,
   initialRevealed,
   initialSectionId,
 }: OfficeMachineProps) {
@@ -225,6 +228,7 @@ export function OfficeMachine({
           taskCopy={copy.taskSection}
           departments={departments}
           officeZones={officeZones}
+          contactChannels={contactChannels}
           isRevealed={state.view !== "hero"}
           machineView={state.view}
           activeSectionId={state.activeSectionId}

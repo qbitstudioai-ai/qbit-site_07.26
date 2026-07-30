@@ -1,13 +1,14 @@
 import type { TaskSectionCopy } from "@/content/types";
+import { ContactForm } from "@/features/contacts/ContactForm";
+import type { ContactChannel } from "@/features/contacts/contactData";
 import { TASK_SECTION_ID, type OfficeMachineView } from "@/features/office-machine/reducer";
-import { TaskForm } from "./TaskForm";
 import styles from "./TaskSectionExperience.module.css";
 import { sectionHeadingId } from "@/features/office-machine/focusTargets";
 
 interface TaskSectionExperienceProps {
   copy: TaskSectionCopy;
   machineView: OfficeMachineView;
-  contactHref: string;
+  contactChannels: readonly ContactChannel[];
   onClose: () => void;
 }
 
@@ -18,7 +19,7 @@ interface TaskSectionExperienceProps {
 export function TaskSectionExperience({
   copy,
   machineView,
-  contactHref,
+  contactChannels,
   onClose,
 }: TaskSectionExperienceProps) {
   const transitionClassName =
@@ -40,7 +41,9 @@ export function TaskSectionExperience({
       </h2>
       <p className={styles.intro}>{copy.intro}</p>
 
-      <TaskForm copy={copy} contactHref={contactHref} />
+      <div className={styles.contactFormPanel}>
+        <ContactForm channels={contactChannels} />
+      </div>
 
       <div className={styles.actions}>
         <button type="button" className={styles.close} onClick={onClose}>

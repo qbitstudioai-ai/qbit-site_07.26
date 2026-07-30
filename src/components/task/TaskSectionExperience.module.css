@@ -63,6 +63,16 @@
   max-width: 60ch;
 }
 
+.contactFormPanel {
+  padding: clamp(14px, 1.7vw, 22px);
+  border: 1px solid rgba(214, 184, 150, 0.34);
+  border-radius: 8px;
+  background: linear-gradient(152deg, rgba(43, 34, 26, 0.9), rgba(23, 19, 15, 0.94));
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.2),
+    inset 0 0 70px rgba(255, 214, 166, 0.05);
+}
+
 .actions {
   display: flex;
   flex-shrink: 0;

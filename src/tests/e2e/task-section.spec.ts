@@ -2,12 +2,22 @@ import { expect, test, type Page } from "@playwright/test";
 import { getHomepageCopy } from "../../content/homepage-copy";
 
 // Step 12.7 — раздел «Ваша задача». Настоящая доставка в Telegram здесь НЕ проверяется: она требует
-// токена бота, которого в тестовом окружении нет и быть не должно. Вместо этого /api/task
-// перехватывается, и проверяется то, что относится к фронтенду: что форма отправляет введённый
-// текст, что показывает результат и что при ошибке не рапортует об успехе.
+// токена бота, которого в тестовом окружении нет и быть не должно. Вместо этого /api/contact
+// перехватывается, и проверяется то, что относится к фронтенду: что контактная форма отправляет
+// введённую заявку, показывает результат и при ошибке не рапортует об успехе.
 const copy = getHomepageCopy();
 const task = copy.taskSection;
-const VALID_MESSAGE = "Заявки приходят из чатов и почты, часть теряется — хочу единое окно.";
+const CONTACT_NAME = "Павел";
+const CONTACT_TELEGRAM = "@pavel_test";
+const CONTACT_PROCESS = "Менеджеры вручную переносят заявки из Telegram в CRM и теряют часть обращений.";
+
+async function fillContactForm(page: Page) {
+  await page.getByRole("textbox", { name: "Ваше имя" }).fill(CONTACT_NAME);
+  await page.getByRole("textbox", { name: "Telegram" }).fill(CONTACT_TELEGRAM);
+  await page
+    .getByRole("textbox", { name: "Какой процесс хотите автоматизировать" })
+    .fill(CONTACT_PROCESS);
+}
 
 async function openOverview(page: Page) {
   await page.getByRole("link", { name: copy.secondaryCta }).click();
@@ -97,61 +107,77 @@ test.describe("Step 12.7 — раздел «Ваша задача»", () => {
     await expect(rail).toBeVisible();
   });
 
-  test("отправляет введённый текст и показывает подтверждение", async ({ page }) => {
-    let sentMessage: string | null = null;
-    await page.route("**/api/task", async (route) => {
-      sentMessage = JSON.parse(route.request().postData() ?? "{}").message;
+  test("отправляет заявку через форму контактов и показывает подтверждение", async ({ page }) => {
+    let sentRequest: Record<string, unknown> | null = null;
+    await page.route("**/api/contact", async (route) => {
+      sentRequest = JSON.parse(route.request().postData() ?? "{}");
       await route.fulfill({ status: 200, json: { ok: true } });
     });
 
     await page.goto("/?section=task");
-    await page.getByRole("textbox", { name: task.fieldLabel }).fill(VALID_MESSAGE);
-    await page.getByRole("button", { name: task.submitLabel }).click();
+    await fillContactForm(page);
+    await page.getByRole("button", { name: "Отправить заявку" }).click();
 
-    await expect(page.getByText(task.successMessage)).toBeVisible();
-    expect(sentMessage).toBe(VALID_MESSAGE);
-    // Поле очищается, чтобы человек не отправил тот же текст второй раз, не заметив.
-    await expect(page.getByRole("textbox", { name: task.fieldLabel })).toHaveValue("");
+    await expect(page.getByText("Спасибо! Заявка отправлена.")).toBeVisible();
+    expect(sentRequest).toMatchObject({
+      name: CONTACT_NAME,
+      telegram: CONTACT_TELEGRAM,
+      process: CONTACT_PROCESS,
+    });
+    // Поля очищаются, чтобы человек не отправил ту же заявку второй раз, не заметив.
+    await expect(page.getByRole("textbox", { name: "Ваше имя" })).toHaveValue("");
+    await expect(
+      page.getByRole("textbox", { name: "Какой процесс хотите автоматизировать" }),
+    ).toHaveValue("");
   });
 
   test("при ошибке сервера сообщает об ошибке, а не об успехе", async ({ page }) => {
     // 503 — ровно то, что вернёт роут, если бот не настроен. Худший возможный исход здесь —
     // показать «отправлено»: человек будет ждать ответа, которого никто не получил.
-    await page.route("**/api/task", (route) => route.fulfill({ status: 503, json: { ok: false } }));
+    await page.route("**/api/contact", (route) =>
+      route.fulfill({ status: 503, json: { ok: false } }),
+    );
 
     await page.goto("/?section=task");
-    await page.getByRole("textbox", { name: task.fieldLabel }).fill(VALID_MESSAGE);
-    await page.getByRole("button", { name: task.submitLabel }).click();
+    await fillContactForm(page);
+    await page.getByRole("button", { name: "Отправить заявку" }).click();
 
-    await expect(page.getByText(task.errorMessage)).toBeVisible();
-    await expect(page.getByText(task.successMessage)).toHaveCount(0);
+    await expect(page.getByText("Не удалось отправить заявку.")).toBeVisible();
+    await expect(page.getByText("Спасибо! Заявка отправлена.")).toHaveCount(0);
     // Текст не потерян — человеку не придётся набирать его заново.
-    await expect(page.getByRole("textbox", { name: task.fieldLabel })).toHaveValue(VALID_MESSAGE);
+    await expect(
+      page.getByRole("textbox", { name: "Какой процесс хотите автоматизировать" }),
+    ).toHaveValue(CONTACT_PROCESS);
   });
 
-  test("слишком короткий текст не уходит на сервер вовсе", async ({ page }) => {
+  test("без телефона или Telegram заявка не уходит на сервер вовсе", async ({ page }) => {
     let requestCount = 0;
-    await page.route("**/api/task", async (route) => {
+    await page.route("**/api/contact", async (route) => {
       requestCount += 1;
       await route.fulfill({ status: 200, json: { ok: true } });
     });
 
     await page.goto("/?section=task");
-    await page.getByRole("textbox", { name: task.fieldLabel }).fill("тест");
-    await page.getByRole("button", { name: task.submitLabel }).click();
+    await page.getByRole("textbox", { name: "Ваше имя" }).fill(CONTACT_NAME);
+    await page
+      .getByRole("textbox", { name: "Какой процесс хотите автоматизировать" })
+      .fill(CONTACT_PROCESS);
+    await page.getByRole("button", { name: "Отправить заявку" }).click();
 
-    await expect(page.getByText(task.tooShortMessage)).toBeVisible();
+    await expect(page.getByText("Укажите телефон или Telegram.")).toBeVisible();
     expect(requestCount).toBe(0);
   });
 
   test("состояние отправки объявляется скринридеру, а не только цветом", async ({ page }) => {
-    await page.route("**/api/task", (route) => route.fulfill({ status: 200, json: { ok: true } }));
+    await page.route("**/api/contact", (route) =>
+      route.fulfill({ status: 200, json: { ok: true } }),
+    );
 
     await page.goto("/?section=task");
-    await page.getByRole("textbox", { name: task.fieldLabel }).fill(VALID_MESSAGE);
-    await page.getByRole("button", { name: task.submitLabel }).click();
+    await fillContactForm(page);
+    await page.getByRole("button", { name: "Отправить заявку" }).click();
 
     // role="status" — то, что зачитает скринридер; проверяем, что результат попал именно туда.
-    await expect(page.getByRole("status")).toContainText(task.successMessage);
+    await expect(page.getByRole("status")).toContainText("Спасибо! Заявка отправлена.");
   });
 });

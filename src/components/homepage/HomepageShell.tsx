@@ -3,6 +3,7 @@ import { getHomepageCopy } from "@/content/homepage-copy";
 import { getOfficeZones } from "@/content/office-zones";
 import type { OfficeSectionId } from "@/features/office-machine/reducer";
 import { OfficeMachine } from "@/features/office-machine/OfficeMachine";
+import { getContactChannels } from "@/server/content/contacts";
 import styles from "./HomepageShell.module.css";
 
 interface HomepageShellProps {
@@ -13,6 +14,7 @@ interface HomepageShellProps {
 export function HomepageShell({ initialRevealed, initialSectionId }: HomepageShellProps) {
   const copy = getHomepageCopy();
   const departments = getDepartments();
+  const contactChannels = getContactChannels();
 
   /**
    * Зоны офиса согласуются с отделами ЗДЕСЬ, в одной точке.
@@ -35,6 +37,7 @@ export function HomepageShell({ initialRevealed, initialSectionId }: HomepageShe
         copy={copy}
         departments={departments}
         officeZones={officeZones}
+        contactChannels={contactChannels}
         initialRevealed={initialRevealed}
         initialSectionId={initialSectionId}
       />

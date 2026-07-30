@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { DepartmentExperience } from "@/components/departments/DepartmentExperience";
+import type { ContactChannel } from "@/features/contacts/contactData";
 import type {
   Department,
   OfficeOverviewCopy,
@@ -29,6 +30,7 @@ interface OfficeExperienceProps {
   returnToOfficeLabel: string;
   /** Единый контакт сайта — прокидывается до CTA внутри отдела (Amendment 10). */
   contactHref: string;
+  contactChannels?: readonly ContactChannel[];
   departments: Department[];
   officeZones: OfficeZone[];
   isRevealed: boolean;
@@ -96,6 +98,7 @@ export function OfficeExperience({
   officeOverview,
   returnToOfficeLabel,
   contactHref,
+  contactChannels = [],
   departments,
   officeZones,
   isRevealed,
@@ -287,7 +290,7 @@ export function OfficeExperience({
                     <TaskSectionExperience
                       copy={taskCopy}
                       machineView={machineView}
-                      contactHref={contactHref}
+                      contactChannels={contactChannels}
                       onClose={onCloseDepartment}
                     />
                   )}
