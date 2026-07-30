@@ -2453,6 +2453,77 @@ exit 0, `npm test` 487 passed, `npx playwright test` 423 passed / 1 skipped / 0 
 
 **Шаг закрыт как `COMPLETED`. Код не задеплоен, коммитов нет.**
 
+## Production deploy SEO-06/SEO-07 — отдельные SEO title (2026-07-30)
+
+**No-write окно.** Подтверждено пользователем перед production-действиями: продукты и статьи не
+редактируются, вкладки админ-панели закрыты или полностью перезагружены, новые сохранения через
+админку запрещены до окончания миграции и проверки.
+
+**Commit и image.** Основной commit `12c59d082fbb7643552ccfd8b8a544d95772948a`
+(`feat(seo): add backward-compatible SEO title updates`) отправлен в `origin/master`; локальный
+`HEAD` совпал с `origin/master`. Production checkout `/opt/allqbit` обновлен до того же commit.
+Подготовлен image `allqbit-site:12c59d0` без переключения контейнера; image ID/digest
+`sha256:7e4d9b126dab49066c49de31c8ccc0b97cd32676bd4c88c42c8abef584ddd03a`, label
+`org.opencontainers.image.revision=12c59d082fbb7643552ccfd8b8a544d95772948a`, BUILD_ID
+`sx5o8TA5Lii2euku78JC4`.
+
+**Quality gate перед commit.** `npm run format:check` clean; `npm run lint` exit 0;
+`npm run typecheck` exit 0; `npm test` — 53 files / 517 tests passed; `npm run build` passed
+(только известные предупреждения Turbopack по AVIF/NFT); `npx playwright test --retries=2` —
+424 tests passed, 0 failed.
+
+**Backup.** Перед миграцией создан архив
+`/opt/allqbit-data/backups/allqbit-20260730-101249.tar.gz`, размер 68790 bytes, mtime
+`2026-07-30 10:12:49.632808784 +0300`, SHA-256
+`5a0a72b49d54b90e2c959119d9389eb45964ca2dbe75156d7992c6fae12d509c`. `tar -tzf` прочитал
+`content.db` и `uploads/`; SQLite `PRAGMA integrity_check` на распакованной копии вернул `ok`.
+
+**Повторный read-only preflight.** База `/opt/allqbit-data/var/content.db` проверялась без записи.
+До/после checksum совпал:
+`f1e6c6c98cb11607391a810d97f7c7e0abbc27d5066be79c416ed3940f2920de`. Применена только
+`0001_initial_content_schema`; `products.seo_title` отсутствовал; продукты готовы `10/10`; статьи
+точно совпали со старыми защитными `seo_title` из миграции `6/6`.
+
+**Миграция.** Применена только `0002_product_seo_title_and_short_titles` командой из подготовленного
+image, до переключения production-контейнера. SQL-проверка после миграции: колонка
+`products.seo_title` существует; migrations =
+`["0001_initial_content_schema","0002_product_seo_title_and_short_titles"]`; продукты получили
+ожидаемые значения `10/10`; статьи получили ожидаемые значения `6/6`; всего products с non-null
+`seo_title` — 10; статей с новыми ожидаемыми SEO title — 6; прочие поля целевых строк совпали со
+снимком до миграции.
+
+**Деплой приложения.** После успешной миграции image `allqbit-site:12c59d0` помечен как
+`allqbit-site:latest`, пересоздан только сервис `allqbit-site`; Caddy, Supabase и другие сервисы не
+изменялись. Контейнер `/allqbit-site` `running`, health `healthy`, image
+`sha256:7e4d9b126dab49066c49de31c8ccc0b97cd32676bd4c88c42c8abef584ddd03a`, BUILD_ID
+`sx5o8TA5Lii2euku78JC4`. Startup logs: Next.js 16.2.10, `Ready in 0ms`, ошибок нет.
+
+**HTTP-проверки.** Admin API `/api/admin/products`, `/api/admin/articles`, `/api/admin/documents`
+вернул 401 без 5xx. Публичные `/`, `/products`, `/blog`, `/contacts`, `/documents`, `/faq`,
+`/how-we-work` вернули 200. Sitemap вернул 200, содержит ровно 23 URL; все 23 canonical URL из
+sitemap вернули 200. `robots.txt` вернул 200, SHA-256
+`4efa2897857d210f0f2a5b812cecf88884e078fc9a7308569a7311c8ab2502bb`, 139 bytes; файл не менялся в
+диффе application commit.
+
+**Production HTML 16 страниц.** Все 16 URL вернули HTTP 200. Для каждой страницы `<title>`,
+`og:title` и `twitter:title` совпали, длина title в диапазоне 45-54, все 16 title уникальны.
+Canonical совпал с проверяемым URL. H1 и meta description остались содержательными, JSON-LD не
+переключился на SEO title: у продуктов основной найденный тип `Organization`, name
+`QBit-Studio-Ai`; у статей `BlogPosting`, name/headline равен видимому H1.
+
+**IndexNow.** После успешной HTML-проверки выполнен один POST на IndexNow, без запуска
+`indexnow:submit-current`. Отправлены ровно 16 canonical URL: 10 продуктов и 6 статей из задания.
+HTTP status `200`, attempts `1`, response body `<empty>`. Секретный ключ не выводился. Тестовые
+production PUT-запросы не выполнялись.
+
+**Skeptic review.** Verdict `PASS`: порядок `миграция -> приложение` соблюден; deployed image
+соответствует commit `12c59d082fbb7643552ccfd8b8a544d95772948a`; БД содержит только ожидаемые
+изменения `10+6`; посторонних строк с новыми SEO title не найдено; HTML 16 страниц соответствует
+условиям; H1, description, canonical и JSON-LD не подменены SEO title; массовой отправки IndexNow не
+было; production PUT не выполнялись; локальное и production рабочие деревья были чистыми перед
+документационным обновлением. Bing Site Scan не запускался: авторизованного доступа к Bing Webmaster
+Tools в этой сессии нет.
+
 ## Step SEO-07 — обратная совместимость `seoTitle` со старым клиентом (2026-07-30)
 
 **Задача.** После деплоя у администратора может остаться открытая вкладка со старым бандлом. Её
