@@ -29,8 +29,13 @@ export type BlogPost = {
   draft: boolean;
   coverImage: string;
   coverAlt: string;
-  /** Заголовок и описание для поисковых систем. Редактируются отдельно от текста статьи. */
-  seoTitle: string;
+  /**
+   * Заголовок и описание для поисковых систем. Редактируются отдельно от текста статьи.
+   *
+   * `seoTitle === null` — заголовок не задан, страница собирает его из `title`. Видимый заголовок
+   * статьи от этого поля не зависит ни в каком состоянии.
+   */
+  seoTitle: string | null;
   seoDescription: string;
   sections: BlogSection[];
   relatedSlugs: string[];

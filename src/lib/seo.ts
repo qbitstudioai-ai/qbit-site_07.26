@@ -78,6 +78,29 @@ export function withBrand(title: string): string {
   return title.includes(SITE_NAME) ? title : `${title} — ${SITE_NAME}`;
 }
 
+/**
+ * Рекомендуемая длина SEO-заголовка. Не ограничение и не валидация: сохранить более длинный
+ * заголовок можно, счётчик в админ-панели лишь показывает, где выдача начнёт обрезать строку.
+ */
+export const SEO_TITLE_RECOMMENDED_LENGTH = 60;
+
+/**
+ * Приводит необязательный SEO-заголовок к одному виду: `null` — «не задан».
+ *
+ * Нужен потому, что «не задан» приходит из трёх разных мест в трёх разных видах: `NULL` из новой
+ * колонки `products.seo_title`, пустая строка из колонки `articles.seo_title`
+ * (`NOT NULL DEFAULT ''` с первой миграции) и пустое поле формы админ-панели. Дальше по коду
+ * проверка одна: `seoTitle ?? запасной вариант`.
+ *
+ * Заполненное значение возвращается ДОСЛОВНО — `withBrand` к нему не применяется. Владелец сайта
+ * пишет заголовок целиком, включая бренд; автоматическая приписка означала бы, что сохранённая
+ * строка и строка в выдаче различаются.
+ */
+export function normalizeSeoTitle(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 /** Абсолютный адрес из внутреннего пути. Абсолютный адрес возвращается как есть. */
 export function absoluteUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) return path;

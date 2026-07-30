@@ -33,6 +33,7 @@ const fallbackProducts: ProductLocation[] = seedProducts.map((product) =>
     hotspot: product.hotspot as ProductHotspot,
     content: product.content as ProductContent,
     layout: product.layout as ProductLayout,
+    seoTitle: product.seoTitle,
   }),
 );
 

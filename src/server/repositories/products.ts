@@ -6,6 +6,7 @@ import {
   type ProductLayout,
   type ProductLocation,
 } from "@/features/products/products";
+import { normalizeSeoTitle } from "@/lib/seo";
 import { getDatabase, nowIso, parseJsonColumn, transaction } from "../db/client";
 import { logActivity, saveRevision } from "./revisions";
 
@@ -34,6 +35,7 @@ interface ProductRow {
   layout: string;
   hotspot: string;
   image_alt: string;
+  seo_title: string | null;
   sort_order: number;
   is_published: number;
   updated_at: string;
@@ -47,6 +49,7 @@ function toProduct(row: ProductRow): ProductRecord {
     fullTitle: row.full_title,
     order: Number(row.sort_order),
     alt: row.image_alt,
+    seoTitle: row.seo_title,
     hotspot: parseJsonColumn<ProductHotspot>(row.hotspot, {
       x: 0,
       y: 0,
@@ -75,7 +78,7 @@ function toProduct(row: ProductRow): ProductRecord {
 }
 
 const SELECT = `SELECT id, slug, menu_title, full_title, content, layout, hotspot, image_alt,
-                       sort_order, is_published, updated_at FROM products`;
+                       seo_title, sort_order, is_published, updated_at FROM products`;
 
 /** Опубликованные продукты в порядке отображения — то, что видит посетитель. */
 export function getProducts(): ProductLocation[] {
@@ -120,11 +123,50 @@ export interface ProductUpdateInput {
   menuTitle: string;
   fullTitle: string;
   imageAlt: string;
+  /**
+   * Заголовок для выдачи, ТРИ состояния:
+   *
+   * - поле отсутствует (`undefined`) — колонка не участвует в `UPDATE`, прежнее значение остаётся;
+   * - `null` — явная очистка, заголовок снова собирается из `fullTitle`;
+   * - строка — новое значение.
+   *
+   * Отсутствие отделено от очистки ради старого клиента: вкладка админ-панели, открытая до
+   * деплоя, шлёт `PUT` без этого поля, и трактовать такой запрос как «очистить» значило бы терять
+   * заголовок при каждом сохранении из устаревшей формы.
+   */
+  seoTitle?: string | null;
   content: ProductContent;
   layout: ProductLayout;
   hotspot: ProductHotspot;
   sortOrder: number;
   isPublished: boolean;
+}
+
+/**
+ * Пары «колонка → значение» для записи продукта.
+ *
+ * Список, а не фиксированная строка SQL: `seo_title` попадает в запрос ТОЛЬКО когда клиент это
+ * поле прислал. Позиционная привязка параметров и без того легко разъезжается с перечнем колонок,
+ * а условная колонка сделала бы расхождение почти неизбежным.
+ */
+function productColumns(input: ProductUpdateInput): { name: string; value: unknown }[] {
+  const columns: { name: string; value: unknown }[] = [
+    { name: "slug", value: input.slug },
+    { name: "menu_title", value: input.menuTitle },
+    { name: "full_title", value: input.fullTitle },
+    { name: "image_alt", value: input.imageAlt },
+    { name: "content", value: JSON.stringify(input.content) },
+    { name: "layout", value: JSON.stringify(input.layout) },
+    { name: "hotspot", value: JSON.stringify(input.hotspot) },
+    { name: "sort_order", value: input.sortOrder },
+    { name: "is_published", value: input.isPublished ? 1 : 0 },
+  ];
+
+  if (input.seoTitle !== undefined) {
+    columns.push({ name: "seo_title", value: normalizeSeoTitle(input.seoTitle) });
+  }
+
+  return columns;
 }
 
 export function updateProduct(id: string, input: ProductUpdateInput): ProductRecord {
@@ -133,26 +175,12 @@ export function updateProduct(id: string, input: ProductUpdateInput): ProductRec
     if (!previous) throw new Error(`Продукт «${id}» не найден`);
     saveRevision("product", id, previous);
 
+    const columns = productColumns(input);
+    const assignments = columns.map((column) => `${column.name} = ?`).join(", ");
+
     getDatabase()
-      .prepare(
-        `UPDATE products
-            SET slug = ?, menu_title = ?, full_title = ?, image_alt = ?, content = ?,
-                layout = ?, hotspot = ?, sort_order = ?, is_published = ?, updated_at = ?
-          WHERE id = ?`,
-      )
-      .run(
-        input.slug,
-        input.menuTitle,
-        input.fullTitle,
-        input.imageAlt,
-        JSON.stringify(input.content),
-        JSON.stringify(input.layout),
-        JSON.stringify(input.hotspot),
-        input.sortOrder,
-        input.isPublished ? 1 : 0,
-        nowIso(),
-        id,
-      );
+      .prepare(`UPDATE products SET ${assignments}, updated_at = ? WHERE id = ?`)
+      .run(...(columns.map((column) => column.value) as never[]), nowIso(), id);
 
     logActivity("product", id, "update", `Продукт «${input.menuTitle}» обновлён`);
     return getProductById(id) as ProductRecord;
@@ -175,25 +203,17 @@ export function insertProductIfMissing(input: ProductUpdateInput & { id: string 
   const db = getDatabase();
   if (db.prepare("SELECT 1 FROM products WHERE id = ?").get(input.id)) return false;
 
+  // Создание: отсутствующий заголовок просто не попадает в список колонок и остаётся NULL — то же
+  // самое, что «не задан». Различать здесь нечего: прежнего значения у новой записи нет.
+  const columns = productColumns(input);
+  const names = columns.map((column) => column.name).join(", ");
+  const placeholders = columns.map(() => "?").join(", ");
   const timestamp = nowIso();
+
   db.prepare(
-    `INSERT INTO products (id, slug, menu_title, full_title, content, layout, hotspot, image_alt,
-                           sort_order, is_published, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    input.id,
-    input.slug,
-    input.menuTitle,
-    input.fullTitle,
-    JSON.stringify(input.content),
-    JSON.stringify(input.layout),
-    JSON.stringify(input.hotspot),
-    input.imageAlt,
-    input.sortOrder,
-    input.isPublished ? 1 : 0,
-    timestamp,
-    timestamp,
-  );
+    `INSERT INTO products (${names}, id, created_at, updated_at)
+     VALUES (${placeholders}, ?, ?, ?)`,
+  ).run(...(columns.map((column) => column.value) as never[]), input.id, timestamp, timestamp);
 
   return true;
 }

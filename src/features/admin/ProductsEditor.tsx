@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import type { ProductLocation, ProductPrice, ProductsPageCopy } from "@/features/products/products";
+import { SEO_TITLE_RECOMMENDED_LENGTH } from "@/lib/seo";
 import styles from "./admin.module.css";
 import { CheckboxField, Field, ListEditor, SaveBar, TextAreaField, TextField } from "./formKit";
 import { readApiError, useEditableForm } from "./useEditableForm";
@@ -339,6 +340,7 @@ interface ProductFormValue {
   menuTitle: string;
   fullTitle: string;
   imageAlt: string;
+  seoTitle: string;
   summary: string;
   applies: string;
   examples: string[];
@@ -356,6 +358,9 @@ function toFormValue(product: ProductRecord): ProductFormValue {
     menuTitle: product.menuTitle,
     fullTitle: product.fullTitle,
     imageAlt: product.images.alt,
+    // Пустая строка, а не собранный заголовок: форма показывает ровно то, что задано вручную,
+    // иначе первое же сохранение зафиксировало бы вычисляемое значение.
+    seoTitle: product.seoTitleOverride ?? "",
     summary: product.content.summary,
     applies: product.content.applies,
     examples: [...product.content.examples],
@@ -386,6 +391,7 @@ function ProductForm({
           menuTitle: value.menuTitle,
           fullTitle: value.fullTitle,
           imageAlt: value.imageAlt,
+          seoTitle: value.seoTitle.trim() || null,
           content: {
             summary: value.summary,
             applies: value.applies,
@@ -459,6 +465,20 @@ function ProductForm({
           error={fieldErrors.imageAlt}
           onChange={(next) => update("imageAlt", next)}
         />
+
+        <TextField
+          label="SEO title"
+          hint="Заголовок для поисковой выдачи. Рекомендуемая длина — до 55–60 символов с брендом."
+          recommendedLength={SEO_TITLE_RECOMMENDED_LENGTH}
+          value={value.seoTitle}
+          error={fieldErrors.seoTitle}
+          onChange={(next) => update("seoTitle", next)}
+        />
+        <p className={styles.panelNote}>
+          Заголовок в выдаче, а не на странице: видимый заголовок продукта остаётся «полным
+          названием». Если поле пустое, заголовок собирается как раньше — «{value.fullTitle} —
+          стоимость разработки и внедрения | QBit-Studio-Ai».
+        </p>
       </section>
 
       <section className={styles.panel}>

@@ -153,4 +153,61 @@ export const migrations = [
       );
     `,
   },
+  {
+    name: "0002_product_seo_title_and_short_titles",
+    sql: /* sql */ `
+      -- Отдельный SEO-заголовок продукта. Колонка NULLABLE намеренно: NULL означает «владелец
+      -- ничего не задавал», и тогда заголовок собирается из полного названия, как раньше. У статей
+      -- такое поле существует с первой миграции, но объявлено \`NOT NULL DEFAULT ''\` — перестраивать
+      -- живую таблицу ради единообразия хранения нельзя, поэтому пустую строку и NULL приводит к
+      -- одному значению репозиторий (см. \`src/server/repositories/*.ts\`).
+      ALTER TABLE products ADD COLUMN seo_title TEXT;
+
+      -- Значения из задания на устранение предупреждений Bing «Title too long» (2026-07-30).
+      -- Условие \`seo_title IS NULL\` защищает от повторного применения: колонка только что создана,
+      -- но миграция обязана оставаться безопасной, если её выполнят на базе, где поле уже заполнено.
+      UPDATE products SET seo_title = 'AI-ассистент по знаниям: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-01' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'AI-менеджер для сайта: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-02' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'Сбор заявок в CRM: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-03' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'AI-помощник в CRM: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-04' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'AI-контроль звонков: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-05' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'AI-помощник для HR: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-06' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'AI-аналитика продаж: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-07' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'AI-анализ документов: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-08' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'AI-протокол совещаний: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-09' AND seo_title IS NULL;
+      UPDATE products SET seo_title = 'Автоматизация на n8n: стоимость | QBit-Studio-Ai'
+        WHERE id = 'product-10' AND seo_title IS NULL;
+
+      -- У статей поле уже заполнено — прежним автоматическим значением «заголовок + бренд», из-за
+      -- длины которого Bing и ругался. Сравнение с ТОЧНЫМ прежним значением, а не безусловная
+      -- запись: если владелец сайта успел задать свой заголовок, миграция обязана его сохранить.
+      UPDATE articles SET seo_title = 'Как автоматизировать обработку заявок — QBit-Studio-Ai'
+        WHERE id = 'kak-avtomatizirovat-obrabotku-zayavok'
+          AND seo_title = 'Автоматизация обработки заявок: как связать сайт, AI-ассистента и CRM — QBit-Studio-Ai';
+      UPDATE articles SET seo_title = 'AI-ассистент по базе знаний на RAG — QBit-Studio-Ai'
+        WHERE id = 'ai-assistent-po-baze-znaniy'
+          AND seo_title = 'AI-ассистент по базе знаний: как работает RAG и где он полезен бизнесу — QBit-Studio-Ai';
+      UPDATE articles SET seo_title = 'Анализ звонков отдела продаж с AI — QBit-Studio-Ai'
+        WHERE id = 'analiz-zvonkov-otdela-prodazh'
+          AND seo_title = 'Анализ звонков отдела продаж с помощью AI: что проверять и как внедрить — QBit-Studio-Ai';
+      UPDATE articles SET seo_title = 'Автоматизация документов с AI — QBit-Studio-Ai'
+        WHERE id = 'avtomatizatsiya-dokumentov-s-ai'
+          AND seo_title = 'Автоматизация документов с помощью AI: распознавание, извлечение и проверка данных — QBit-Studio-Ai';
+      UPDATE articles SET seo_title = 'Как связать сайт, CRM и мессенджеры — QBit-Studio-Ai'
+        WHERE id = 'sayt-crm-i-messendzhery'
+          AND seo_title = 'Как связать сайт, CRM и мессенджеры в единый бизнес-процесс — QBit-Studio-Ai';
+      UPDATE articles SET seo_title = 'Автоматизация на n8n для бизнеса — QBit-Studio-Ai'
+        WHERE id = 'chto-mozhno-avtomatizirovat-na-n8n'
+          AND seo_title = 'Что можно автоматизировать на n8n: практические сценарии для бизнеса — QBit-Studio-Ai';
+    `,
+  },
 ];

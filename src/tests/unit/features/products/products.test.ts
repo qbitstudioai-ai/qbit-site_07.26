@@ -44,7 +44,13 @@ describe("product location configuration", () => {
       expect(product.content.prices.length).toBeLessThanOrEqual(3);
       expect(product.layout.panelMaxWidth).toBeGreaterThanOrEqual(400);
       expect(["left", "right"]).toContain(product.layout.panelPosition);
-      expect(product.seo.title).toContain(product.fullTitle);
+      // Заголовок для выдачи БОЛЬШЕ не обязан содержать полное название: с 2026-07-30 он
+      // задаётся отдельным полем, потому что «полное название + хвост + бренд» не помещалось в
+      // 60 знаков и обрезалось выдачей. Здесь остаётся то, что относится к «конфигурации
+      // продукта»: заголовок есть, он с брендом. Длина, уникальность и запасная сборка из
+      // `fullTitle` проверяются отдельным тестом `src/tests/unit/content/seo-titles.test.ts`.
+      expect(product.seo.title.length).toBeGreaterThan(0);
+      expect(product.seo.title).toContain("QBit-Studio-Ai");
       // Описание БОЛЬШЕ не содержит `summary` целиком: с 2026-07-29 оно собирается из целых
       // предложений видимого текста и укладывается в 160 символов, иначе выдача обрезала его
       // посреди слова. Здесь остаётся проверка того, что относится к «конфигурации продукта», —

@@ -93,8 +93,8 @@ departments.forEach((department, index) => {
 const products = readJson("data/seed/products.json");
 const insertProduct = db.prepare(
   `INSERT INTO products (id, slug, menu_title, full_title, content, layout, hotspot, image_alt,
-                         sort_order, is_published, created_at, updated_at)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+                         seo_title, sort_order, is_published, created_at, updated_at)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
 );
 for (const product of products) {
   if (exists("products", product.id)) continue;
@@ -107,6 +107,7 @@ for (const product of products) {
     JSON.stringify(product.layout),
     JSON.stringify(product.hotspot),
     product.imageAlt,
+    product.seoTitle?.trim() || null,
     product.order,
     timestamp,
     timestamp,
@@ -152,7 +153,9 @@ for (const article of articles) {
     JSON.stringify(article.tags ?? []),
     JSON.stringify(article.relatedSlugs ?? []),
     article.author,
-    article.seoTitle,
+    // Колонка `NOT NULL`: отсутствующий в JSON заголовок обязан стать пустой строкой, иначе
+    // `undefined` уронил бы привязку параметра.
+    (article.seoTitle ?? "").trim(),
     article.seoDescription,
     article.status,
     article.isFeatured ? 1 : 0,

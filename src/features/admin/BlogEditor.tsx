@@ -8,6 +8,7 @@ import {
   type ArticleStatus,
 } from "@/content/article-placements";
 import { formatRuDate } from "@/features/blog/posts";
+import { SEO_TITLE_RECOMMENDED_LENGTH } from "@/lib/seo";
 import styles from "./admin.module.css";
 import { MarkdownPreview } from "./MarkdownPreview";
 import {
@@ -47,7 +48,8 @@ export interface ArticleRecordView {
   tags: string[];
   relatedSlugs: string[];
   author: string;
-  seoTitle: string;
+  /** Заголовок для выдачи. `null` — не задан, используется название статьи. */
+  seoTitle: string | null;
   seoDescription: string;
   status: ArticleStatus;
   isFeatured: boolean;
@@ -72,7 +74,7 @@ const EMPTY_ARTICLE: Omit<ArticleRecordView, "id" | "createdAt" | "updatedAt"> =
   tags: [],
   relatedSlugs: [],
   author: "QBit-Studio-Ai",
-  seoTitle: "",
+  seoTitle: null,
   seoDescription: "",
   status: "draft",
   isFeatured: false,
@@ -617,10 +619,19 @@ function ArticleForm({
 
         <TextField
           label="SEO title"
-          hint="Если пусто — используется название статьи."
-          value={value.seoTitle}
+          hint="Заголовок для поисковой выдачи. Рекомендуемая длина — до 55–60 символов с брендом."
+          recommendedLength={SEO_TITLE_RECOMMENDED_LENGTH}
+          error={fieldErrors.seoTitle}
+          value={value.seoTitle ?? ""}
+          // Введённая строка кладётся в состояние КАК ЕСТЬ. Схлопывание «пробелов» в `null` прямо
+          // в обработчике мешало бы набору: ведущий пробел исчезал бы под курсором. Пустое
+          // значение превращает в `null` схема на сервере — там же, где и у продуктов.
           onChange={(next) => update("seoTitle", next)}
         />
+        <p className={styles.panelNote}>
+          Заголовок в выдаче, а не на странице: название статьи и её заголовок в тексте от этого
+          поля не зависят. Если поле пустое, в выдачу идёт название статьи с брендом.
+        </p>
         <TextAreaField
           label="SEO description"
           rows={3}

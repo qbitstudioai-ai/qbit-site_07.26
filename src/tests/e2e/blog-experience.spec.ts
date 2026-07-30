@@ -146,11 +146,23 @@ test.describe("published blog experience", () => {
     await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(0);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", blogPostUrl(post));
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute("content", "article");
-    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", post.title);
     await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute(
       "content",
       "summary_large_image",
     );
+
+    /**
+     * Один заголовок на `<title>`, `og:title` и `twitter:title` (2026-07-30).
+     *
+     * Раньше здесь ожидался `post.title` — видимое название статьи, — и это закрепляло расхождение:
+     * `<title>` брал SEO-заголовок, а соцсети и мессенджеры показывали другой текст. Видимый H1
+     * проверяется отдельно и по-прежнему равен `post.title`.
+     */
+    const seoTitle = post.seoTitle ?? `${post.title} — QBit-Studio-Ai`;
+    await expect(page).toHaveTitle(seoTitle);
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", seoTitle);
+    await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute("content", seoTitle);
+    await expect(page.locator("h1")).toHaveText(post.title);
 
     const schemas = await page
       .locator('script[type="application/ld+json"]')

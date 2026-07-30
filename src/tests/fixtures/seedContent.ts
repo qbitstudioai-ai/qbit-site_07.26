@@ -14,6 +14,7 @@ import {
   type ProductLayout,
   type ProductLocation,
 } from "@/features/products/products";
+import { normalizeSeoTitle } from "@/lib/seo";
 
 /**
  * Исходный контент сайта для тестов.
@@ -36,6 +37,7 @@ export const seedProductLocations: ProductLocation[] = seedProducts.map((product
     hotspot: product.hotspot as ProductHotspot,
     content: product.content as ProductContent,
     layout: product.layout as ProductLayout,
+    seoTitle: product.seoTitle,
   }),
 );
 
@@ -60,7 +62,7 @@ export const seedBlogPosts: BlogPost[] = seedArticles.map((article, index) => {
     draft: article.status !== "published",
     coverImage: article.coverUrl,
     coverAlt: article.coverAlt,
-    seoTitle: article.seoTitle,
+    seoTitle: normalizeSeoTitle(article.seoTitle),
     seoDescription: article.seoDescription,
     sections: parseBlogMarkdown(article.bodyMarkdown),
     relatedSlugs: [...article.relatedSlugs],

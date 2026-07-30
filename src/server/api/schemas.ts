@@ -13,6 +13,36 @@ const trimmed = z.string().trim();
 const required = (label: string) => trimmed.min(1, `${label}: поле обязательно`);
 const optionalText = trimmed.default("");
 
+/**
+ * Необязательный SEO-заголовок с ТРЕМЯ различимыми состояниями.
+ *
+ * | Что прислал клиент          | Результат разбора | Что делает репозиторий          |
+ * | --------------------------- | ----------------- | ------------------------------- |
+ * | поля нет в JSON             | `undefined`       | колонку НЕ трогает              |
+ * | `null`, `""`, `"   "`       | `null`            | очищает заголовок               |
+ * | непустая строка             | строка без краёв  | сохраняет новое значение        |
+ *
+ * Различие между первым и вторым состоянием — не педантизм, а требование обратной совместимости.
+ * После деплоя у администратора может остаться открытая вкладка со СТАРЫМ бандлом; её форма не
+ * знает про поле и пришлёт `PUT` без него. С прежней схемой (`.nullish()` + `undefined → null`)
+ * такой запрос молча стирал заголовок, и на странице возвращался длинный автоматический — то
+ * самое, что чинил шаг SEO-06.
+ *
+ * `.optional()` навешен ПОСЛЕДНИМ и намеренно: `ZodOptional` возвращает `undefined` не заходя во
+ * вложенное преобразование, поэтому отсутствие поля физически не может превратиться в значение.
+ * `.default(...)` здесь запрещён — он и есть та самая потеря различия.
+ *
+ * Длина НЕ ограничивается: рекомендация «до 55–60 знаков» показывается счётчиком в форме, но
+ * запрет на сохранение длинного заголовка означал бы, что владелец сайта не может описать страницу
+ * так, как считает нужным. Верхняя граница в 300 знаков стоит только против случайной вставки
+ * целого абзаца.
+ */
+const optionalSeoTitle = trimmed
+  .max(300, "SEO title: не длиннее 300 символов")
+  .nullable()
+  .transform((value) => value || null)
+  .optional();
+
 /** Slug: строчные латинские буквы, цифры и дефисы. Именно он становится адресом страницы. */
 export const slugSchema = trimmed
   .min(1, "Адрес (slug): поле обязательно")
@@ -75,6 +105,7 @@ export const productUpdateSchema = z.object({
   menuTitle: required("Короткое название"),
   fullTitle: required("Полное название"),
   imageAlt: required("Описание фотографии"),
+  seoTitle: optionalSeoTitle,
   content: z.object({
     summary: required("Описание"),
     applies: required("Где применяется"),
@@ -105,7 +136,7 @@ export const articleSchema = z.object({
   tags: z.array(trimmed.min(1)).max(12).default([]),
   relatedSlugs: z.array(trimmed.min(1)).max(6).default([]),
   author: optionalText,
-  seoTitle: optionalText,
+  seoTitle: optionalSeoTitle,
   seoDescription: optionalText,
   status: z.enum(ARTICLE_STATUSES),
   isFeatured: z.boolean().default(false),

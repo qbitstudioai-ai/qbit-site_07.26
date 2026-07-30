@@ -18,10 +18,12 @@ interface FieldProps {
   required?: boolean;
   hint?: string;
   error?: string;
+  /** Служебная строка под подсказкой — например счётчик символов. */
+  counter?: ReactNode;
   children: (props: { id: string; className: string; "aria-invalid"?: true }) => ReactNode;
 }
 
-export function Field({ label, required, hint, error, children }: FieldProps) {
+export function Field({ label, required, hint, error, counter, children }: FieldProps) {
   const id = useId();
   const className = `${styles.input} ${error ? styles.inputError : ""}`;
 
@@ -37,6 +39,7 @@ export function Field({ label, required, hint, error, children }: FieldProps) {
       </label>
       {children({ id, className, ...(error ? { "aria-invalid": true as const } : {}) })}
       {hint ? <span className={styles.hint}>{hint}</span> : null}
+      {counter}
       {error ? (
         <strong className={styles.fieldError} role="alert">
           {error}
@@ -55,11 +58,35 @@ interface TextFieldProps {
   error?: string;
   placeholder?: string;
   type?: "text" | "date" | "number" | "url";
+  /**
+   * Рекомендуемая длина значения. Включает счётчик символов под полем.
+   *
+   * Именно рекомендация, а не ограничение: `maxLength` здесь НЕ ставится и сохранение не
+   * блокируется. Поле, которое молча перестаёт принимать текст, владелец сайта воспринимает как
+   * поломку — а превышение рекомендации не делает страницу неправильной, лишь означает, что
+   * выдача обрежет хвост строки.
+   */
+  recommendedLength?: number;
 }
 
-export function TextField({ label, value, onChange, type = "text", ...rest }: TextFieldProps) {
+export function TextField({
+  label,
+  value,
+  onChange,
+  type = "text",
+  recommendedLength,
+  ...rest
+}: TextFieldProps) {
   return (
-    <Field label={label} {...rest}>
+    <Field
+      label={label}
+      {...rest}
+      counter={
+        recommendedLength ? (
+          <CharacterCounter length={value.trim().length} recommended={recommendedLength} />
+        ) : undefined
+      }
+    >
       {(props) => (
         <input
           {...props}
@@ -73,7 +100,25 @@ export function TextField({ label, value, onChange, type = "text", ...rest }: Te
   );
 }
 
-interface TextAreaFieldProps extends Omit<TextFieldProps, "type"> {
+/**
+ * Счётчик символов рядом с подсказкой.
+ *
+ * `aria-live="polite"`, а не молчаливый текст: длина заголовка — это то, ради чего поле и
+ * заполняют, и пользователю скринридера она нужна так же, как зрячему. `polite` — чтобы объявление
+ * не перебивало набор на каждой букве.
+ */
+function CharacterCounter({ length, recommended }: { length: number; recommended: number }) {
+  return (
+    <span className={styles.hint} aria-live="polite">
+      {length} симв. — рекомендуется до {recommended}
+      {length > recommended ? " (выдача обрежет хвост)" : ""}
+    </span>
+  );
+}
+
+// `recommendedLength` исключён: счётчик сделан для однострочных заголовков, и молча
+// проигнорированный проп хуже отсутствующего.
+interface TextAreaFieldProps extends Omit<TextFieldProps, "type" | "recommendedLength"> {
   rows?: number;
   monospace?: boolean;
 }

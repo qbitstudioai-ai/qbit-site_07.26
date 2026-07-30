@@ -71,14 +71,24 @@ export async function generateMetadata({ params }: BlogPageProps): Promise<Metad
   const canonical = blogPostUrl(post);
   const image = `${SITE_URL}${post.coverImage}`;
 
+  /**
+   * Один заголовок на три места: `<title>`, `og:title`, `twitter:title`.
+   *
+   * Раньше `<title>` брал `seoTitle`, а Open Graph и Twitter — видимый `post.title`, и на всех
+   * шести статьях это давало три разных заголовка одной страницы. Заданный заголовок берётся
+   * дословно (в нём уже есть бренд), у запасного бренд дописывает `withBrand`. Видимый H1 статьи
+   * рисует `BlogExperience` из `post.title` — здесь он не участвует.
+   */
+  const seoTitle = post.seoTitle ?? withBrand(post.title);
+
   return {
-    title: post.seoTitle || withBrand(post.title),
+    title: seoTitle,
     description: post.description,
     authors: [{ name: post.author, url: SITE_URL }],
     alternates: { canonical },
     robots: INDEXABLE_ROBOTS,
     openGraph: buildOpenGraph({
-      title: post.title,
+      title: seoTitle,
       description: post.description,
       url: canonical,
       type: "article",
@@ -89,7 +99,7 @@ export async function generateMetadata({ params }: BlogPageProps): Promise<Metad
       images: [{ url: image, alt: post.coverAlt || "Рабочий стол с открытым блокнотом" }],
     }),
     twitter: buildTwitter({
-      title: post.title,
+      title: seoTitle,
       description: post.description,
       images: [image],
     }),

@@ -188,7 +188,17 @@ test.describe("products laboratory", () => {
       );
       expect(schemas.some((schema) => schema["@type"] === "BreadcrumbList")).toBe(true);
       expect(schemas.some((schema) => schema["@type"] === "Organization")).toBe(true);
+      /**
+       * `<title>`, `og:title` и `twitter:title` — одна строка (2026-07-30). С этой даты она
+       * задаётся отдельным полем и БОЛЬШЕ не обязана содержать `fullTitle`; видимый H1 проверен
+       * выше и по-прежнему равен `fullTitle`.
+       */
+      await expect(page).toHaveTitle(product.seo.title);
       await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+        "content",
+        product.seo.title,
+      );
+      await expect(page.locator('meta[name="twitter:title"]')).toHaveAttribute(
         "content",
         product.seo.title,
       );

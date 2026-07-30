@@ -8,6 +8,8 @@
  * его импортируют обе стороны, поэтому здесь нет ни доступа к базе, ни React.
  */
 
+import { normalizeSeoTitle } from "@/lib/seo";
+
 export const PRODUCT_IDS = [
   "product-01",
   "product-02",
@@ -85,6 +87,13 @@ export interface ProductLocation {
   };
   content: ProductContent;
   layout: ProductLayout;
+  /**
+   * Заголовок для поисковой выдачи, заданный вручную, или `null`, если владелец сайта его не
+   * задавал. Хранится рядом с собранным `seo.title` намеренно: форма админ-панели обязана
+   * показывать ПУСТОЕ поле, когда значения нет, а не автоматический заголовок — иначе первое же
+   * сохранение превратило бы вычисляемую строку в зафиксированную.
+   */
+  seoTitleOverride: string | null;
   seo: {
     title: string;
     description: string;
@@ -124,6 +133,8 @@ export interface ProductLocationInput {
   hotspot: ProductHotspot;
   content: ProductContent;
   layout: ProductLayout;
+  /** Ручной SEO-заголовок. Пусто или `null` — заголовок собирается из `fullTitle`. */
+  seoTitle?: string | null;
 }
 
 /**
@@ -217,13 +228,28 @@ export function buildProductDescription(input: {
 }
 
 /**
+ * Заголовок продукта для выдачи по умолчанию — полное название плюс коммерческий хвост и бренд.
+ *
+ * Используется, только когда SEO-заголовок не задан вручную. Хвост одинаков у всех десяти
+ * продуктов, и именно из-за него автоматические заголовки выходили на 76–99 знаков: 34 знака из
+ * них дублировались между страницами и попадали в обрезаемую часть строки (аудит 2026-07-30).
+ */
+export function buildProductSeoTitle(fullTitle: string): string {
+  return `${fullTitle} — стоимость разработки и внедрения | QBit-Studio-Ai`;
+}
+
+/**
  * Собирает продукт из редактируемых полей: подставляет фотографии и SEO-строки.
  *
- * SEO собирается, а не редактируется отдельно, намеренно: title и description обязаны совпадать с
- * названием и описанием продукта, а два независимых поля разъезжаются при первой же правке текста.
+ * `description` собирается из описания продукта и отдельным полем НЕ является — два независимых
+ * текста разъезжаются при первой же правке. С `title` иначе: длина заголовка в выдаче ограничена
+ * жёстко (Bing обрезает после ~60 знаков), а полное название продукта вместе с брендом в этот
+ * предел не помещается. Поэтому заголовок можно переопределить вручную — при пустом поле работает
+ * прежняя сборка {@link buildProductSeoTitle}.
  */
 export function buildProductLocation(input: ProductLocationInput): ProductLocation {
   const firstPrice = input.content.prices[0]?.value;
+  const seoTitleOverride = normalizeSeoTitle(input.seoTitle);
 
   return {
     id: input.id,
@@ -234,13 +260,14 @@ export function buildProductLocation(input: ProductLocationInput): ProductLocati
     hotspot: input.hotspot,
     content: input.content,
     layout: input.layout,
+    seoTitleOverride,
     images: {
       overview: automationLabImage,
       detail: productImage(input.id),
       alt: input.alt,
     },
     seo: {
-      title: `${input.fullTitle} — стоимость разработки и внедрения | QBit-Studio-Ai`,
+      title: seoTitleOverride ?? buildProductSeoTitle(input.fullTitle),
       description: buildProductDescription({
         fullTitle: input.fullTitle,
         summary: input.content.summary,
