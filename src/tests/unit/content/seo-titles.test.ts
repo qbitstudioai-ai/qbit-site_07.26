@@ -25,6 +25,9 @@ import { seedBlogPosts, seedProductLocations } from "@/tests/fixtures/seedConten
 /** Верхняя граница из задания. Строже практических 60 знаков — с запасом на пересчёт выдачей. */
 const SEO_TITLE_MAX_LENGTH = 55;
 
+const HOME_SEO_TITLE = "ИИ-автоматизация бизнеса и продаж — QBit-Studio-Ai";
+const CALL_ANALYSIS_SEO_TITLE = "AI-анализ звонков: стоимость | QBit-Studio-Ai";
+
 /**
  * Видимые названия на момент постановки задачи.
  *
@@ -73,6 +76,20 @@ const PRODUCT_SLUGS: Record<string, string> = {
 };
 
 describe("SEO-заголовки продуктов и статей", () => {
+  it("главная и анализ звонков используют утверждённые SEO title", async () => {
+    const { generateMetadata } = await import("@/app/page");
+    const homeMetadata = generateMetadata();
+    const callAnalysis = seedProductLocations.find((product) => product.slug === "call-analysis");
+
+    expect(homeMetadata.title).toBe(HOME_SEO_TITLE);
+    expect(String(homeMetadata.title)).toHaveLength(50);
+    expect(homeMetadata.alternates?.canonical).toBe("https://allqbit.ru");
+
+    expect(callAnalysis?.seo.title).toBe(CALL_ANALYSIS_SEO_TITLE);
+    expect(callAnalysis?.seo.title).toHaveLength(45);
+    expect(callAnalysis?.fullTitle).toBe(PRODUCT_FULL_TITLES["product-05"]);
+  });
+
   it("каждая из шестнадцати страниц задаёт собственный заголовок", () => {
     for (const product of seedProductLocations) {
       expect(product.seoTitleOverride, `продукт ${product.id}`).not.toBeNull();

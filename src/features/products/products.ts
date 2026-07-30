@@ -173,10 +173,16 @@ function sentencePrefixes(text: string): string[] {
  * действительно начинается с названия — иначе текст возвращается нетронутым.
  */
 function withoutTitlePrefix(summary: string, fullTitle: string): string {
-  if (!summary.startsWith(fullTitle)) return summary;
+  const titlePrefix = summary.startsWith(fullTitle) ? fullTitle : "";
+
+  if (!titlePrefix) {
+    const systemPhrase = summary.match(/\s+[—–-]\s+(это\s+система,\s+которая\s+.+)$/iu)?.[1];
+    if (!systemPhrase) return summary;
+    return systemPhrase.charAt(0).toUpperCase() + systemPhrase.slice(1);
+  }
 
   const rest = summary
-    .slice(fullTitle.length)
+    .slice(titlePrefix.length)
     .replace(/^\s*[—–-]\s*/, "")
     .replace(/^это\s+система,\s+которая\s+/i, "");
 

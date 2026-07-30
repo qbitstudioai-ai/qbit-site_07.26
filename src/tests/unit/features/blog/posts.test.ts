@@ -5,6 +5,51 @@ import seedArticles from "../../../../../data/seed/articles.json";
 import { findAdjacentBlogPosts, findBlogPost, findRelatedBlogPosts } from "@/features/blog/posts";
 import { seedBlogPosts as blogPosts } from "@/tests/fixtures/seedContent";
 
+const TARGET_PRODUCT_LINKS: Record<string, { href: string; anchor: string }> = {
+  "kak-avtomatizirovat-obrabotku-zayavok": {
+    href: "/products/leads-to-crm",
+    anchor: "Единый сбор заявок в CRM",
+  },
+  "ai-assistent-po-baze-znaniy": {
+    href: "/products/rag-ai-assistant",
+    anchor: "AI-ассистент по знаниям компании",
+  },
+  "analiz-zvonkov-otdela-prodazh": {
+    href: "/products/call-analysis",
+    anchor: "AI-контроль качества звонков",
+  },
+  "avtomatizatsiya-dokumentov-s-ai": {
+    href: "/products/document-analysis",
+    anchor: "AI-обработка и анализ документов",
+  },
+  "sayt-crm-i-messendzhery": {
+    href: "/products/leads-to-crm",
+    anchor: "Единый сбор заявок с сайта и мессенджеров в CRM",
+  },
+  "chto-mozhno-avtomatizirovat-na-n8n": {
+    href: "/products/n8n-automation",
+    anchor: "Автоматизация бизнес-процесса на n8n",
+  },
+};
+
+const PUBLIC_INTERNAL_PREFIXES = ["/blog/", "/products/"] as const;
+
+function markdownLinkPattern(anchor: string, href: string): RegExp {
+  return new RegExp(`\\[${anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\(${href}\\)`, "g");
+}
+
+function sectionMarkdown(post: (typeof blogPosts)[number]): string {
+  return post.sections
+    .flatMap((section) =>
+      section.blocks.map((block) => {
+        if (block.type === "paragraph") return block.markdown;
+        if (block.type === "code") return block.value;
+        return block.items.join("\n");
+      }),
+    )
+    .join("\n");
+}
+
 /**
  * Проверки исходного набора статей.
  *
@@ -54,6 +99,62 @@ describe("исходный набор статей", () => {
       expect(post.modifiedAt >= post.publishedAt).toBe(true);
       expect(new Set(post.sections.map((section) => section.id)).size).toBe(post.sections.length);
       expect(canonicalMarkdown).not.toMatch(/\/examples|\/ai-assistant-for-business/);
+    }
+  });
+
+  it("добавляет ровно одну целевую ссылку на продукт в существующий блок материалов по теме", () => {
+    for (const post of blogPosts) {
+      const target = TARGET_PRODUCT_LINKS[post.slug];
+      expect(target, post.slug).toBeDefined();
+
+      const markdown = sectionMarkdown(post);
+      const targetMatches = markdown.match(markdownLinkPattern(target.anchor, target.href)) ?? [];
+      expect(targetMatches, post.slug).toHaveLength(1);
+
+      const relatedSection = post.sections.find(
+        (section) => section.heading === "Материалы по теме",
+      );
+      const relatedMarkdown = relatedSection?.blocks
+        .map((block) =>
+          "items" in block
+            ? block.items.join("\n")
+            : block.type === "code"
+              ? block.value
+              : block.markdown,
+        )
+        .join("\n");
+      expect(relatedMarkdown, post.slug).toContain(`[${target.anchor}](${target.href})`);
+    }
+  });
+
+  it("не содержит битых внутренних ссылок на публичные статьи и продукты", () => {
+    const blogSlugs = new Set(blogPosts.map((post) => post.slug));
+    const productSlugs = new Set([
+      "rag-ai-assistant",
+      "ai-manager",
+      "leads-to-crm",
+      "crm-ai-assistant",
+      "call-analysis",
+      "hr-ai-assistant",
+      "sales-analytics",
+      "document-analysis",
+      "meeting-protocol",
+      "n8n-automation",
+    ]);
+
+    for (const post of blogPosts) {
+      const markdown = sectionMarkdown(post);
+      const links = [...markdown.matchAll(/\[[^\]]+\]\((\/[^)#?]+)\)/g)].map((match) => match[1]);
+
+      for (const href of links) {
+        if (!PUBLIC_INTERNAL_PREFIXES.some((prefix) => href.startsWith(prefix))) continue;
+        if (href.startsWith("/blog/")) {
+          expect(blogSlugs, `${post.slug}: ${href}`).toContain(href.slice("/blog/".length));
+        }
+        if (href.startsWith("/products/")) {
+          expect(productSlugs, `${post.slug}: ${href}`).toContain(href.slice("/products/".length));
+        }
+      }
     }
   });
 

@@ -14,8 +14,17 @@ const hr = departments.find((d) => d.id === "hr")!;
 
 const SCENE_FILES = /(overview|sales|support|executive|hr|logistics)-(768|1280|1536)\./;
 
+interface RecordedSceneMotion {
+  name: string;
+  eventName: string;
+  durationsMs: number[];
+  fill: string;
+  transform: string;
+}
+
 declare global {
   interface Window {
+    __sceneAnimationStarts: RecordedSceneMotion[];
     __sceneMinCoverage: number;
     __sceneScales: number[];
     __sceneDurations: number[];
@@ -72,6 +81,48 @@ const topLayerMotion = (page: Page) =>
  * выглядел как провал перехода, хотя переход ещё даже не начинался. Стартовое появление — не
  * переход: закрывать собой ему нечего.
  */
+async function installSceneAnimationRecorder(page: Page) {
+  await page.addInitScript(() => {
+    window.__sceneAnimationStarts = [];
+    document.addEventListener(
+      "animationstart",
+      (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLImageElement)) return;
+        if (!target.matches("[data-office-scene]")) return;
+
+        const style = getComputedStyle(target);
+        window.__sceneAnimationStarts.push({
+          name: style.animationName,
+          eventName: event.animationName,
+          durationsMs: style.animationDuration
+            .split(",")
+            .map((value) => Number(value.trim().replace("s", "")) * 1000),
+          fill: style.animationFillMode,
+          transform: style.transform,
+        });
+      },
+      true,
+    );
+  });
+}
+
+async function waitForRecordedSceneMotion(page: Page) {
+  const handle = await page.waitForFunction(
+    () =>
+      window.__sceneAnimationStarts.find(
+        (motion) =>
+          motion.name !== "none" &&
+          motion.durationsMs.some((duration) => duration >= 650 && duration <= 1000),
+      ),
+    null,
+    { timeout: 20000 },
+  );
+  const motion = await handle.jsonValue();
+  expect(motion).toBeDefined();
+  return motion as RecordedSceneMotion;
+}
+
 async function waitForSettledScene(page: Page) {
   await page.waitForFunction(
     () => {
@@ -231,6 +282,7 @@ test.describe("Step 16 — переход между сценами", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
+    await installSceneAnimationRecorder(page);
     // Задержка обязательна: со времени Amendment 15 показ начинается по готовности картинки К
     // ОТРИСОВКЕ, а не по монтированию, поэтому на мгновенной загрузке анимация успела бы доиграть
     // до первого замера и тест ловил бы уже покой.
@@ -241,11 +293,9 @@ test.describe("Step 16 — переход между сценами", () => {
     await page.goto(`/?department=${sales.id}`);
 
     // Ждём НАЧАЛА показа, а не конца загрузки.
-    await expect
-      .poll(async () => (await topLayerMotion(page)).name, { timeout: 20000 })
-      .not.toBe("none");
-
-    const motion = await topLayerMotion(page);
+    const motion = await waitForRecordedSceneMotion(page);
+    expect(motion.name).not.toBe("none");
+    expect(motion.eventName).not.toBe("none");
     // Анимация доигрывает до конца (fill both удерживает конечное состояние).
     expect(motion.fill).toContain("both");
 

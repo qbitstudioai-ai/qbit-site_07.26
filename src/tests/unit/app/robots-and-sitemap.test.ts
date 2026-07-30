@@ -101,6 +101,10 @@ describe("sitemap.xml", () => {
     expect(new Set(urls).size).toBe(urls.length);
   });
 
+  it("сохраняет прежний состав из 23 публичных URL", () => {
+    expect(urls).toHaveLength(23);
+  });
+
   it("не содержит служебных, закрытых и параметризованных адресов", () => {
     for (const url of urls) {
       expect(url).not.toMatch(/\/admin(\/|$)/);
