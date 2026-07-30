@@ -15,15 +15,19 @@ describe("HeroInfoPanel", () => {
     }
   });
 
-  it("renders every metric, calculation label and optional qualifier", () => {
+  it("renders every metric, anonymized result label and optional qualifier", () => {
     render(<HeroInfoPanel copy={panel} contactHref={contactHref} />);
+    expect(screen.getAllByRole("article")).toHaveLength(3);
     for (const scenario of panel.scenarios) {
       expect(screen.getByText(scenario.metric)).toBeInTheDocument();
-      expect(screen.getByText(scenario.effectLabel)).toBeInTheDocument();
       if (scenario.qualifier) {
         expect(screen.getByText(scenario.qualifier)).toBeInTheDocument();
       }
     }
+    expect(screen.getAllByText("ОБЕЗЛИЧЕННЫЙ РЕЗУЛЬТАТ ВНЕДРЕНИЯ")).toHaveLength(3);
+    expect(screen.queryByText("ПРОЕКТНЫЕ СЦЕНАРИИ")).not.toBeInTheDocument();
+    expect(screen.queryByText("расчётный бизнес-эффект")).not.toBeInTheDocument();
+    expect(screen.queryByText("потенциальной выручки")).not.toBeInTheDocument();
   });
 
   it("renders the postscript as a labelled external Telegram link", () => {

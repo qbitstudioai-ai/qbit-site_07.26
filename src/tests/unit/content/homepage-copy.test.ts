@@ -32,7 +32,7 @@ describe("homepage-copy adapter", () => {
     expect(copy.heroInfoPanel.scenarios).toHaveLength(3);
     for (const scenario of copy.heroInfoPanel.scenarios) {
       expect(scenario.metric.length).toBeGreaterThan(0);
-      expect(scenario.effectLabel).toMatch(/^Расчётн/);
+      expect(scenario.effectLabel).toBe("ОБЕЗЛИЧЕННЫЙ РЕЗУЛЬТАТ ВНЕДРЕНИЯ");
     }
     expect(copy.heroInfoPanel.postscript.ariaLabel.length).toBeGreaterThan(0);
     expect(copy.officeOverview.leftStory.paragraphs).toHaveLength(2);
@@ -68,19 +68,24 @@ describe("homepage-copy adapter", () => {
     expect(copy.secondaryCta).toBe("Найти потери в своём отделе");
   });
 
-  it("keeps project scenarios explicitly calculated rather than presenting them as cases", () => {
+  it("keeps the approved anonymized case wording verbatim", () => {
     const copy = getHomepageCopy();
-    expect(copy.heroInfoPanel.title).toBe("ПРОЕКТНЫЕ СЦЕНАРИИ");
-    expect(copy.heroInfoPanel.subtitle).toBe("Примеры решений и расчётный бизнес-эффект");
+    expect(copy.heroInfoPanel.title).toBe("РЕАЛЬНЫЕ КЕЙСЫ");
+    expect(copy.heroInfoPanel.subtitle).toBe("Обезличенные результаты внедрений");
     expect(copy.heroInfoPanel.scenarios.map((scenario) => scenario.metric)).toEqual([
       "20–25",
-      "700 000",
+      "500–700 тыс.",
       "75–80",
     ]);
-    expect(copy.heroInfoPanel.scenarios.slice(1).map((scenario) => scenario.metricPrefix)).toEqual([
-      "до",
-      "до",
+    expect(copy.heroInfoPanel.scenarios.map((scenario) => scenario.metricPrefix)).toEqual([
+      undefined,
+      undefined,
+      undefined,
     ]);
-    expect(copy.heroInfoPanel.scenarios[1].qualifier).toBe("потенциальной выручки");
+    expect(copy.heroInfoPanel.scenarios[1].qualifier).toBe("рост продаж");
+    expect(copy.heroInfoPanel.scenarios[2].qualifier).toBe("раньше занимал ручной анализ");
+    expect(JSON.stringify(copy.heroInfoPanel)).not.toContain("расчётный бизнес-эффект");
+    expect(JSON.stringify(copy.heroInfoPanel)).not.toContain("потенциальной выручки");
+    expect(JSON.stringify(copy.heroInfoPanel)).not.toContain("примерно за 15 минут в неделю");
   });
 });

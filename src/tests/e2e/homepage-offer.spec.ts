@@ -3,7 +3,7 @@ import { getHomepageCopy } from "../../content/homepage-copy";
 
 const copy = getHomepageCopy();
 
-test.describe("Amendment 28 — проектные сценарии в hero", () => {
+test.describe("Amendment 28 — кейсы в hero", () => {
   test("desktop 1920×920: оффер, visual, сценарии и P.S. образуют один слой без прокрутки", async ({
     page,
   }) => {
@@ -67,15 +67,33 @@ test.describe("Amendment 28 — проектные сценарии в hero", ()
     expect(geometry.internalOverflow).toBe(false);
   });
 
-  test("all three scenarios are visible and explicitly marked as calculated", async ({ page }) => {
+  test("all three cases are visible and explicitly marked as anonymized results", async ({
+    page,
+  }) => {
     await page.goto("/");
 
+    await expect(page.getByRole("heading", { level: 2, name: "РЕАЛЬНЫЕ КЕЙСЫ" })).toBeVisible();
+    await expect(page.getByText("Обезличенные результаты внедрений")).toBeVisible();
     for (const scenario of copy.heroInfoPanel.scenarios) {
       await expect(page.getByRole("heading", { level: 3, name: scenario.title })).toBeVisible();
       await expect(page.getByText(scenario.metric, { exact: true })).toBeVisible();
-      await expect(page.getByText(scenario.effectLabel, { exact: true })).toBeVisible();
     }
-    await expect(page.getByText("потенциальной выручки", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(copy.heroInfoPanel.scenarios[0].effectLabel, { exact: true }),
+    ).toHaveCount(3);
+    await expect(page.getByText("рост продаж", { exact: true })).toBeVisible();
+    await expect(page.getByText("раньше занимал ручной анализ", { exact: true })).toBeVisible();
+
+    for (const removed of [
+      "ПРОЕКТНЫЕ СЦЕНАРИИ",
+      "расчётный бизнес-эффект",
+      "РАСЧЁТНЫЙ ЭФФЕКТ ДЛЯ РУКОВОДИТЕЛЯ",
+      "потенциальной выручки",
+      "РАСЧЁТНЫЙ ПОТЕНЦИАЛ НА ОСНОВЕ ДАННЫХ CRM",
+      "примерно за 15 минут в неделю",
+    ]) {
+      await expect(page.getByText(removed, { exact: true })).toHaveCount(0);
+    }
   });
 
   test("P.S. is a lightweight editorial Telegram link with an inline arrow", async ({ page }) => {

@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import HomePage from "@/app/page";
+import HomePage, { generateMetadata } from "@/app/page";
 import { getHomepageCopy } from "@/content/homepage-copy";
 import { getDepartments } from "@/content/departments";
+import { SITE_URL } from "@/lib/seo";
 
 describe("HomePage", () => {
   it("renders exactly one h1 with the real headline", async () => {
@@ -10,6 +12,60 @@ describe("HomePage", () => {
     const headings = screen.getAllByRole("heading", { level: 1 });
     expect(headings).toHaveLength(1);
     expect(headings[0]).toHaveTextContent(getHomepageCopy().headline);
+  });
+
+  it("server-renders exactly three anonymized cases and keeps homepage SEO metadata stable", async () => {
+    const html = renderToStaticMarkup(await HomePage({ searchParams: Promise.resolve({}) }));
+    const copy = getHomepageCopy();
+    const metadata = generateMetadata();
+
+    expect(html.match(/data-project-scenario="true"/g) ?? []).toHaveLength(3);
+    expect(html).toContain("РЕАЛЬНЫЕ КЕЙСЫ");
+    expect(html).toContain("Обезличенные результаты внедрений");
+    expect(html).toContain("Раньше руководитель тратил 4–5 часов в неделю");
+    expect(html).toContain("500–700 тыс.");
+    expect(html).toContain("рост продаж");
+    expect(html).toContain("раньше занимал ручной анализ");
+    expect(html).toContain("ОБЕЗЛИЧЕННЫЙ РЕЗУЛЬТАТ ВНЕДРЕНИЯ");
+
+    for (const removed of [
+      "ПРОЕКТНЫЕ СЦЕНАРИИ",
+      "расчётный бизнес-эффект",
+      "РАСЧЁТНЫЙ ЭФФЕКТ ДЛЯ РУКОВОДИТЕЛЯ",
+      "потенциальной выручки",
+      "РАСЧЁТНЫЙ ПОТЕНЦИАЛ НА ОСНОВЕ ДАННЫХ CRM",
+      "примерно за 15 минут в неделю",
+    ]) {
+      expect(html).not.toContain(removed);
+    }
+
+    expect(metadata.title).toBe("ИИ-автоматизация бизнеса и продаж — QBit-Studio-Ai");
+    expect(metadata.description).toBe(copy.subheadline);
+    expect(metadata.alternates).toEqual({ canonical: SITE_URL });
+    expect(html).toMatch(
+      /<h1[^>]*id="hero-heading"[^>]*>.*Автоматизируем продажи, поддержку и документы.*с помощью ИИ.*<\/h1>/,
+    );
+
+    const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/);
+    expect(jsonLdMatch?.[1]).toBeDefined();
+    const jsonLd = JSON.parse(jsonLdMatch![1]);
+    expect(jsonLd).toEqual([
+      expect.objectContaining({
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "QBit-Studio-Ai",
+      }),
+      expect.objectContaining({
+        "@type": "WebSite",
+        "@id": `${SITE_URL}/#website`,
+      }),
+      expect.objectContaining({
+        "@type": "WebPage",
+        "@id": `${SITE_URL}#webpage`,
+        name: `${copy.headline} — QBit-Studio-Ai`,
+        description: copy.subheadline,
+      }),
+    ]);
   });
 
   it("marks the office section as not yet revealed when no ?department= is given at boot", async () => {
