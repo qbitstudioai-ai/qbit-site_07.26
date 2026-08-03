@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { OFFICE_MAP_HREF } from "@/content/officeMapLink";
 import type { HeroLink } from "@/content/types";
 import styles from "./Header.module.css";
 
@@ -12,6 +13,15 @@ interface HeaderProps {
   phoneHref: string;
   phoneAccessibleLabel: string;
   onReturnHome?: () => void;
+  /**
+   * Открыть карту офиса, не уходя со страницы. Передаётся ТОЛЬКО главной (`OfficeMachine`): там
+   * `/?section=office` — тот же маршрут, и обычная навигация App Router заставила бы сервер
+   * заново отрисовать страницу ради состояния, которое уже умеет менять `useReducer`.
+   *
+   * На внутренних страницах пропа нет, и пункт остаётся обычной ссылкой: переход на `/` с
+   * `?section=office` открывает офис сразу, минуя hero.
+   */
+  onOpenOfficeMap?: () => void;
   /**
    * Адрес текущей страницы. Пункт меню с этим href получает `aria-current="page"` и постоянно
    * видимое подчёркивание. Передаётся страницей явно, а не выводится из `usePathname()`: так
@@ -26,6 +36,7 @@ export function Header({
   phoneHref,
   phoneAccessibleLabel,
   onReturnHome,
+  onOpenOfficeMap,
   activeHref,
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -131,7 +142,7 @@ export function Header({
         <span aria-hidden="true" />
       </button>
 
-      {/* Подложка раскрытого меню (MOB-03): принимает нажатие мимо пунктов и закрывает меню, а
+      {/* Подложка раскрытого меню (MOB-03, ≤959px): принимает нажатие мимо пунктов и закрывает меню, а
           заодно не даёт случайному касанию уйти в страницу под ней.
 
           Скрыта от дерева доступности (`aria-hidden` + `tabIndex={-1}`) намеренно. Она НЕ добавляет
@@ -175,13 +186,23 @@ export function Header({
               key={link.label}
               href={link.href}
               aria-current={link.href === activeHref ? "page" : undefined}
-              prefetch={link.href === "/products" ? false : undefined}
+              // Префетч выключен там, где он бесполезен: `/products` — по прежнему решению, а
+              // `/?section=office` ведёт на главную, которая объявлена `force-dynamic`.
+              prefetch={
+                link.href === "/products" || link.href === OFFICE_MAP_HREF ? false : undefined
+              }
               onClick={(event) => {
                 setIsMenuOpen(false);
 
                 if (link.href === "/" && onReturnHome) {
                   event.preventDefault();
                   onReturnHome();
+                  return;
+                }
+
+                if (link.href === OFFICE_MAP_HREF && onOpenOfficeMap) {
+                  event.preventDefault();
+                  onOpenOfficeMap();
                 }
               }}
             >

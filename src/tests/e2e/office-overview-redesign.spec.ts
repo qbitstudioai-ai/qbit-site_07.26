@@ -114,22 +114,91 @@ test.describe("office overview redesign", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("the seven-link desktop header does not overflow at intermediate widths", async ({
-    page,
-  }) => {
-    await page.goto("/");
+  /*
+   * Ширины подобраны по ГРАНИЦАМ наборов стилей и по ВНУТРЕННОСТИ опасной полосы, а не по круглым
+   * числам.
+   *
+   * Прежний список (901, 1024, 1180, 1440) пропустил настоящий дефект: с девятым пунктом меню
+   * полному набору стилей нужно ≥1234px, а компактный кончался на 1180px — полоса 1181…1233px
+   * оставалась без подходящего набора вовсе, и кнопка телефона уезжала за правый край. 1180 была
+   * последней исправной шириной, 1280 — первой следующей проверенной, дефект прошёл между ними.
+   *
+   * Отсюда два правила для этого списка. Первое: обе стороны каждого рубежа — 959/960 (бургер →
+   * строка) и 1279/1280 (компактный набор → полный). Второе, важнее: ширины ВНУТРИ бывшей
+   * сломанной полосы (1200, 1233) — граничные значения сами по себе дефект не ловят, проверено.
+   *
+   * Проверяется не только `scrollWidth` шапки, но и поле справа от кнопки телефона. Одного
+   * `phoneRight <= innerWidth` мало: на 1234px до исправления переполнения уже не было, но кнопка
+   * стояла в −0.5px от края и такую проверку проходила. Общий хелпер
+   * `expectNoHorizontalOverflow` этот класс дефектов
+   * не ловит по построению: `overflow-x: hidden` на `html, body` гасит
+   * `documentElement.scrollWidth`, и обрезанная кнопка выглядит как норма.
+   */
+  test("the desktop header does not overflow at style-set boundaries", async ({ page }) => {
+    /*
+     * Минимальное поле справа от кнопки телефона.
+     *
+     * Замерено на ИСПРАВЛЕННОЙ раскладке, и главная здесь не худший случай: на 960px поле равно
+     * 14.8px на `/`, но 7.7px на `/documents` — у внутренней страницы один пункт меню несёт
+     * `aria-current="page"` с `font-weight: 650`, и меню шире на 6–7px. Дальше поле только растёт:
+     * 24px на 1000…1279px, 35…40px на 1280px и шире.
+     *
+     * До исправления на 1200px поле было −27px, на 1234px — −0.5px, то есть кнопка упиралась в
+     * край или уходила за него. Порог 4px разделяет эти два состояния: он заведомо выше нуля, в
+     * который упирался дефект, и вдвое ниже самой тесной здоровой точки (7.7px), чтобы разница
+     * метрик шрифта между платформами не красила гейт без причины.
+     */
+    const MIN_RIGHT_GAP = 4;
 
-    for (const width of [901, 1024, 1180, 1440]) {
-      await page.setViewportSize({ width, height: 900 });
-      const geometry = await page.getByRole("banner").evaluate((header) => ({
-        clientWidth: header.clientWidth,
-        scrollWidth: header.scrollWidth,
-      }));
+    // Обе страницы обязательны: `/documents` — самая тесная из-за `aria-current`, и калибровать
+    // порог по одной только главной значило бы мерить не по худшему случаю.
+    for (const route of ["/", "/documents"]) {
+      for (const width of [960, 1000, 1024, 1180, 1200, 1233, 1234, 1279, 1280, 1300, 1366, 1440]) {
+        await page.setViewportSize({ width, height: 900 });
+        await page.goto(route);
+        const geometry = await page.evaluate(() => {
+          const header = document.querySelector("header")!;
+          const phone = document.querySelector<HTMLElement>("[data-header-phone]")!;
+          const rect = phone.getBoundingClientRect();
+          return {
+            clientWidth: header.clientWidth,
+            scrollWidth: header.scrollWidth,
+            phoneLeft: rect.left,
+            phoneRight: rect.right,
+            // `documentElement.clientWidth`, а не `innerWidth`: последний в Chrome включает ширину
+            // полосы прокрутки, и поле справа считалось бы шире, чем оно есть.
+            viewportWidth: document.documentElement.clientWidth,
+          };
+        });
 
-      expect(geometry.scrollWidth, `header overflow at ${width}px`).toBeLessThanOrEqual(
-        geometry.clientWidth,
-      );
+        expect(
+          geometry.scrollWidth,
+          `header overflow at ${width}px on ${route}`,
+        ).toBeLessThanOrEqual(geometry.clientWidth);
+        expect(
+          geometry.viewportWidth - geometry.phoneRight,
+          `phone button has no right margin at ${width}px on ${route}`,
+        ).toBeGreaterThanOrEqual(MIN_RIGHT_GAP);
+        expect(
+          geometry.phoneLeft,
+          `phone button off-screen at ${width}px on ${route}`,
+        ).toBeGreaterThanOrEqual(-1);
+      }
     }
+  });
+
+  /* Ниже 960px шапка обязана быть свёрнута в бургер, выше — оставаться строкой. Рубеж проверяется
+     с обеих сторон: именно на нём девять пунктов перестают помещаться в строку. */
+  test("switches to the disclosure menu exactly at the 960px boundary", async ({ page }) => {
+    await page.goto("/");
+    const menuButton = page.locator('button[aria-controls="site-navigation"]');
+
+    await page.setViewportSize({ width: 959, height: 900 });
+    await expect(menuButton).toBeVisible();
+
+    await page.setViewportSize({ width: 960, height: 900 });
+    await expect(menuButton).toBeHidden();
+    await expect(page.getByRole("navigation", { name: "Основная навигация" })).toBeVisible();
   });
 
   test("keeps the same header contract in the task state", async ({ page }) => {

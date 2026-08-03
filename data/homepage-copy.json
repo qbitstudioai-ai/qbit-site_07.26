@@ -36,6 +36,7 @@
   ],
   "heroLinks": [
     { "label": "Главная", "href": "/" },
+    { "label": "Найти потери", "href": "/?section=office" },
     { "label": "О нас", "href": "/how-we-work" },
     { "label": "Продукт и Стоимость", "href": "/products" },
     { "label": "Документы", "href": "/documents" },

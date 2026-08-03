@@ -2,10 +2,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Header } from "@/components/homepage/Header";
 import { getHomepageCopy } from "@/content/homepage-copy";
+import { OFFICE_MAP_HREF, OFFICE_MAP_LINK } from "@/content/officeMapLink";
 
 describe("Header", () => {
   const links = [
     { label: "Главная", href: "/" },
+    OFFICE_MAP_LINK,
     { label: "О нас", href: "/how-we-work" },
     { label: "Продукт и Стоимость", href: "/products" },
     { label: "Блог", href: "/blog" },
@@ -109,6 +111,44 @@ describe("Header", () => {
     render(<Header {...defaultProps} onReturnHome={undefined} />);
 
     expect(screen.getByRole("link", { name: "Главная" })).toHaveAttribute("href", "/");
+  });
+
+  // «Найти потери» — вход в карту офиса из шапки. На главной он обязан работать состоянием, а не
+  // переходом: тот же маршрут, и навигация App Router заставила бы сервер отрисовать страницу заново.
+  it("opens the office map through the state machine on the homepage", () => {
+    const onOpenOfficeMap = vi.fn();
+    render(<Header {...defaultProps} onOpenOfficeMap={onOpenOfficeMap} />);
+
+    const officeLink = screen.getByRole("link", { name: "Найти потери" });
+    expect(officeLink).toHaveAttribute("href", OFFICE_MAP_HREF);
+
+    const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+    fireEvent(officeLink, click);
+
+    expect(onOpenOfficeMap).toHaveBeenCalledTimes(1);
+    expect(click.defaultPrevented).toBe(true);
+  });
+
+  // На внутренних страницах пропа нет — пункт должен остаться обычной ссылкой, иначе с /blog в
+  // офис было бы не попасть.
+  it("keeps Найти потери a real route link on inner pages", () => {
+    render(<Header {...defaultProps} onReturnHome={undefined} onOpenOfficeMap={undefined} />);
+
+    const officeLink = screen.getByRole("link", { name: "Найти потери" });
+    expect(officeLink).toHaveAttribute("href", OFFICE_MAP_HREF);
+    expect(officeLink.tabIndex).toBe(0);
+  });
+
+  // Позиция пункта задана в постановке: сразу после «Главной». Проверяется на РЕАЛЬНЫХ данных меню,
+  // потому что порядок собирается в `getHomepageCopy`, а не в компоненте.
+  it("places Найти потери right after Главная in the real menu", () => {
+    render(<Header {...defaultProps} links={getHomepageCopy().heroLinks} />);
+
+    const navigation = screen.getByRole("navigation", { name: "Основная навигация" });
+    const labels = Array.from(navigation.querySelectorAll("a"), (link) => link.textContent);
+
+    expect(labels.slice(0, 2)).toEqual(["Главная", "Найти потери"]);
+    expect(labels.filter((label) => label === "Найти потери")).toHaveLength(1);
   });
 
   it("renders the brand", () => {

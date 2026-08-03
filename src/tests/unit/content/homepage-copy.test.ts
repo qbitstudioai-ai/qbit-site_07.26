@@ -1,7 +1,29 @@
 import { describe, expect, it } from "vitest";
+import seedHomepageCopy from "../../../../data/homepage-copy.json";
 import { getHomepageCopy } from "@/content/homepage-copy";
+import { OFFICE_MAP_HREF, OFFICE_MAP_LINK } from "@/content/officeMapLink";
 
 describe("homepage-copy adapter", () => {
+  // Меню шапки живёт в базе, а запись там старше пункта «Найти потери»: без досборки на чтении
+  // (`withOfficeMapLink`) правка seed-файла посетителю бы не досталась. Тест бьёт по реальному
+  // адаптеру, поэтому проверяет именно то, что увидит страница.
+  it("always exposes Найти потери right after Главная", () => {
+    const { heroLinks } = getHomepageCopy();
+    const officeIndex = heroLinks.findIndex((link) => link.href === OFFICE_MAP_HREF);
+
+    expect(officeIndex).toBeGreaterThan(0);
+    expect(heroLinks[officeIndex - 1].href).toBe("/");
+    expect(heroLinks[officeIndex]).toEqual(OFFICE_MAP_LINK);
+    expect(heroLinks.filter((link) => link.href === OFFICE_MAP_HREF)).toHaveLength(1);
+  });
+
+  // Seed и константа — два места, где записан один и тот же пункт. Расхождение между ними означало
+  // бы дубль в меню на свежей базе, поэтому оно должно падать тестом, а не обнаруживаться глазами.
+  it("keeps the seed menu in sync with the office map link constant", () => {
+    expect(seedHomepageCopy.heroLinks[0]).toEqual({ label: "Главная", href: "/" });
+    expect(seedHomepageCopy.heroLinks[1]).toEqual(OFFICE_MAP_LINK);
+  });
+
   // Пункт «Контакты» указывал на href="#", хотя маршрут /contacts существует и отдаёт 200.
   // Тест закрепляет реальный адрес и запрещает вернуть заглушку "#" в общее меню.
   it("points every header link at a real destination, including Контакты", () => {

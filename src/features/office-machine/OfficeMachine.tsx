@@ -174,6 +174,29 @@ export function OfficeMachine({
   const handleActivateCta = () => dispatch({ type: "ACTIVATE_CTA" });
   const handleReturnToHero = () => dispatch({ type: "RETURN_TO_HERO" });
 
+  /**
+   * Пункт шапки «Найти потери» — та же цель, что и у кнопки «Найти потери в своём отделе» в hero:
+   * показать карту офиса. Но вызвать его можно из ЛЮБОГО состояния, а `ACTIVATE_CTA` работает
+   * только из `hero` (см. reducer). Поэтому из открытого отдела пункт закрывает раздел — тем же
+   * `CLOSE_DEPARTMENT`, что и крестик, с той же анимацией и возвратом фокуса.
+   *
+   * В `overview` менять нечего — пользователь уже на карте. Но и молча съедать нажатие нельзя:
+   * клик был отменён (`preventDefault`), фокус остался бы на пункте меню, и на клавиатуре и в
+   * скринридере это выглядело бы как сломанная ссылка. Поэтому фокус переносится на первый
+   * контрол карты — ровно туда же, куда его уводит переход `hero → overview`.
+   */
+  const handleOpenOfficeMap = () => {
+    if (state.view === "hero") {
+      dispatch({ type: "ACTIVATE_CTA" });
+      return;
+    }
+    if (state.activeSectionId !== null) {
+      dispatch({ type: "CLOSE_DEPARTMENT" });
+      return;
+    }
+    document.querySelector<HTMLElement>(OVERVIEW_MAP_FIRST_CONTROL)?.focus({ preventScroll: true });
+  };
+
   // Со Step 12.7 выбирается не только отдел, но и раздел «Ваша задача» — отсюда OfficeSectionId.
   const handleSelectDepartment = (departmentId: OfficeSectionId) => {
     if (state.activeSectionId === null) {
@@ -193,6 +216,7 @@ export function OfficeMachine({
         phoneHref={copy.headerPhoneHref}
         phoneAccessibleLabel={copy.headerPhoneAccessibleLabel}
         onReturnHome={handleReturnToHero}
+        onOpenOfficeMap={handleOpenOfficeMap}
       />
       <main className={styles.main}>
         {/* Раскладка hero (Amendment 26): офисный visual проходит широким нижним слоем под продающим
