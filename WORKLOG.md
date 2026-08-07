@@ -1,5 +1,108 @@
 # WORKLOG
 
+## 2026-08-07 — Step ATTR-01: рекламная атрибуция заявок
+
+**Изменено.**
+
+- `src/features/attribution/attribution.ts` (новый) — whitelist `yclid`, `utm_source`,
+  `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`; `sanitizeAdValue` (снятие `\p{Cc}` и
+  `\p{Cf}`, trim, лимит 200), `sanitizeLandingPath` (только внутренний путь, без query и якоря),
+  `buildAttribution`, `hasAdMarkers`, `serializeAttributionCookie` (чистый JSON, бюджет 3800 по
+  закодированной длине, ступени 200/120/60/30), `parseAttributionCookie`, `readAttributionCookie`.
+  Без React и Next: модуль исполняется на Edge, в route handler и в тестах.
+- `src/middleware.ts` — `withAttribution()`: cookie `qbit_attr`, `HttpOnly`, `Secure` в
+  production, `SameSite=Lax`, `Path=/`, `Max-Age=7776000` (90 дней). Пишется только при наличии
+  меток. Матчер расширен на публичные страницы: `"/((?!api/|_next/|.*\\.).*)"`. Ветка `/admin`
+  вынесена явной проверкой пути — раньше она была ветвью «всё, что не `/api/admin/`».
+- `src/app/api/contact/route.ts` — `attribution: readAttributionCookie(request.headers.get("cookie"))`
+  в payload; `page: normalizeContactPage(envelope.page)` вместо строковой константы `/contacts`.
+- `src/features/contacts/contactSchema.ts` — `CONTACT_PAGES`, `ContactPage`,
+  `DEFAULT_CONTACT_PAGE`, `normalizeContactPage`.
+- `src/features/contacts/ContactForm.tsx` — обязательный проп `page`, уходит в тело запроса.
+- `src/features/contacts/ContactsExperience.tsx` — `page="/contacts"`;
+  `src/components/task/TaskSectionExperience.tsx` — `page="/"`.
+- Тесты: `src/tests/unit/features/attribution/attribution.test.ts` (новый, 19 кейсов),
+  `src/tests/unit/middleware.test.ts` (новый, 10 кейсов),
+  `src/tests/e2e/attribution.spec.ts` (новый, 3 кейса),
+  `src/tests/unit/features/contacts/contact-route.test.ts` (+8 кейсов: страница отправки и
+  атрибуция; в списке ключей payload добавлен `attribution`).
+- `README.md` — раздел про payload n8n: `attribution`, значения `page`, описание cookie.
+
+**Найдено при проверке.**
+
+- Двойное процентное кодирование cookie. `NextResponse.cookies.set()` кодирует значение сам, а
+  `serializeAttributionCookie` кодировал его повторно; сервер после одного декодирования получал
+  процентную строку вместо JSON, то есть `attribution` был бы `null` на всех заявках в production.
+  Unit-тесты дефект не ловили — они собирали заголовок `Cookie` сами и кодировали ровно один раз.
+  Найдено e2e против production-сборки (`SyntaxError: Unexpected token '%'`). Исправлено:
+  `serializeAttributionCookie` отдаёт чистый JSON и считает бюджет по `encodeURIComponent(...).length`,
+  `parseAttributionCookie` декодирует терпимо. Добавлены три регрессионных теста (unit-контракт
+  кодирования, «двойное кодирование источником не считается», проверка значения из `Set-Cookie`
+  реального middleware).
+- Заголовок `Cookie` не принимает не-ASCII: тест с кириллицей в значении падал на конструкторе
+  `Request` (`Cannot convert argument to a ByteString`). Кейс переписан на ASCII-значения — так же,
+  как это выглядит у настоящего браузера.
+
+**Команды.**
+
+- `npm run lint` — exit 0.
+- `npm run typecheck` — exit 0.
+- `npm run test` — 56 файлов, 569 тестов, все прошли.
+- `npm run build` — exit 0, middleware в сборке присутствует, `/contacts` остаётся статической.
+- `npx playwright test` — 428 тестов, все прошли (4.8 мин) в прогоне исполнителя. Перепроверка
+  skeptic дала 423 passed / 5 failed с РАЗНЫМ набором падений от прогона к прогону; каждый
+  падавший тест (`departments-premium`, `documents-experience`, `office-overview-redesign`,
+  `pain-gain-layout`) проходит при изолированном запуске. Это предсуществующая нестабильность
+  набора под полной параллельностью (описана в док-комментарии `playwright.config.ts`), к шагу
+  отношения не имеет. Спеки `attribution`, `contacts-experience`, `task-section`,
+  `public-routes`, `legacy-redirects` зелёные во всех прогонах.
+- `npx prettier --check` по затронутым файлам — чисто. `src/tests/e2e/task-section.spec.ts` не
+  проходит `format:check` и до этого шага; файл не менялся и не правился.
+
+**Skeptic (раунд 1) — `PASS`.** Блокирующих находок нет. Неблокирующие исправлены здесь же:
+неточность README про `//чужой.сайт` (схлопывается до `/чужой.сайт`, а не до `/`), число кейсов в
+этой записи, недостижимая ветка «последнего рубежа» в `serializeAttributionCookie` (заменена явным
+полом по самой жёсткой ступени), неиспользуемый экспорт `hasAdMarkers` (удалён). Проверено
+независимо самим skeptic: `/admin?utm_source=…` по-прежнему даёт 307 на `/login` без cookie,
+`/robots.txt` и `/favicon.ico` cookie не получают, `/contacts` осталась пререндеренной,
+`NextResponse.cookies.set()` кодирует значение ровно один раз.
+
+**Доработка перед выкаткой (по прямому указанию пользователя 2026-08-07, две находки skeptic).**
+
+- `src/features/contacts/contactMessage.ts` — константа `MESSAGE_HEADING` заменена картой
+  `MESSAGE_HEADINGS: Record<ContactPage, string>`. `/contacts` → «Заявка с сайта QBit-Studio-Ai —
+  страница «Контакты»» (без изменений), `/` → «Заявка с сайта QBit-Studio-Ai — главная страница,
+  раздел «Ваша задача»». `meta` функции получил обязательное поле `page`. Остальной формат
+  сообщения не тронут — тест сверяет, что все строки, кроме первой, совпадают для обеих страниц.
+- `src/app/api/contact/route.ts` — `page` вычисляется до сборки payload и передаётся в
+  `buildContactMessage`.
+- `src/middleware.ts` — ответ, в котором записывается `qbit_attr`, получает
+  `Cache-Control: private, no-store`. Причина: страницы отдаются с `s-maxage=300`, и разделяемый
+  кэш раздал бы метку одного рекламного перехода всем следующим посетителям. На ответы без метки
+  заголовок не ставится.
+- Тесты: `contact-message.test.ts` (+1 кейс, `META.page` добавлен), `contact-route.test.ts`
+  (+1 кейс: текст называет ту же страницу, что и поле `page`), `middleware.test.ts` (+1 кейс:
+  `private, no-store` только на ответе с cookie), `attribution.spec.ts` (+1 e2e: заголовок
+  проверен против production-сборки — Next не перекрывает его своим `s-maxage`).
+
+**Команды после доработки.**
+
+- `npm run lint` — exit 0. `npm run typecheck` — exit 0.
+- `npm run test` — 56 файлов, 572 теста, все прошли.
+- `npx playwright test attribution.spec.ts` — 4/4.
+- `npx playwright test` (полный) — два прогона: 427/2 и 428/1, наборы падений разные
+  (`documents-experience:209` и др.). Каждый падавший спек проходит изолированно
+  (`documents-experience` — 14/14). Та же предсуществующая нестабильность под параллельностью, что
+  описана выше; к шагу отношения не имеет.
+
+**Осталось за пределами шага.** Cookie рекламного назначения на 90 дней ставится без согласия;
+`docs/16-open-questions.md:47` («Cookie banner?») открыт, в документах сайта cookie не упомянута.
+Решение за владельцем.
+
+**Не сделано намеренно.** Записи в Supabase и CRM нет (следующий этап). n8n, Supabase и Яндекс
+Директ не трогались. Адрес webhook, секрет, доставка в Telegram и `crypto.randomUUID()` для
+`submissionId` не менялись.
+
 ## 2026-08-03 — Step OFFICE-01: пункт шапки «Найти потери»
 
 **Изменено.**

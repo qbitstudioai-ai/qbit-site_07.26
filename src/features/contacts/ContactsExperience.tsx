@@ -87,7 +87,7 @@ export function ContactsExperience({
               {copy.formHeading}
             </h2>
             <p className={styles.formDescription}>{copy.formDescription}</p>
-            <ContactForm channels={channels} />
+            <ContactForm channels={channels} page="/contacts" />
           </section>
         </div>
       </div>

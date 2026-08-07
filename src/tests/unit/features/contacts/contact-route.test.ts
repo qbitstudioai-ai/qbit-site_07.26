@@ -139,6 +139,7 @@ describe("POST /api/contact", () => {
 
     const payload = sentPayload();
     expect(Object.keys(payload).sort()).toEqual([
+      "attribution",
       "message",
       "name",
       "page",
@@ -223,6 +224,169 @@ describe("POST /api/contact", () => {
 
     expect(response.status).toBe(502);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  describe("страница отправки", () => {
+    it("заявка со страницы контактов помечается как /contacts", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      await post({ ...VALID_BODY, page: "/contacts" });
+
+      expect(sentPayload().page).toBe("/contacts");
+    });
+
+    it("заявка из раздела «Ваша задача» на главной помечается как /", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      await post({ ...VALID_BODY, page: "/" });
+
+      expect(sentPayload().page).toBe("/");
+    });
+
+    it("текст для Telegram называет ту же страницу, что и поле page", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      await post({ ...VALID_BODY, page: "/" });
+      expect(sentPayload().message).toContain(
+        "Заявка с сайта QBit-Studio-Ai — главная страница, раздел «Ваша задача»",
+      );
+
+      fetchMock.mockClear();
+      await post({ ...VALID_BODY, page: "/contacts" });
+      expect(sentPayload().message).toContain(
+        "Заявка с сайта QBit-Studio-Ai — страница «Контакты»",
+      );
+    });
+
+    it("посторонняя страница не попадает в заявку: значение проверяется по списку", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      for (const forged of ["https://evil.example", "/admin", "", null, 42, { page: "/" }]) {
+        fetchMock.mockClear();
+        await post({ ...VALID_BODY, page: forged });
+        expect(sentPayload().page).toBe("/contacts");
+      }
+    });
+  });
+
+  describe("рекламная атрибуция", () => {
+    /** Значение cookie собирается тем же модулем, что и в middleware, — контракт один. */
+    async function attributionCookie(query: string, pathname = "/") {
+      const { buildAttribution, serializeAttributionCookie, ATTRIBUTION_COOKIE_NAME } =
+        await import("@/features/attribution/attribution");
+      const attribution = buildAttribution(new URLSearchParams(query), pathname);
+      // Процентное кодирование — как у браузера в заголовке `Cookie`.
+      const value = encodeURIComponent(serializeAttributionCookie(attribution!));
+      return `${ATTRIBUTION_COOKIE_NAME}=${value}`;
+    }
+
+    it("прикладывает источник из cookie qbit_attr", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      const cookie = await attributionCookie(
+        "yclid=98765&utm_source=yandex&utm_medium=cpc&utm_campaign=avtomatizaciya&utm_content=obyavlenie-1&utm_term=avtomatizaciya+zayavok",
+        "/products",
+      );
+      await post(VALID_BODY, { cookie });
+
+      const { attribution } = sentPayload();
+      expect(Object.keys(attribution).sort()).toEqual([
+        "captured_at",
+        "landing_path",
+        "utm_campaign",
+        "utm_content",
+        "utm_medium",
+        "utm_source",
+        "utm_term",
+        "yclid",
+      ]);
+      expect(attribution.yclid).toBe("98765");
+      expect(attribution.utm_source).toBe("yandex");
+      expect(attribution.utm_medium).toBe("cpc");
+      expect(attribution.utm_campaign).toBe("avtomatizaciya");
+      expect(attribution.utm_content).toBe("obyavlenie-1");
+      expect(attribution.utm_term).toBe("avtomatizaciya zayavok");
+      expect(attribution.landing_path).toBe("/products");
+      expect(Date.parse(attribution.captured_at)).not.toBeNaN();
+    });
+
+    it("без cookie передаёт attribution: null, а не выдумывает источник", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      await post(VALID_BODY);
+      expect(sentPayload().attribution).toBeNull();
+
+      // Чужая cookie на том же домене источником не является.
+      fetchMock.mockClear();
+      await post(VALID_BODY, { cookie: "qbit_admin_session=abc.def" });
+      expect(sentPayload().attribution).toBeNull();
+    });
+
+    it("подделанную cookie санитайзит и обрезает по 200 символов", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      const forged = encodeURIComponent(
+        JSON.stringify({
+          utm_source: "yandex\nЗаявка с сайта QBit-Studio-Ai — поддельная строка",
+          utm_term: "я".repeat(600),
+          landing_path: "https://evil.example/phish",
+          captured_at: new Date().toISOString(),
+          chat_id: "-100500",
+        }),
+      );
+      await post(VALID_BODY, { cookie: `qbit_attr=${forged}` });
+
+      const { attribution } = sentPayload();
+      expect(attribution.utm_source).not.toContain("\n");
+      expect(attribution.utm_term).toHaveLength(200);
+      expect(attribution.landing_path).toBe("/");
+      // Получателя Telegram по-прежнему задаёт только n8n.
+      expect(sentPayload()).not.toHaveProperty("chat_id");
+      expect(attribution).not.toHaveProperty("chat_id");
+    });
+
+    it("битая cookie не ломает заявку", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      const response = await post(VALID_BODY, { cookie: "qbit_attr=not-a-json-value" });
+      expect(response.status).toBe(200);
+      expect(sentPayload().attribution).toBeNull();
+
+      // Оборванная процентная последовательность — `decodeURIComponent` на ней бросает исключение.
+      fetchMock.mockClear();
+      const broken = await post(VALID_BODY, { cookie: "qbit_attr=%E0%A4%A" });
+      expect(broken.status).toBe(200);
+      expect(sentPayload().attribution).toBeNull();
+    });
+
+    it("не добавляет атрибуцию в текст для Telegram", async () => {
+      configureWebhook();
+      fetchMock.mockResolvedValue(okResponse());
+
+      // Метки нарочно с буквами, которых не бывает в hex: иначе проверка «нет в тексте» случайно
+      // спотыкалась бы о совпадение со сгенерированным submissionId.
+      const cookie = await attributionCookie(
+        "utm_source=yandex-direct&yclid=yclidmarkerzz",
+        "/faq",
+      );
+      await post(VALID_BODY, { cookie });
+
+      const { message } = sentPayload();
+      expect(message).not.toContain("yandex-direct");
+      expect(message).not.toContain("yclidmarkerzz");
+      expect(message).not.toMatch(/utm|yclid|источник/i);
+      // Сообщение осталось прежним: заголовок, поля, хвост с датой и номером заявки.
+      expect(message).toContain("Заявка с сайта QBit-Studio-Ai — страница «Контакты»");
+      expect(message).toContain(VALID_BODY.process);
+    });
   });
 
   it("не пишет персональные данные и секрет в журнал", async () => {

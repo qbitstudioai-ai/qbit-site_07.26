@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { readAttributionCookie } from "@/features/attribution/attribution";
 import { buildContactMessage } from "@/features/contacts/contactMessage";
 import {
   CONTACT_HONEYPOT_FIELD,
   CONTACT_MAX_BODY_BYTES,
   CONTACT_MIN_FILL_MS,
   contactSubmissionSchema,
+  normalizeContactPage,
 } from "@/features/contacts/contactSchema";
 import { createRateLimiter } from "@/server/net/publicRateLimit";
 
@@ -22,6 +24,10 @@ import { createRateLimiter } from "@/server/net/publicRateLimit";
  *   N8N_CONTACT_WEBHOOK_URL    — адрес production-webhook сценария n8n;
  *   N8N_CONTACT_WEBHOOK_SECRET — общий секрет, уходит заголовком X-QBit-Webhook-Secret.
  * Обе читаются ТОЛЬКО здесь и наружу не отдаются ни в одном ответе, включая тексты ошибок.
+ *
+ * Рекламный источник заявки (`attribution`) роут берёт из cookie `qbit_attr`, которую ставит
+ * middleware при переходе с меткой (`yclid`, `utm_*`). Форма его не передаёт и знать о нём не
+ * должна — см. `src/features/attribution/attribution.ts`.
  *
  * Принимающий сценарий — «Qbit_sait/Webhook → Telegram notification»: узел Telegram берёт текст из
  * `body.message`, а получателя — из `body.chat_id` с фолбэком на адрес владельца. `chat_id` отсюда
@@ -123,14 +129,18 @@ export async function POST(request: Request) {
 
   const submissionId = crypto.randomUUID();
   const submittedAt = new Date().toISOString();
+  // Страница отправки. Приходит от формы и проверяется по списку `CONTACT_PAGES`: `/contacts` или
+  // `/` (раздел «Ваша задача» на главной). Раньше здесь стояла строковая константа `/contacts`,
+  // из-за чего заявки с главной приходили с чужой пометкой — и в поле, и в тексте для Telegram.
+  const page = normalizeContactPage(envelope.page);
 
   const payload = {
     submissionId,
     source: "qbit-studio-ai-contacts",
-    page: "/contacts",
+    page,
     // Готовый текст для Telegram. Сценарий n8n подставляет `body.message` без обработки, поэтому
     // формулировка — ответственность сайта (см. `contactMessage.ts`).
-    message: buildContactMessage(parsed.data, { submissionId, submittedAt }),
+    message: buildContactMessage(parsed.data, { submissionId, submittedAt, page }),
     // Те же данные по полям: нужны сценарию, если заявку захотят класть не только в Telegram
     // (таблица, CRM, фильтрация) — разбирать текст сообщения для этого не придётся.
     name: parsed.data.name,
@@ -138,6 +148,13 @@ export async function POST(request: Request) {
     telegram: parsed.data.telegram,
     process: parsed.data.process,
     submittedAt,
+    // Рекламный источник из cookie `qbit_attr` (её ставит middleware). Берётся из ЗАПРОСА, а не из
+    // тела формы: cookie тоже правится в браузере, но её содержимое уже прошло санитайз при записи
+    // и проходит повторно при чтении, тогда как поле формы пришлось бы принимать как есть.
+    // `null` — обычный случай: человек пришёл не по рекламе.
+    // В текст `message` атрибуция намеренно НЕ добавляется: сообщение в Telegram читает человек,
+    // и служебные метки в нём мешают. Разбор источника — задача сценария n8n по этому полю.
+    attribution: readAttributionCookie(request.headers.get("cookie")),
   };
 
   try {

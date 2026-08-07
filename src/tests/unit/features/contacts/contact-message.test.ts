@@ -9,7 +9,8 @@ import { buildContactMessage } from "@/features/contacts/contactMessage";
 const META = {
   submissionId: "11111111-2222-3333-4444-555555555555",
   submittedAt: "2026-07-29T09:05:00.000Z",
-};
+  page: "/contacts",
+} as const;
 
 const SUBMISSION = {
   name: "Павел",
@@ -28,6 +29,20 @@ describe("buildContactMessage", () => {
     expect(message).toContain("Telegram: @Promt_Pavel");
     expect(message).toContain(SUBMISSION.process);
     expect(message).toContain(META.submissionId);
+  });
+
+  it("называет страницу отправки: заявка с главной не выдаёт себя за контактную", () => {
+    const fromHome = buildContactMessage(SUBMISSION, { ...META, page: "/" });
+    const fromContacts = buildContactMessage(SUBMISSION, { ...META, page: "/contacts" });
+
+    expect(fromHome).toContain(
+      "Заявка с сайта QBit-Studio-Ai — главная страница, раздел «Ваша задача»",
+    );
+    expect(fromHome).not.toContain("страница «Контакты»");
+    expect(fromContacts).toContain("Заявка с сайта QBit-Studio-Ai — страница «Контакты»");
+
+    // Меняется только заголовок: остальной формат сообщения общий для обеих страниц.
+    expect(fromHome.split("\n").slice(1)).toEqual(fromContacts.split("\n").slice(1));
   });
 
   it("показывает время в московском часовом поясе, а не в UTC", () => {

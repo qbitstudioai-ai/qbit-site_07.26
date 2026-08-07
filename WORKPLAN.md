@@ -1,5 +1,78 @@
 # WORKPLAN
 
+## Amendment 49 — рекламная атрибуция заявок (2026-08-07)
+
+- Status: `COMPLETED` (skeptic: раунд 1 `PASS`; блокирующих находок нет, неблокирующие исправлены
+  в том же шаге — см. `WORKLOG.md`).
+- User approval: прямое ТЗ пользователя 2026-08-07 (read-only анализ, затем «Реализуй этап
+  атрибуции заявок» с перечнем требований).
+- Причина: заявка приходит в n8n без источника. Отличить обращение по объявлению Директа от
+  органического перехода нельзя ничем, поэтому и оценить отдачу от рекламы нечем.
+- Scope: сохранение последнего рекламного касания в собственной cookie и передача его в payload
+  `/api/contact`. Плюс попутно — дефект поля `page`, которое было захардкожено.
+- Out of scope: CRM, запись в Supabase, изменения в n8n, Supabase и Яндекс Директе, счётчики и
+  аналитические скрипты, адрес и секрет webhook, механизм `submissionId`, текст сообщения Telegram.
+
+### Step ATTR-01 — источник заявки в payload n8n
+
+- Objective: заявка, отправленная человеком, пришедшим по рекламной ссылке, доезжает в n8n с
+  полем `attribution`; заявка обычного посетителя — с `attribution: null`. Поле `page` отражает
+  страницу, с которой форма реально отправлена.
+- In scope: `src/features/attribution/attribution.ts` (новый), `src/middleware.ts`,
+  `src/app/api/contact/route.ts`, `src/features/contacts/contactSchema.ts`,
+  `src/features/contacts/ContactForm.tsx`, `src/features/contacts/ContactsExperience.tsx`,
+  `src/components/task/TaskSectionExperience.tsx`,
+  `src/tests/unit/features/attribution/attribution.test.ts` (новый),
+  `src/tests/unit/middleware.test.ts` (новый), `src/tests/e2e/attribution.spec.ts` (новый),
+  `src/tests/unit/features/contacts/contact-route.test.ts`, `README.md`, журналы.
+- Acceptance criteria:
+  1. Сохраняются ровно восемь полей: `yclid`, `utm_source`, `utm_medium`, `utm_campaign`,
+     `utm_content`, `utm_term`, `landing_path`, `captured_at`. Прочие параметры адреса
+     игнорируются.
+  2. Хранилище — одна cookie `qbit_attr`: `HttpOnly`, `Secure` (в production), `SameSite=Lax`,
+     `Path=/`, `Max-Age` 90 дней.
+  3. Семантика — последнее рекламное касание: переход с `yclid` или любой `utm_*` перезаписывает
+     cookie; переход без меток её не меняет и не удаляет.
+  4. Все значения недоверенные: whitelist, снятие управляющих и форматирующих символов, лимит 200
+     символов на значение, `landing_path` — только внутренний путь.
+  5. Запись выполняет middleware; matcher покрывает публичные HTML-страницы и исключает `api/`,
+     `_next/` и пути с точкой.
+  6. `/api/contact` читает cookie и кладёт `attribution` в payload; без cookie — `attribution:
+     null`.
+  7. Текст `message` для Telegram не меняется вовсе.
+  8. `page` — `/` или `/contacts`, значение проверяется на сервере по списку.
+  9. Зелёные `lint`, `typecheck`, `test`, `build`, `test:e2e`.
+- Verification: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`,
+  `npx playwright test` (полный набор), `npx prettier --check` по затронутым файлам.
+- Risks: (а) двойное процентное кодирование значения cookie — реализовалось, поймано e2e против
+  production-сборки, закрыто контрактом «serialize отдаёт чистый JSON, кодирует writer» и двумя
+  регрессионными тестами; (б) middleware начинает исполняться на каждом запросе публичной
+  страницы — снижено исключениями matcher и ранним выходом без меток; (в) `Set-Cookie` на
+  ISR-странице станет опасен, если перед приложением появится КЭШИРУЮЩИЙ прокси (сейчас Caddy
+  проксирует без кэша) — записано как эксплуатационное ограничение; (г) появление cookie у
+  посетителя требует упоминания в документах сайта — вынесено пользователю, кодом не решается.
+- Rollback: `git checkout -- <файлы шага>`; тег `backup/pre-attribution-2026-08-07`. Схемы БД шаг
+  не трогает, миграций нет, состояние в n8n не меняется.
+
+### Доработка ATTR-01 перед выкаткой (указание пользователя 2026-08-07)
+
+Две находки skeptic закрыты в том же шаге, до деплоя:
+
+1. `COMPLETED` — заголовок сообщения Telegram зависит от страницы отправки: «страница «Контакты»»
+   для `/contacts`, «главная страница, раздел «Ваша задача»» для `/`. Остальной формат сообщения
+   не изменён.
+2. `COMPLETED` — ответ, записывающий `qbit_attr`, отдаётся с `Cache-Control: private, no-store`;
+   проверено против production-сборки, Next своим `s-maxage` заголовок не перекрывает.
+
+### Осталось (требует решения пользователя)
+
+1. Упоминание cookie в документах сайта. `docs/16-open-questions.md:47` («Cookie banner?») открыт
+   с самого начала проекта; до этого шага сайт не ставил посетителю ни одной cookie.
+2. Запись заявки и её источника в Supabase/CRM — заявлено пользователем как отдельный следующий
+   этап.
+3. Сценарий n8n поле `attribution` пока не разбирает: сайт его передаёт, n8n игнорирует. Изменения
+   в n8n пользователь запретил делать в рамках этого шага.
+
 ## Amendment 48 — пункт шапки «Найти потери» (2026-08-03)
 
 - Status: `COMPLETED` (skeptic: раунд 1 `FAIL`, раунд 2 `FAIL`, раунд 3 `PASS`; блокирующих находок не осталось).

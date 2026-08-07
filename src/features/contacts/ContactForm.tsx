@@ -10,6 +10,7 @@ import {
   CONTACT_LIMITS,
   type ContactFieldKey,
   type ContactFormValues,
+  type ContactPage,
   collectContactErrors,
 } from "./contactSchema";
 import styles from "./ContactsExperience.module.css";
@@ -43,8 +44,19 @@ function selectFallbackChannels(channels: readonly ContactChannel[]): ContactCha
  *
  * Отправка идёт на собственный роут `/api/contact`, а не на webhook n8n: адрес и секрет webhook
  * живут только в серверном окружении и в браузер не попадают ни в каком виде.
+ *
+ * `page` — та страница, которая эту форму показывает. Проп, а не `window.location`: форма живёт в
+ * двух местах (`/contacts` и раздел «Ваша задача» на главной), и страница-владелец знает ответ
+ * достоверно, тогда как адресная строка главной содержит ещё и `?department=…`. Сервер значение
+ * всё равно перепроверяет по списку — от клиента здесь ничего не принимается на веру.
  */
-export function ContactForm({ channels }: { channels: readonly ContactChannel[] }) {
+export function ContactForm({
+  channels,
+  page,
+}: {
+  channels: readonly ContactChannel[];
+  page: ContactPage;
+}) {
   const fallbackChannels = selectFallbackChannels(channels);
   const [values, setValues] = useState<ContactFormValues>(EMPTY_VALUES);
   const [errors, setErrors] = useState<Partial<Record<ContactFieldKey, string>>>({});
@@ -135,6 +147,7 @@ export function ContactForm({ channels }: { channels: readonly ContactChannel[] 
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...values,
+          page,
           [CONTACT_HONEYPOT_FIELD]: honeypot,
           elapsedMs: startedAtRef.current === null ? null : Date.now() - startedAtRef.current,
         }),

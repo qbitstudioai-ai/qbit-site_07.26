@@ -42,7 +42,10 @@ export function TaskSectionExperience({
       <p className={styles.intro}>{copy.intro}</p>
 
       <div className={styles.contactFormPanel}>
-        <ContactForm channels={contactChannels} />
+        {/* Раздел «Ваша задача» — состояние главной страницы (`/?section=task`), а не отдельный
+            адрес. В заявку уходит именно `/`: до этой правки такое обращение приходило в n8n
+            помеченным как заявка со страницы контактов. */}
+        <ContactForm channels={contactChannels} page="/" />
       </div>
 
       <div className={styles.actions}>

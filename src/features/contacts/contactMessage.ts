@@ -1,4 +1,4 @@
-import type { ContactSubmission } from "./contactSchema";
+import type { ContactPage, ContactSubmission } from "./contactSchema";
 
 /**
  * Текст заявки для Telegram.
@@ -12,8 +12,17 @@ import type { ContactSubmission } from "./contactSchema";
  * Telegram разобрать сообщение. Обычный текст доставляется всегда.
  */
 
-/** Заголовок: сразу видно, с какой страницы какого сайта пришла заявка. */
-const MESSAGE_HEADING = "Заявка с сайта QBit-Studio-Ai — страница «Контакты»";
+/**
+ * Заголовок: сразу видно, с какой страницы какого сайта пришла заявка.
+ *
+ * Подпись зависит от страницы отправки. До 2026-08-07 здесь стояла одна строка про «Контакты», и
+ * заявка из раздела «Ваша задача» на главной приходила в Telegram с чужой пометкой — читающий
+ * человек видел неверный источник обращения.
+ */
+const MESSAGE_HEADINGS: Record<ContactPage, string> = {
+  "/contacts": "Заявка с сайта QBit-Studio-Ai — страница «Контакты»",
+  "/": "Заявка с сайта QBit-Studio-Ai — главная страница, раздел «Ваша задача»",
+};
 
 /** Часовой пояс отображаемого времени: заявки читает человек в Москве, а не в UTC. */
 const DISPLAY_TIME_ZONE = "Europe/Moscow";
@@ -33,9 +42,9 @@ function formatSubmittedAt(iso: string): string {
 
 export function buildContactMessage(
   submission: ContactSubmission,
-  meta: { submissionId: string; submittedAt: string },
+  meta: { submissionId: string; submittedAt: string; page: ContactPage },
 ): string {
-  const lines = [MESSAGE_HEADING, "", `Имя: ${submission.name}`];
+  const lines = [MESSAGE_HEADINGS[meta.page], "", `Имя: ${submission.name}`];
 
   // Незаполненный способ связи строкой «Телефон: —» не показывается: обязателен хотя бы один из
   // двух, и пустая строка только удлиняет сообщение в телефоне.
