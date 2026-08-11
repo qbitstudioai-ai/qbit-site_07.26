@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { YandexMetrika } from "@/components/analytics/YandexMetrika";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
 import "./globals.css";
 
@@ -68,7 +69,13 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Счётчик Яндекс Метрики. Единственная точка подключения на весь сайт: layout остаётся
+            серверным, клиентская граница живёт внутри компонента. Разделы `/admin/*` и `/login`
+            он исключает сам. */}
+        <YandexMetrika />
+      </body>
     </html>
   );
 }

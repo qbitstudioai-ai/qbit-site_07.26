@@ -7,6 +7,22 @@ import { OFFICE_MAP_HREF } from "@/content/officeMapLink";
 import type { HeroLink } from "@/content/types";
 import styles from "./Header.module.css";
 
+/**
+ * Вход в административную часть — единственный пункт меню, который НАМЕРЕННО уводит обычной
+ * ссылкой, а не через `next/link`.
+ *
+ * Причина не в навигации, а в аналитике. Мягкий переход App Router сохраняет тот же документ, а
+ * вместе с ним — уже загруженную библиотеку Яндекс Метрики с включённым Вебвизором. Размонтировать
+ * счётчик мало: остановить запись сессии из кода нельзя, у `ym` нет такого вызова. Поэтому запись
+ * продолжалась бы на форме входа и дальше в админ-панели, где на экране персональные данные
+ * заявителей. Полная перезагрузка документа обрывает JS-контекст вместе с записью, а новый документ
+ * `/login` счётчик уже не инициализирует (`src/components/analytics/YandexMetrika.tsx`).
+ *
+ * Решение пользователя от 2026-08-11, см. `DECISIONS.md`. Остальные пункты меню не трогаются:
+ * мягкая навигация — то, ради чего сайт сделан на App Router.
+ */
+const HARD_NAVIGATION_HREF = "/login";
+
 interface HeaderProps {
   links: HeroLink[];
   phoneLabel: string;
@@ -178,6 +194,18 @@ export function Header({
                 // иначе focus останется на ссылке, которую display:none сразу уберёт из экрана.
                 event.preventDefault();
               }}
+            >
+              {link.label}
+            </a>
+          ) : link.href === HARD_NAVIGATION_HREF ? (
+            // Обычная ссылка без `next/link` и без `router` — браузер загружает новый документ и
+            // обрывает JS-контекст вместе с записью Вебвизора (см. HARD_NAVIGATION_HREF выше).
+            // Разметка, классы и `aria-current` — те же, что у остальных пунктов.
+            <a
+              key={link.label}
+              href={link.href}
+              aria-current={link.href === activeHref ? "page" : undefined}
+              onClick={() => setIsMenuOpen(false)}
             >
               {link.label}
             </a>

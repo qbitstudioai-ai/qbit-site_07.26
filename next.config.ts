@@ -30,14 +30,45 @@ import { LEGACY_REDIRECTS } from "./src/lib/legacyRedirects";
  * с осознанной ценой.
  *
  * `'unsafe-eval'` не добавлен и не нужен.
+ *
+ * ─── Источники Яндекс Метрики ────────────────────────────────────────────────────────────────
+ *
+ * Счётчик 109167375 подключается из `src/components/analytics/YandexMetrika.tsx`. До этой правки
+ * политика его молча убивала: `script-src 'self'` не давал загрузить `tag.js`, `connect-src 'self'`
+ * — отправить визит, `img-src` — показать пиксель из `<noscript>`. Ослабления сделаны точечно, по
+ * конкретным хостам, без единого `*` и без правки `default-src`, `object-src`, `base-uri` и
+ * `form-action`.
+ *
+ * Что и зачем:
+ *
+ * - `mc.yandex.ru`, `mc.yandex.com` — сама библиотека, приём визитов и пиксель `<noscript>`. Второй
+ *   хост нужен потому, что Метрика уводит часть трафика на него в зависимости от региона.
+ * - `wss://mc.yandex.ru`, `wss://mc.yandex.com` в `connect-src` — ОТДЕЛЬНОЙ строкой, и это не
+ *   дубль. Схема `wss:` не покрывается записью `https://mc.yandex.ru`: браузер сверяет источник
+ *   вместе со схемой. Без этих двух источников Вебвизор не открывает `wss://mc.yandex.ru/solid.ws`
+ *   и на каждой загрузке страницы у каждого посетителя в консоли появляется нарушение политики.
+ *   Найдено проверкой в реальном браузере — `curl` заблокированный WebSocket не показывает.
+ * - `yastatic.net` — общая статика Яндекса, с которой Метрика догружает свои модули.
+ * - `frame-src`/`child-src` и `worker-src` со `blob:` — Вебвизор (`webvisor: true`): он пишет
+ *   страницу через собственный worker и служебный кадр, создаваемые из blob-URL. Без этих директив
+ *   они упирались бы в `default-src 'self'`. `child-src` — тот же список для браузеров, которые
+ *   не знают `frame-src`.
+ *
+ * `frame-ancestors 'none'` СОЗНАТЕЛЬНО не тронут: его ослабление позволило бы встраивать сайт в
+ * чужой кадр, то есть вернуло бы clickjacking. Следствие — карты кликов и скроллинга в интерфейсе
+ * Метрики, которые открывают сайт во фрейме, работать не будут. Сбор визитов и Вебвизор от этого
+ * не зависят.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  "script-src 'self' 'unsafe-inline' https://mc.yandex.ru https://mc.yandex.com https://yastatic.net",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://mc.yandex.ru https://mc.yandex.com",
   "font-src 'self' data:",
-  "connect-src 'self'",
+  "connect-src 'self' https://mc.yandex.ru https://mc.yandex.com https://yastatic.net wss://mc.yandex.ru wss://mc.yandex.com",
+  "frame-src 'self' blob: https://mc.yandex.ru",
+  "child-src 'self' blob: https://mc.yandex.ru",
+  "worker-src 'self' blob:",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
