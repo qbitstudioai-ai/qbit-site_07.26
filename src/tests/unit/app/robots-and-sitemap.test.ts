@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CASES_CONTENT } from "@/features/cases/casesContent";
 import { SITE_URL } from "@/lib/seo";
 import { seedBlogPosts, seedProductLocations } from "@/tests/fixtures/seedContent";
 
@@ -101,8 +102,30 @@ describe("sitemap.xml", () => {
     expect(new Set(urls).size).toBe(urls.length);
   });
 
-  it("сохраняет прежний состав из 23 публичных URL", () => {
-    expect(urls).toHaveLength(23);
+  it("сохраняет состав из 25 публичных URL", () => {
+    // Было 23; 2026-08-11 добавились раздел «Кейсы» и первый опубликованный кейс.
+    expect(urls).toHaveLength(25);
+  });
+
+  /**
+   * Кейсы попадают в карту сайта из того же источника, что и сам раздел, поэтому черновик в неё
+   * физически не может попасть. Проверяется обе стороны правила.
+   */
+  it("включает раздел «Кейсы» и только опубликованные кейсы", () => {
+    expect(urls).toContain(`${SITE_URL}/cases`);
+    expect(urls).toContain(`${SITE_URL}/cases/analiz-zvonkov-otdela-prodazh`);
+
+    for (const draft of CASES_CONTENT.filter((study) => study.status === "draft")) {
+      expect(urls, `${draft.slug} попал в карту сайта`).not.toContain(
+        `${SITE_URL}/cases/${draft.slug}`,
+      );
+    }
+  });
+
+  it("не проставляет кейсам выдуманную дату изменения", () => {
+    // Подтверждённой даты публикации у кейса нет — значит и `lastmod` быть не должно.
+    const study = entries.find((entry) => entry.url.startsWith(`${SITE_URL}/cases/`));
+    expect(study?.lastModified).toBeUndefined();
   });
 
   it("не содержит служебных, закрытых и параметризованных адресов", () => {

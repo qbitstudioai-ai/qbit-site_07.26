@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 import { BLOG_URL, blogPostUrl } from "@/features/blog/blogSeo";
+import { caseUrl } from "@/features/cases/casesRoutes";
+import { CASES_URL } from "@/features/cases/casesSeo";
 import { CONTACTS_URL } from "@/features/contacts/contactsSeo";
 import { FAQ_PUBLISHED_AT, FAQ_URL } from "@/features/faq/faqSeo";
 import { productUrl } from "@/features/products/productSeo";
@@ -14,6 +16,7 @@ import {
   productLastModifiedBySlug,
   productsIndexLastModified,
 } from "@/server/content/lastModified";
+import { getPublishedCases } from "@/server/content/cases";
 import { getProducts } from "@/server/content/products";
 
 /**
@@ -44,6 +47,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const blogPosts = getPublishedArticles();
   const products = getProducts();
   const productDates = productLastModifiedBySlug();
+
+  /**
+   * Кейсы берутся ТЕМ ЖЕ источником, что и сам раздел (`getPublishedCases`), а не перечисляются
+   * здесь строками. Из этого следует ровно то, ради чего так сделано: черновик физически не может
+   * попасть в карту сайта (источник отдаёт только `published`), а кейс, опубликованный завтра в
+   * админ-панели, окажется в карте без правки этого файла.
+   */
+  const cases = getPublishedCases();
 
   /**
    * Дата раздела «Блог» — позднейшая из даты самого текста раздела и дат всех опубликованных
@@ -105,6 +116,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...blogPosts.map((post) => ({
       url: blogPostUrl(post),
       lastModified: post.modifiedAt,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+    {
+      // `lastModified` у раздела и у кейсов СОЗНАТЕЛЬНО нет: подтверждённой даты публикации кейса
+      // не существует, а дата сборки на её месте сообщала бы поисковой системе выдуманный факт —
+      // то же правило, что у `/how-we-work` выше. Появится настоящая дата (`publishedAt`) —
+      // появится и `lastmod`.
+      url: CASES_URL,
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    ...cases.map((study) => ({
+      url: caseUrl(study),
+      lastModified: study.modifiedAt ?? study.publishedAt,
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),

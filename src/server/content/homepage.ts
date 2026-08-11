@@ -1,5 +1,6 @@
 import { cache } from "react";
 import seedHomepageCopy from "../../../data/homepage-copy.json";
+import { CASES_LINK, CASES_PATH } from "@/content/casesLink";
 import { OFFICE_MAP_HREF, OFFICE_MAP_LINK } from "@/content/officeMapLink";
 import { homepageCopySchema } from "@/content/schema";
 import type { HeroLink, HomepageCopy } from "@/content/types";
@@ -27,6 +28,30 @@ function withOfficeMapLink(heroLinks: HeroLink[]): HeroLink[] {
 }
 
 /**
+ * Гарантирует пункт «Кейсы» перед «Блогом».
+ *
+ * Причина та же, что у «Найти потери»: меню живёт в базе, а запись там появилась до раздела кейсов,
+ * и правки одного лишь `data/homepage-copy.json` посетитель бы не увидел — seed читается, только
+ * когда записи в базе нет. Досборка на чтении чинит любую базу (боевую, тестовую, базы
+ * разработчиков) и не требует отдельного шага при выкатке.
+ *
+ * Место выбрано по смыслу: кейсы — материал о выполненной работе, они стоят рядом с «Блогом» и
+ * перед ним. Якорь — `href` «Блога», а не индекс: переименование пунктов владельцем сайта не должно
+ * ни ломать порядок, ни плодить дубль. Если «Блога» в меню нет, пункт встаёт перед «Контактами», а
+ * если нет и их — в конец.
+ */
+function withCasesLink(heroLinks: HeroLink[]): HeroLink[] {
+  if (heroLinks.some((link) => link.href === CASES_PATH)) return heroLinks;
+
+  const anchorIndex = ["/blog", "/contacts"]
+    .map((href) => heroLinks.findIndex((link) => link.href === href))
+    .find((index) => index >= 0);
+  const insertAt = anchorIndex ?? heroLinks.length;
+
+  return [...heroLinks.slice(0, insertAt), CASES_LINK, ...heroLinks.slice(insertAt)];
+}
+
+/**
  * Тексты главной страницы и общей шапки сайта.
  *
  * Читает `page_content.homepage` и подставляет контакты из раздела «Контакты»: номер телефона в
@@ -49,7 +74,7 @@ export const getHomepageCopy = cache((): HomepageCopy => {
 
   return {
     ...copy,
-    heroLinks: withOfficeMapLink(copy.heroLinks),
+    heroLinks: withCasesLink(withOfficeMapLink(copy.heroLinks)),
     headerPhone: phone ? phone.headerLabel || phone.value : copy.headerPhone,
     headerPhoneHref: phone?.href ?? copy.headerPhoneHref,
     headerPhoneAccessibleLabel: phone?.accessibleLabel || copy.headerPhoneAccessibleLabel,
