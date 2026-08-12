@@ -79,8 +79,21 @@ export async function readJsonBody<T>(
  *
  * Наружу уходит только текст для человека: stack trace в ответе — это карта внутреннего устройства
  * приложения. Технические подробности пишутся в серверный лог, куда посетитель не смотрит.
+ *
+ * Нарушение UNIQUE — исключение из «неожиданного»: это не сбой, а занятое значение, и 500 на него
+ * означал бы «что-то сломалось» там, где на самом деле нужно поправить одно поле. Роуты проверяют
+ * занятость заранее и обычно сюда не доходят; остаётся узкая щель между проверкой и записью.
  */
 export function handleUnexpected(error: unknown, action: string): NextResponse {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/UNIQUE constraint failed/i.test(message)) {
+    console.warn(`[admin-api] ${action}: значение занято (${message})`);
+    return jsonError(
+      409,
+      "Такое значение уже занято другой записью. Обновите страницу и повторите.",
+    );
+  }
+
   console.error(`[admin-api] ${action}:`, error);
   return jsonError(500, "Не удалось выполнить операцию. Попробуйте ещё раз.");
 }

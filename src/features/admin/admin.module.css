@@ -526,6 +526,21 @@
   white-space: nowrap;
 }
 
+/*
+ * Значение, которое показывается, но не редактируется, — например адрес опубликованного кейса.
+ * Не `input[readonly]`: поле ввода, в которое нельзя вводить, выглядит поломкой и всё равно попадает
+ * в обход по Tab. Здесь же обычный текст рядом с подписью, а объяснение стоит подсказкой под ним.
+ */
+.readonlyValue {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--admin-border);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 3%);
+  font-size: 0.95rem;
+  word-break: break-all;
+}
+
 .filters {
   display: flex;
   gap: 12px;

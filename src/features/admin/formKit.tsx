@@ -116,9 +116,12 @@ function CharacterCounter({ length, recommended }: { length: number; recommended
   );
 }
 
-// `recommendedLength` исключён: счётчик сделан для однострочных заголовков, и молча
-// проигнорированный проп хуже отсутствующего.
-interface TextAreaFieldProps extends Omit<TextFieldProps, "type" | "recommendedLength"> {
+/**
+ * `recommendedLength` здесь тоже поддержан: у описания страницы для выдачи длина значит ровно
+ * столько же, сколько у заголовка, а вводится оно в несколько строк. Работает так же — счётчик и
+ * предупреждение, но НЕ запрет: `maxLength` не ставится, сохранение не блокируется.
+ */
+interface TextAreaFieldProps extends Omit<TextFieldProps, "type"> {
   rows?: number;
   monospace?: boolean;
 }
@@ -129,10 +132,19 @@ export function TextAreaField({
   onChange,
   rows = 4,
   monospace,
+  recommendedLength,
   ...rest
 }: TextAreaFieldProps) {
   return (
-    <Field label={label} {...rest}>
+    <Field
+      label={label}
+      {...rest}
+      counter={
+        recommendedLength ? (
+          <CharacterCounter length={value.trim().length} recommended={recommendedLength} />
+        ) : undefined
+      }
+    >
       {(props) => (
         <textarea
           {...props}

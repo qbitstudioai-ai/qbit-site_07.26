@@ -17,10 +17,12 @@ import styles from "@/features/cases/CasesExperience.module.css";
  * `activeHref` передаётся один раз — поэтому пункт «Кейсы» подсвечен и на `/cases`, и на
  * `/cases/[slug]`, без разбора адреса в самом компоненте шапки.
  *
- * Фоновое обновление: шапка берёт телефон из базы, а образ собирается там, где базы нет. То же
- * объяснение, что у `/faq` и `/contacts`.
+ * Рендер НА ЗАПРОС. Картотеку рисует именно layout, а её содержимое целиком принадлежит базе:
+ * запасных текстов у кейсов нет. Статический пререндер на сборке образа (где базы ещё нет) дал бы
+ * в production пустой ящик с делами — см. объяснение в `src/app/cases/page.tsx` и сторожевой тест
+ * `src/tests/unit/app/rendering-mode.test.ts`.
  */
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 export default function CasesLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const copy = getHomepageCopy();

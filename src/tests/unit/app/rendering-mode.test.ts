@@ -43,6 +43,12 @@ const MUST_BE_DYNAMIC = [
   "page.tsx",
   "blog/[[...slug]]/page.tsx",
   "documents/page.tsx",
+  // Раздел «Кейсы» целиком: обложка архива, картотека в layout и досье кейса. С переездом раздела
+  // в базу (миграция `0003_cases`) запасных текстов у кейсов не осталось, поэтому статический
+  // пререндер уехал бы в production пустым архивом — той же ошибкой, ради которой стоит этот тест.
+  "cases/page.tsx",
+  "cases/layout.tsx",
+  "cases/[slug]/page.tsx",
   "sitemap.ts",
 ] as const;
 

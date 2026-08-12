@@ -16,6 +16,7 @@ export const PUBLIC_PATHS = {
   products: "/products",
   blog: "/blog",
   documents: "/documents",
+  cases: "/cases",
   contacts: "/contacts",
   faq: "/faq",
   howWeWork: "/how-we-work",
@@ -42,5 +43,24 @@ export function revalidateSiteWide(): void {
 export function revalidateSection(section: string): void {
   revalidatePath(section);
   revalidatePath(`${section}/[[...slug]]`, "page");
+  revalidatePath("/sitemap.xml");
+}
+
+/**
+ * Раздел «Кейсы» после публикации, правки или удаления кейса.
+ *
+ * Сбрасывается ВЕСЬ сегмент (`"layout"`), а не отдельная страница: картотеку слева рисует
+ * `src/app/cases/layout.tsx`, и она общая для обложки архива и для каждого досье — сброса одной
+ * страницы хватило бы только на неё саму.
+ *
+ * ВАЖНО про сегодняшнее устройство раздела. Обложка, layout и страница кейса объявлены
+ * `force-dynamic` (запасных текстов у кейсов нет, а образ собирается без базы — см.
+ * `src/app/cases/page.tsx`), поэтому сбрасывать там нечего: каждая страница и так собирается на
+ * запрос и показывает правку сразу. Вызов остаётся по двум причинам — он делает намерение явным и
+ * держит раздел корректным, если кэширование сюда однажды вернут. Второго слоя кэша он не создаёт.
+ */
+export function revalidateCases(): void {
+  revalidatePath(PUBLIC_PATHS.cases, "layout");
+  revalidatePath(`${PUBLIC_PATHS.cases}/[slug]`, "page");
   revalidatePath("/sitemap.xml");
 }

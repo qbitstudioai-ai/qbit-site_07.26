@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CASES_CONTENT } from "@/features/cases/casesContent";
-import { CASES_DRAFT } from "@/features/cases/casesDraftData";
 import { CASES_PAGE_COPY } from "@/features/cases/casesPageCopy";
-import { CASE_SALES_CALL_ANALYSIS } from "@/features/cases/casesRealData";
 import { casePath, caseUrl, CASES_PATH } from "@/features/cases/casesRoutes";
 import {
   CASES_URL,
@@ -16,15 +13,19 @@ import { firstTextBlock, type CaseMetric, type CaseStudy } from "@/features/case
 import { CASES_LINK } from "@/content/casesLink";
 import { getHomepageCopy } from "@/content/homepage-copy";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
-import { getCaseBySlug, getPublishedCases } from "@/server/content/cases";
+import { CASE_SALES_CALL_ANALYSIS } from "@/tests/fixtures/firstCase";
 
 /**
- * Модель кейса, источник данных, первый реальный кейс, его SEO и пункт меню.
+ * Содержимое первого кейса, его SEO, адреса раздела и пункт меню.
  *
- * Главное, что здесь закрепляется, — обещания архитектуры, а не конкретные объекты: правило
- * видимости выполняет ИСТОЧНИК, у каждого кейса есть собственный стабильный адрес, черновик наружу
- * не выходит ни при каких условиях, заголовок выдачи не обрастает автоматической припиской, а
- * реальный кейс не содержит ни одного сведения сверх утверждённого текста.
+ * Проверки идут по ЗАМОРОЖЕННОЙ копии первого кейса (`src/tests/fixtures/firstCase.ts`) — это тот
+ * самый документ, который был на production до переезда раздела в базу. Совпадение копии с тем, что
+ * сегодня отдаёт база, доказывается отдельно и целиком в `src/tests/unit/server/casesRepository.
+ * test.ts`; здесь же закрепляется САМ утверждённый текст: шесть разделов, цифры рядом с источником,
+ * оговорка вплотную к метрике, отсутствие непредоставленных сведений и дословный заголовок выдачи.
+ *
+ * Разделение намеренное: содержимое кейса — предмет договорённости с заказчиком и меняться не
+ * должно, а способ хранения — деталь реализации, и он уже поменялся однажды.
  */
 
 /** Весь видимый посетителю текст кейса — заголовки и содержимое блоков. */
@@ -63,110 +64,6 @@ function metricsOf(study: CaseStudy): CaseMetric[] {
   );
 }
 
-describe("источник данных раздела «Кейсы»", () => {
-  it("отдаёт только опубликованные дела: сейчас одно реальное", () => {
-    const visible = getPublishedCases();
-
-    /**
-     * Ровно один, а не «больше нуля». До публикации раздела картотека показывала семь дел — одно
-     * реальное и шесть заготовок; теперь заготовки стали черновиками и наружу не выходят. Число
-     * закреплено сознательно: если оно вырастет, значит в архив добавили дело, и его содержимое,
-     * SEO и картотеку нужно проверять отдельно — тест обязан об этом сообщить.
-     */
-    expect(visible).toHaveLength(1);
-    expect(visible[0].slug).toBe("analiz-zvonkov-otdela-prodazh");
-    expect(visible.map((study) => study.shortTitle)).toEqual(["AI-анализ звонков отдела продаж"]);
-    expect(visible.every((study) => study.status === "published")).toBe(true);
-    expect(visible.map((study) => study.sortOrder)).toEqual(
-      [...visible.map((study) => study.sortOrder)].sort((a, b) => a - b),
-    );
-  });
-
-  it("не содержит дела `case-01`: дубля первого кейса в архиве нет", () => {
-    expect(CASES_CONTENT.map((study) => study.slug)).not.toContain("case-01");
-    expect(getCaseBySlug("case-01")).toBeUndefined();
-    expect(CASES_DRAFT.map((study) => study.slug)).toEqual([
-      "case-02",
-      "case-03",
-      "case-04",
-      "case-05",
-      "case-06",
-      "case-07",
-    ]);
-  });
-
-  it("находит кейс по адресу и возвращает undefined для чужого slug", () => {
-    const first = getPublishedCases()[0];
-
-    expect(getCaseBySlug(first.slug)).toBe(first);
-    expect(getCaseBySlug("case-99")).toBeUndefined();
-    expect(getCaseBySlug(undefined)).toBeUndefined();
-  });
-
-  /**
-   * Черновик не выходит наружу НИКАК. Прежде раздел работал витриной для приёмки и показывал
-   * черновики, пока был закрыт от индексирования (`CASES_PREVIEW_MODE`); с публикацией раздела
-   * механизм удалён — на индексируемом сайте у такого флага нет безопасного значения.
-   */
-  it("не отдаёт черновики ни в картотеку, ни по адресу", () => {
-    const drafts = CASES_CONTENT.filter((study) => study.status === "draft");
-
-    // Черновики в источнике есть — иначе проверка ничего не доказывает.
-    expect(drafts.length).toBeGreaterThan(0);
-    expect(drafts.map((study) => study.slug)).toEqual([
-      "case-02",
-      "case-03",
-      "case-04",
-      "case-05",
-      "case-06",
-      "case-07",
-    ]);
-
-    for (const draft of drafts) {
-      expect(getPublishedCases(), `${draft.slug} попал в картотеку`).not.toContain(draft);
-      expect(getCaseBySlug(draft.slug), `${draft.slug} открывается по адресу`).toBeUndefined();
-    }
-
-    // А первый реальный кейс опубликован и виден.
-    expect(CASE_SALES_CALL_ANALYSIS.status).toBe("published");
-    expect(getPublishedCases()).toContain(CASE_SALES_CALL_ANALYSIS);
-  });
-
-  it("у каждого кейса стабильный адрес, уникальный slug и непустое досье", () => {
-    const visible = getPublishedCases();
-    const slugs = visible.map((study) => study.slug);
-
-    expect(new Set(slugs).size).toBe(slugs.length);
-
-    for (const study of visible) {
-      expect(study.slug, `slug «${study.slug}» не годится для адреса`).toMatch(/^[a-z0-9-]+$/);
-      expect(casePath(study)).toBe(`${CASES_PATH}/${study.slug}`);
-      expect(caseUrl(study)).toMatch(new RegExp(`^https?://.+${CASES_PATH}/${study.slug}$`));
-      expect(study.sections.length).toBeGreaterThan(0);
-      expect(new Set(study.sections.map((section) => section.id)).size).toBe(study.sections.length);
-      // Пустых разделов не бывает: раздел без блоков — дыра в документе, а не оформление.
-      expect(study.sections.every((section) => section.blocks.length > 0)).toBe(true);
-      expect(firstTextBlock(study), `${study.slug}: досье без единого абзаца`).toBeTruthy();
-    }
-  });
-
-  it("все дела архива включают печать — переключатель существует для админ-панели", () => {
-    expect(getPublishedCases().every((study) => study.stampEnabled)).toBe(true);
-  });
-
-  it("в ЧЕРНОВИКАХ нет ни одной цифры результата и ни одного названия компании", () => {
-    /**
-     * Прямое требование этапа: реальных сведений в заготовках быть не должно. Проверяются тексты,
-     * которые видит посетитель, — служебные поля (`slug`, `fileNumber`) цифры содержать обязаны.
-     * К реальному кейсу правило неприменимо: у него цифры и есть содержание.
-     */
-    const text = CASES_DRAFT.map(visibleText).join(" ");
-
-    expect(text).not.toMatch(/\d+\s*(%|₽|руб|час|раз|млн|тыс)/i);
-    expect(text).not.toMatch(/ООО|АО|клиент[а-я]*\s+«/i);
-  });
-});
-
 describe("первый реальный кейс — анализ звонков отдела продаж", () => {
   const study = CASE_SALES_CALL_ANALYSIS;
 
@@ -176,12 +73,21 @@ describe("первый реальный кейс — анализ звонков
     expect(study.sortOrder).toBe(1);
     expect(study.stampEnabled).toBe(true);
     expect(study.status).toBe("published");
-    // Адрес и H1 при публикации НЕ менялись: у опубликованного материала адрес стабилен, а `ai-`
-    // в slug не добавлялось (прямое требование этапа).
+    // Адрес и H1 не менялись ни при публикации, ни при переезде раздела в базу.
     expect(study.title).toBe(
       "AI-анализ звонков отдела продаж: от нескольких часов проверки к 10–15 минутам",
     );
     expect(study.shortTitle).toBe("AI-анализ звонков отдела продаж");
+  });
+
+  it("имеет стабильный адрес и непустое досье", () => {
+    expect(study.slug).toMatch(/^[a-z0-9-]+$/);
+    expect(casePath(study)).toBe(`${CASES_PATH}/${study.slug}`);
+    expect(caseUrl(study)).toBe(`${SITE_URL}${CASES_PATH}/${study.slug}`);
+    expect(new Set(study.sections.map((section) => section.id)).size).toBe(study.sections.length);
+    // Пустых разделов не бывает: раздел без блоков — дыра в документе, а не оформление.
+    expect(study.sections.every((section) => section.blocks.length > 0)).toBe(true);
+    expect(firstTextBlock(study)).toBeTruthy();
   });
 
   it("состоит ровно из шести смысловых разделов в утверждённом порядке", () => {
@@ -349,8 +255,8 @@ describe("SEO первого реального кейса", () => {
 
   it("не имеет выдуманной даты публикации", () => {
     /**
-     * Прямое требование этапа. Подтверждённой даты у кейса нет, и любое значение здесь — дата
-     * сборки, «сегодня» или дата коммита — было бы заявлением о материале, которого никто не
+     * Подтверждённой даты у кейса нет, и переезд в базу её не создал: любое значение здесь — дата
+     * сборки, «сегодня» или дата миграции — было бы заявлением о материале, которого никто не
      * делал. Из этого же следует отсутствие `Article`-разметки: см. следующий тест.
      */
     expect(study.publishedAt).toBeUndefined();
@@ -482,17 +388,5 @@ describe("пункт меню «Кейсы»", () => {
 
   it("ни один пункт меню не остался заглушкой", () => {
     expect(getHomepageCopy().heroLinks.filter((link) => link.href === "#")).toEqual([]);
-  });
-});
-
-describe("индексирование раздела", () => {
-  /**
-   * Раздел открыт для индексирования 2026-08-11. Отдельных robots-констант у раздела больше нет:
-   * страницы пользуются общесайтовым `INDEXABLE_ROBOTS`, а видимость решает `status` кейса. Этот
-   * тест закрепляет главное следствие — черновик не может оказаться в индексируемой картотеке.
-   */
-  it("не оставляет в разделе ни одного собственного правила noindex", () => {
-    expect(getPublishedCases().every((study) => study.status === "published")).toBe(true);
-    expect(getPublishedCases().length).toBeGreaterThan(0);
   });
 });

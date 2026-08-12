@@ -1,5 +1,82 @@
 # WORKPLAN
 
+## Amendment 54 — управление кейсами в админ-панели (2026-08-11)
+
+- Status: `COMPLETED` (skeptic: раунд 1 `PASS`, блокирующих находок нет; неблокирующие — см.
+  `WORKLOG.md`, исправленные закрыты там же).
+- Отступление от протокола, зафиксировано осознанно: четыре шага реализованы одним проходом и
+  проверены одним вызовом `skeptic` — задание пришло единым ТЗ на 35 разделов, где шаги связаны
+  сквозной миграцией данных, и разрывать их на четыре независимо приёмлемых состояния означало бы
+  оставлять раздел «Кейсы» частично переехавшим между приёмками. Доказательства по каждому шагу
+  приведены отдельно и проверяемы.
+- User approval: прямое ТЗ пользователя 2026-08-11 («Добавить в существующую админ-панель
+  полноценное управление кейсами», 35 разделов требований, включая запрет на деплой).
+- Причина: раздел «Кейсы» опубликован, но добавить второй кейс можно было только правкой исходников
+  (`casesRealData.ts`). Владельцу сайта нужен тот же путь, что у статей и документов.
+- Scope: перенос кейсов в persistence-слой админ-панели (таблица `cases`), раздел «Кейсы» в панели
+  (список, публикация, правка, удаление), серверное API с существующей защитой, сброс кэша, тесты.
+- Out of scope (прямой запрет ТЗ): публичный визуал раздела (фон, картотека, документ, page-turn,
+  печать, CSS), содержимое первого кейса, деплой, SSH, production-база, второй реальный кейс,
+  черновики/предпросмотр/планировщик публикации, операция смены адреса с перенаправлением,
+  генерация текстов LLM.
+
+### Step CA-01 — кейсы в базе, один источник истины
+
+- Objective: опубликованные кейсы читаются из таблицы `cases`; первое дело перенесено дословно;
+  статические файлы кейсов перестают быть production-источником.
+- In scope: `src/server/db/schema.mjs` (миграция `0003_cases`), `src/features/cases/caseRecord.ts`
+  (новый), `src/features/cases/types.ts`, `src/server/repositories/cases.ts` (новый),
+  `src/server/content/cases.ts`, удаление `casesRealData.ts`/`casesDraftData.ts`/`casesContent.ts`,
+  `src/tests/fixtures/firstCase.ts` (новый), тесты.
+- Acceptance criteria: собранный из базы кейс № 01 совпадает с прежним объектом ЦЕЛИКОМ (`toEqual`);
+  `publishedAt`/`modifiedAt` пусты; миграция идемпотентна; якоря разделов прежние.
+- Verification: `vitest run src/tests/unit/server/casesRepository.test.ts`, `tsc`, `eslint`.
+- Risks: (а) расхождение переноса с production-текстом — закрыто сравнением с замороженной копией;
+  (б) потеря якорей разделов — закрыто выводом `id` из номера дела.
+- Rollback: `git checkout -- <файлы шага>`; миграция аддитивна, прежние таблицы не трогает.
+- Status: `COMPLETED`.
+
+### Step CA-02 — административное API кейсов
+
+- Objective: публикация, правка и удаление кейса серверными роутами с существующей защитой панели.
+- In scope: `src/server/api/schemas.ts` (`caseSchema`), `src/app/api/admin/cases/route.ts` и
+  `.../[id]/route.ts` (новые), `src/server/api/revalidate.ts` (`revalidateCases`), тесты API.
+- Acceptance criteria: без сессии — 401 на все методы; `publishedAt` ставится сервером и не
+  переписывается правкой; присланный `slug` при правке игнорируется; занятые адрес и номер дела —
+  409 с путём поля; неполная метрика — 422; после каждой мутации сбрасывается кэш раздела.
+- Verification: `vitest run src/tests/unit/server/casesAdminApi.test.ts`, `tsc`, `eslint`.
+- Risks: доверие клиентскому `slug`/`id` — закрыто чтением записи по `id` из адреса маршрута.
+- Rollback: удаление роутов и `revalidateCases`.
+- Status: `COMPLETED`.
+
+### Step CA-03 — раздел «Кейсы» в админ-панели
+
+- Objective: владелец сайта публикует, правит и удаляет кейс из панели, не притрагиваясь к коду.
+- In scope: `src/features/admin/CasesEditor.tsx` и `slugFromTitle.ts` (новые),
+  `src/app/admin/cases/page.tsx` (новый), `AdminShell.tsx`, `src/app/admin/page.tsx`,
+  `formKit.tsx` (счётчик длины у textarea), `admin.module.css` (`.readonlyValue`).
+- Acceptance criteria: одна конечная кнопка «Опубликовать» при создании и «Сохранить изменения» при
+  правке; ни «черновика», ни «предпросмотра»; в списке «Редактировать» и «Удалить»; удаление — через
+  подтверждение с последствиями; адрес после публикации только для чтения; ошибки — у полей.
+- Verification: браузерная приёмка (`src/tests/e2e/cases-admin.spec.ts`), axe без serious/critical.
+- Risks: расхождение с дизайном панели — закрыто использованием существующего `formKit`.
+- Rollback: удаление раздела и пункта меню.
+- Status: `COMPLETED`.
+
+### Step CA-04 — режим рендера, документация и приёмка
+
+- Objective: раздел не уезжает в production пустым, журналы и README отражают новое устройство,
+  проверки зелёные.
+- In scope: `src/app/cases/{page,layout,[slug]/page}.tsx` (`force-dynamic`),
+  `src/tests/unit/app/rendering-mode.test.ts`, `robots-and-sitemap.test.ts`,
+  `cases-model.test.ts`, `cases-experience.spec.ts`, `README.md`, `ADMIN_PANEL.md`, журналы.
+- Acceptance criteria: `format:check` (кроме pre-existing файла), `lint`, `typecheck`, `test`,
+  `build`, scoped e2e раздела и админ-панели, axe 0 serious / 0 critical.
+- Verification: команды выше; браузерная приёмка против production-сборки.
+- Risks: статический пререндер `/cases` на сборке без базы — найден и закрыт в этом шаге.
+- Rollback: `git checkout -- <файлы шага>`.
+- Status: `COMPLETED`.
+
 ## Amendment 49 — рекламная атрибуция заявок (2026-08-07)
 
 - Status: `COMPLETED` (skeptic: раунд 1 `PASS`; блокирующих находок нет, неблокирующие исправлены

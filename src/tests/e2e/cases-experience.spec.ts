@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { CASES_CONTENT } from "../../features/cases/casesContent";
-import { CASE_SALES_CALL_ANALYSIS } from "../../features/cases/casesRealData";
+import type { CaseStudy } from "../../features/cases/types";
+import { CASE_SALES_CALL_ANALYSIS } from "../fixtures/firstCase";
 
 /**
  * Раздел «Кейсы» ПОСЛЕ публикации: первый реальный кейс открыт, раздел индексируется.
@@ -36,12 +36,22 @@ import { CASE_SALES_CALL_ANALYSIS } from "../../features/cases/casesRealData";
 
 const STAMP_DELAY_MS = 2000;
 
-/** Видимые посетителю дела — только опубликованные, ровно то же правило, что в источнике данных. */
-const CASES = CASES_CONTENT.filter((study) => study.status === "published").sort(
-  (a, b) => a.sortOrder - b.sortOrder,
-);
-/** Черновики: их адреса обязаны отвечать 404, а сами дела — не появляться нигде. */
-const DRAFTS = CASES_CONTENT.filter((study) => study.status === "draft");
+/**
+ * Видимые посетителю дела.
+ *
+ * Раздел хранится в базе, поэтому здесь перечислено то, что обязано быть на сайте ПОСЛЕ переезда:
+ * первый реальный кейс. Проверки написаны по этому списку, а не по числу — кейс, добавленный
+ * владельцем сайта из админ-панели, тестам раздела не мешает.
+ */
+const CASES: CaseStudy[] = [CASE_SALES_CALL_ANALYSIS];
+/**
+ * Адреса, которых в разделе не существует.
+ *
+ * `case-01` — адрес, который первый кейс НИКОГДА не получал; `case-02`…`case-07` — снятые
+ * заготовки, жившие в коде до переезда раздела в базу. Все они обязаны отвечать 404 и не
+ * встречаться ни в HTML, ни в карте сайта: пользовательских черновиков у раздела нет вовсе.
+ */
+const REMOVED_PATHS = ["case-01", "case-02", "case-03", "case-04", "case-05", "case-06", "case-07"];
 const FIRST = CASES[0];
 const REAL = CASE_SALES_CALL_ANALYSIS;
 
@@ -253,28 +263,23 @@ test.describe("cases experience", () => {
   });
 
   /**
-   * Черновики 02–07. После публикации раздела их снаружи не существует: отбор «только published»
-   * живёт в источнике данных, поэтому недостаточно проверить, что ссылок нет, — обязателен и
-   * прямой запрос по адресу.
+   * Снятые адреса. Заготовки дел 02–07 жили в коде, пока раздел был закрыт; после переезда раздела
+   * в базу их не существует нигде — в таблице их нет, и создать «черновик» в админ-панели нельзя.
+   * Недостаточно проверить, что ссылок нет: обязателен и прямой запрос по адресу.
    */
-  test("черновики недоступны: ни в HTML, ни по прямому адресу", async ({ request }) => {
-    expect(DRAFTS.length, "черновиков в источнике нет — проверять нечего").toBeGreaterThan(0);
-
+  test("снятые адреса недоступны: ни в HTML, ни по прямому адресу", async ({ request }) => {
     const indexHtml = await (await request.get("/cases")).text();
     const caseHtml = await (await request.get(`/cases/${REAL.slug}`)).text();
 
-    for (const draft of DRAFTS) {
-      const response = await request.get(`/cases/${draft.slug}`);
-      expect(response.status(), `${draft.slug} отвечает не 404`).toBe(404);
+    for (const slug of REMOVED_PATHS) {
+      const response = await request.get(`/cases/${slug}`);
+      expect(response.status(), `${slug} отвечает не 404`).toBe(404);
 
       for (const [name, html] of [
         ["обложке", indexHtml],
         ["кейсе", caseHtml],
       ] as const) {
-        expect(html, `${draft.slug} попал в HTML на ${name}`).not.toContain(`/cases/${draft.slug}`);
-        expect(html, `название «${draft.shortTitle}» попало в HTML на ${name}`).not.toContain(
-          draft.shortTitle,
-        );
+        expect(html, `${slug} попал в HTML на ${name}`).not.toContain(`/cases/${slug}`);
       }
     }
   });
@@ -1123,9 +1128,9 @@ test.describe("cases experience", () => {
       `<loc>https://allqbit.ru/cases/${REAL.slug}</loc>`,
     );
 
-    // Черновиков в карте сайта нет — ни одного.
-    for (const draft of DRAFTS) {
-      expect(sitemap, `${draft.slug} попал в карту сайта`).not.toContain(`/cases/${draft.slug}`);
+    // Снятых адресов в карте сайта нет — ни одного.
+    for (const slug of REMOVED_PATHS) {
+      expect(sitemap, `${slug} попал в карту сайта`).not.toContain(`/cases/${slug}`);
     }
 
     // robots.txt не менялся: раздел был закрыт метаданными страниц, а не общим файлом.

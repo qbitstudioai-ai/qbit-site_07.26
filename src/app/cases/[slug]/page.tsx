@@ -23,9 +23,11 @@ import { getCaseBySlug, getCasesPageCopy } from "@/server/content/cases";
  * живёт в layout и получает готовый документ через `children`.
  *
  * `generateStaticParams` намеренно НЕТ: адреса разрешаются на запрос, поэтому кейс, созданный в
- * будущей админ-панели, откроется без пересборки проекта — то же решение, что в `/blog`.
+ * админ-панели, откроется без пересборки проекта — то же решение, что в `/blog`. По той же причине
+ * страница объявлена `force-dynamic`: содержимое кейса целиком принадлежит базе, а на сборке
+ * образа базы ещё нет.
  */
-export const revalidate = 300;
+export const dynamic = "force-dynamic";
 
 interface CasePageProps {
   params: Promise<{ slug: string }>;

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { CASES_CONTENT } from "@/features/cases/casesContent";
 import { SITE_URL } from "@/lib/seo";
+import { CASE_SALES_CALL_ANALYSIS } from "@/tests/fixtures/firstCase";
 import { seedBlogPosts, seedProductLocations } from "@/tests/fixtures/seedContent";
 
 /**
@@ -17,6 +17,14 @@ vi.mock("@/server/content/articles", () => ({
 
 vi.mock("@/server/content/products", () => ({
   getProducts: () => seedProductLocations,
+}));
+
+/**
+ * Кейсы тоже читаются из базы. Подменяется весь источник — тем самым единственным кейсом, который
+ * миграция переносит в таблицу: проверять нужно СОСТАВ карты сайта, а не наличие запущенной базы.
+ */
+vi.mock("@/server/content/cases", () => ({
+  getPublishedCases: () => [CASE_SALES_CALL_ANALYSIS],
 }));
 
 /**
@@ -108,17 +116,26 @@ describe("sitemap.xml", () => {
   });
 
   /**
-   * Кейсы попадают в карту сайта из того же источника, что и сам раздел, поэтому черновик в неё
-   * физически не может попасть. Проверяется обе стороны правила.
+   * Кейсы попадают в карту сайта из того же источника, что и сам раздел (`getPublishedCases`), а не
+   * перечисляются в этом файле строками. Отсюда главное свойство: кейс, опубликованный в
+   * админ-панели, окажется в карте сайта без единой правки кода, а удалённый — исчезнет из неё.
    */
-  it("включает раздел «Кейсы» и только опубликованные кейсы", () => {
+  it("включает раздел «Кейсы» и ровно те кейсы, что отдаёт источник", () => {
     expect(urls).toContain(`${SITE_URL}/cases`);
     expect(urls).toContain(`${SITE_URL}/cases/analiz-zvonkov-otdela-prodazh`);
 
-    for (const draft of CASES_CONTENT.filter((study) => study.status === "draft")) {
-      expect(urls, `${draft.slug} попал в карту сайта`).not.toContain(
-        `${SITE_URL}/cases/${draft.slug}`,
-      );
+    // Заготовок дел 02–07 больше не существует нигде: раздел хранится в базе, и черновиков в нём
+    // нет. Их прежние адреса не должны воскреснуть в карте сайта.
+    for (const removed of [
+      "case-01",
+      "case-02",
+      "case-03",
+      "case-04",
+      "case-05",
+      "case-06",
+      "case-07",
+    ]) {
+      expect(urls, `${removed} попал в карту сайта`).not.toContain(`${SITE_URL}/cases/${removed}`);
     }
   });
 

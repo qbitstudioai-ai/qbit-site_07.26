@@ -16,6 +16,7 @@ const QUICK_LINKS = [
   { href: "/admin/departments", label: "Отделы", note: "Тексты пяти отделов на главной" },
   { href: "/admin/products", label: "Продукты и стоимость", note: "10 продуктов и общие тексты" },
   { href: "/admin/blog", label: "Блог", note: "Статьи, черновики, публикация" },
+  { href: "/admin/cases", label: "Кейсы", note: "Дела архива: публикация и правка" },
   { href: "/admin/contacts", label: "Контакты", note: "Телефон, почта, мессенджеры" },
   { href: "/admin/documents", label: "Документы", note: "Файлы, предпросмотр, порядок" },
 ] as const;

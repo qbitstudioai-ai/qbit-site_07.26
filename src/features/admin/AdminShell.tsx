@@ -25,6 +25,7 @@ const SECTIONS: readonly AdminSection[] = [
   { href: "/admin/departments", label: "Отделы" },
   { href: "/admin/products", label: "Продукты и стоимость" },
   { href: "/admin/blog", label: "Блог" },
+  { href: "/admin/cases", label: "Кейсы" },
   { href: "/admin/contacts", label: "Контакты" },
   { href: "/admin/documents", label: "Документы" },
 ];

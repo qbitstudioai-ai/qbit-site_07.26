@@ -144,6 +144,80 @@ export const articleSchema = z.object({
   publishedAt: isoDate.nullable().default(null),
 });
 
+// ── Кейсы ─────────────────────────────────────────────────────────────────────────────────────
+/**
+ * Кейс архива.
+ *
+ * Обязательно всё, из чего состоит утверждённая структура досье: без задачи, результата, оговорки
+ * о человеке или ограничения применимости документ не кейс, а рекламная заметка. Поэтому проверка
+ * стоит здесь, на границе сервера, а не в форме: она одинаково действует и на запрос из
+ * админ-панели, и на прямой запрос к API.
+ *
+ * Чего в схеме НЕТ намеренно: `ctaLabel`/`ctaHref`, `folderCaption`, `label`, `status`, даты и
+ * `id`. Ссылка в конце досье и служебные подписи одинаковы у всех дел архива и задаются моделью;
+ * статус и даты ставит сервер; идентификатор клиент не выбирает. Неизвестные поля тела запроса zod
+ * отбрасывает — прислать их «мимо схемы» нельзя.
+ *
+ * Длина SEO-полей НЕ ограничивается сверх разумного: рекомендация показывается счётчиком в форме,
+ * но запрет на сохранение из-за пары лишних символов означал бы, что владелец сайта не может
+ * описать страницу так, как считает нужным (то же решение, что у статей и продуктов).
+ */
+export const caseSchema = z
+  .object({
+    slug: slugSchema,
+    title: required("Название кейса"),
+    shortTitle: required("Короткое название"),
+    fileNumber: trimmed
+      .min(1, "Номер дела: поле обязательно")
+      .regex(/^\d{1,4}$/, "Номер дела: только цифры, например 02"),
+    summary: required("Краткий итог"),
+    task: required("Задача"),
+    implementation: required("Что реализовали"),
+    workflowSteps: z.array(required("Шаг процесса")).max(12, "Не больше 12 шагов").default([]),
+    result: required("Результат"),
+    metricLabel: optionalText,
+    metricBefore: optionalText,
+    metricAfter: optionalText,
+    metricSource: optionalText,
+    humanControl: required("Что остаётся под контролем человека"),
+    limitations: required("Ограничение результата"),
+    seoTitle: required("SEO title").max(300, "SEO title: не длиннее 300 символов"),
+    seoDescription: required("Meta description").max(
+      600,
+      "Meta description: не длиннее 600 символов",
+    ),
+    ogDescription: trimmed.max(600, "OG description: не длиннее 600 символов").default(""),
+    stampEnabled: z.boolean().default(true),
+    sortOrder: z.number().int().min(0).default(0),
+  })
+  .superRefine((study, ctx) => {
+    /**
+     * Метрика — либо целиком, либо никак.
+     *
+     * Цифра без подписи, без второй половины пары «до/после» или без указания источника — это уже
+     * не измеренный результат, а обещание. Раздел построен на обратном правиле, и полупустой блок
+     * ломал бы его молча: в документе появилась бы строка «До: 4 часа» без «После» и без того, кто
+     * это измерил.
+     */
+    const filled = [study.metricLabel, study.metricBefore, study.metricAfter, study.metricSource];
+    if (filled.some(Boolean) && !filled.every(Boolean)) {
+      for (const [field, label] of [
+        ["metricLabel", "Название показателя"],
+        ["metricBefore", "Значение «До»"],
+        ["metricAfter", "Значение «После»"],
+        ["metricSource", "Источник данных"],
+      ] as const) {
+        if (!study[field]) {
+          ctx.addIssue({
+            code: "custom",
+            path: [field],
+            message: `${label}: заполните весь блок измеримого результата или очистите его целиком`,
+          });
+        }
+      }
+    }
+  });
+
 // ── Контакты ──────────────────────────────────────────────────────────────────────────────────
 const contactHref = trimmed.refine(
   (value) => /^(https?:\/\/|mailto:|tel:|\/)/.test(value),
