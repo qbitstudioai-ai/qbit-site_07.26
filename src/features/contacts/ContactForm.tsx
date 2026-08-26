@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { reachGoal } from "@/components/analytics/YandexMetrika";
 import type { ContactChannel } from "./contactData";
 import {
   CONTACT_ENDPOINT,
@@ -23,6 +24,28 @@ const SUCCESS_MESSAGE = "Спасибо! Заявка отправлена. Мы
 const ERROR_MESSAGE =
   "Не удалось отправить заявку. Попробуйте ещё раз или свяжитесь с нами напрямую.";
 const CONTACT_HINT = "Укажите телефон или Telegram — достаточно одного контакта.";
+
+/**
+ * Цель Метрики «Успешная отправка формы» (счётчик 109167375, цель 602296766), заведённая как
+ * JavaScript-событие. Имя должно совпадать с полем «Идентификатор цели» в интерфейсе Метрики —
+ * при расхождении цель не засчитывается и об этом никто не сообщает.
+ */
+const SUCCESS_GOAL = "qbit_form_success";
+
+/**
+ * Достоверный признак того, что заявка действительно ушла в n8n.
+ *
+ * Одного 2xx мало: роут `/api/contact` отвечает успехом и на отброшенные им отправки — такой ответ
+ * приходит без `submissionId`, потому что заявки, которой можно было бы присвоить идентификатор,
+ * не было. Идентификатор появляется в ответе только после подтверждённой доставки, поэтому цель
+ * считается по нему, а не по статусу.
+ */
+function extractSubmissionId(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const { submissionId } = payload as { submissionId?: unknown };
+  if (typeof submissionId !== "string" || submissionId.trim() === "") return null;
+  return submissionId;
+}
 
 /**
  * Прямые контакты, которые показываются рядом с сообщением об ошибке отправки: личный Telegram и
@@ -165,6 +188,16 @@ export function ContactForm({
       setTouched({});
       setWasSubmitted(false);
       setErrors({});
+
+      // Цель Метрики — последним действием и в собственном try. Порядок здесь смысловой: состояние
+      // формы уже переключено, поэтому ни разбор ответа, ни сам счётчик физически не могут превратить
+      // принятую сервером заявку в ошибку на экране. Тело читается только ради `submissionId`;
+      // если оно не пришло или не разобралось, цель не засчитывается, а посетитель этого не видит.
+      try {
+        if (extractSubmissionId(await response.json())) reachGoal(SUCCESS_GOAL);
+      } catch {
+        // Ответ без разбираемого тела: отправка состоялась, подтвердить её счётчику нечем.
+      }
     } catch {
       setStatus("error");
     }

@@ -63,6 +63,8 @@ type MetrikaQueueEntry = unknown[];
 interface MetrikaCounter {
   (counterId: number, event: "init", parameters: MetrikaInitParameters): void;
   (counterId: number, event: "hit", url: string, parameters?: MetrikaHitParameters): void;
+  /** Достижение цели, заведённой в интерфейсе Метрики как «JavaScript-событие». */
+  (counterId: number, event: "reachGoal", goalName: string): void;
   /**
    * Очередь вызовов, сделанных до загрузки `tag.js`. Читается самой библиотекой: в конце `tag.js`
    * стоит `(function(a){var b=I(a,"ym");if(b){var c=I(b,"a"); … }})(window)` — она забирает
@@ -77,6 +79,23 @@ declare global {
   interface Window {
     ym?: MetrikaCounter;
   }
+}
+
+/**
+ * Отправляет достижение цели в тот же счётчик, что и просмотры.
+ *
+ * Вызывается из компонентов-событий (например, формы заявки), поэтому обязан быть безобидным в
+ * любой обстановке: на сервере `window` нет вовсе, а в браузере очередь `window.ym` появляется
+ * только после того, как отработал загрузчик (`METRIKA_LOADER`) или эффект `MetrikaTracker`. До
+ * этого момента и на неотслеживаемых адресах (`/login`, `/admin/*`, где счётчик не монтируется)
+ * цель просто не отправляется — молча. Аналитика не должна ронять действие, которое она измеряет.
+ *
+ * Номер счётчика берётся из `YANDEX_METRIKA_ID`: второй литерал с тем же числом рано или поздно
+ * разъехался бы с первым.
+ */
+export function reachGoal(goalName: string): void {
+  if (typeof window === "undefined") return;
+  window.ym?.(YANDEX_METRIKA_ID, "reachGoal", goalName);
 }
 
 /**
