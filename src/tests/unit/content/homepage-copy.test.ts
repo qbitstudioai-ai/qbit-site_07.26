@@ -76,9 +76,11 @@ describe("homepage-copy adapter", () => {
   it("keeps the approved first-screen offer verbatim", () => {
     const copy = getHomepageCopy();
     expect(copy.headerPhoneAccessibleLabel).toBe("Позвонить по номеру +7 937 534-65-75.");
-    expect(copy.headline).toBe("Автоматизируем продажи, поддержку и документы с помощью ИИ");
+    expect(copy.headline).toBe(
+      "Создаём системы, которые берут на себя часть работы вашего бизнеса без дополнительного найма.",
+    );
     expect(copy.subheadline).toBe(
-      "Находим ручные операции и потери между системами. Внедряем автоматизацию, которая ускоряет обработку заявок, снижает ошибки и освобождает сотрудников от рутины.",
+      "Автоматизируем задачи и процессы компании — от работы с клиентами и документами до анализа звонков, поддержки и отчётности. Используем ИИ там, где он действительно полезен.",
     );
     expect(copy.valuePoints).toEqual([
       "Быстрее заявки",
@@ -87,7 +89,7 @@ describe("homepage-copy adapter", () => {
       "Больше контроля",
     ]);
     expect(copy.primaryCta).toBe("Получить бесплатный разбор процессов");
-    expect(copy.secondaryCta).toBe("Найти потери в своём отделе");
+    expect(copy.secondaryCta).toBe("Посмотреть примеры");
   });
 
   it("keeps the approved anonymized case wording verbatim", () => {
@@ -104,8 +106,11 @@ describe("homepage-copy adapter", () => {
       undefined,
       undefined,
     ]);
-    expect(copy.heroInfoPanel.scenarios[1].qualifier).toBe("рост продаж");
-    expect(copy.heroInfoPanel.scenarios[2].qualifier).toBe("раньше занимал ручной анализ");
+    expect(copy.heroInfoPanel.scenarios.map((scenario) => scenario.qualifier)).toEqual([
+      "экономия времени руководителю на изучение отчётов",
+      "рост продаж",
+      "экономия времени на анализе отчётов",
+    ]);
     expect(JSON.stringify(copy.heroInfoPanel)).not.toContain("расчётный бизнес-эффект");
     expect(JSON.stringify(copy.heroInfoPanel)).not.toContain("потенциальной выручки");
     expect(JSON.stringify(copy.heroInfoPanel)).not.toContain("примерно за 15 минут в неделю");

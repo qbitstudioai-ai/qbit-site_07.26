@@ -77,12 +77,16 @@ test.describe("Amendment 28 — кейсы в hero", () => {
     for (const scenario of copy.heroInfoPanel.scenarios) {
       await expect(page.getByRole("heading", { level: 3, name: scenario.title })).toBeVisible();
       await expect(page.getByText(scenario.metric, { exact: true })).toBeVisible();
+      // Подпись под цифрой берётся из копии, а не из литерала: дословный состав подписей стережёт
+      // unit-тест `homepage-copy.test.ts`, здесь проверяется, что каждая из них дошла до экрана.
+      if (scenario.qualifier) {
+        await expect(page.getByText(scenario.qualifier, { exact: true })).toBeVisible();
+      }
     }
     await expect(
       page.getByText(copy.heroInfoPanel.scenarios[0].effectLabel, { exact: true }),
     ).toHaveCount(3);
-    await expect(page.getByText("рост продаж", { exact: true })).toBeVisible();
-    await expect(page.getByText("раньше занимал ручной анализ", { exact: true })).toBeVisible();
+    expect(copy.heroInfoPanel.scenarios.every((scenario) => scenario.qualifier)).toBe(true);
 
     for (const removed of [
       "ПРОЕКТНЫЕ СЦЕНАРИИ",

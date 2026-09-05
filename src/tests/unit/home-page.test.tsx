@@ -24,8 +24,9 @@ describe("HomePage", () => {
     expect(html).toContain("Обезличенные результаты внедрений");
     expect(html).toContain("Раньше руководитель тратил 4–5 часов в неделю");
     expect(html).toContain("500–700 тыс.");
+    expect(html).toContain("экономия времени руководителю на изучение отчётов");
     expect(html).toContain("рост продаж");
-    expect(html).toContain("раньше занимал ручной анализ");
+    expect(html).toContain("экономия времени на анализе отчётов");
     expect(html).toContain("ОБЕЗЛИЧЕННЫЙ РЕЗУЛЬТАТ ВНЕДРЕНИЯ");
 
     for (const removed of [
@@ -43,7 +44,7 @@ describe("HomePage", () => {
     expect(metadata.description).toBe(copy.subheadline);
     expect(metadata.alternates).toEqual({ canonical: SITE_URL });
     expect(html).toMatch(
-      /<h1[^>]*id="hero-heading"[^>]*>.*Автоматизируем продажи, поддержку и документы.*с помощью ИИ.*<\/h1>/,
+      /<h1[^>]*id="hero-heading"[^>]*>.*Создаём системы, которые берут на себя часть работы.*без дополнительного найма.*<\/h1>/,
     );
 
     const jsonLdMatch = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/);

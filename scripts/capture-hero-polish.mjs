@@ -47,9 +47,9 @@ for (const viewport of viewports) {
     const primary = Array.from(document.querySelectorAll("a")).find((link) =>
       link.textContent?.includes("Получить бесплатный разбор процессов"),
     );
-    const secondary = Array.from(document.querySelectorAll("a")).find(
-      (link) => link.textContent?.trim() === "Найти потери в своём отделе",
-    );
+    // По адресу, а не по надписи: текст кнопки — редактируемое содержимое (04.09.2026
+    // «Найти потери в своём отделе» → «Посмотреть примеры»), а якорь карты офиса неизменен.
+    const secondary = document.querySelector('a[href="#office-map"]');
     const header = Array.from(document.querySelectorAll("a")).find(
       (link) => link.textContent?.trim() === "Обсудить автоматизацию",
     );
@@ -131,7 +131,8 @@ for (const viewport of viewports) {
 const interactionContext = await browser.newContext({ viewport: viewports[0] });
 const interactionPage = await interactionContext.newPage();
 await interactionPage.goto(baseUrl, { waitUntil: "networkidle" });
-await interactionPage.getByRole("link", { name: "Найти потери в своём отделе" }).click();
+// По адресу, а не по надписи: текст кнопки редактируется, якорь карты офиса — нет.
+await interactionPage.locator('a[href="#office-map"]').first().click();
 const officeNavigation = interactionPage.getByRole("navigation", { name: "Отделы компании" });
 const officeNavigationVisible = await officeNavigation
   .waitFor({ state: "visible", timeout: 5_000 })

@@ -19,7 +19,9 @@ describe("HeroCopy", () => {
       <HeroCopy copy={copy} onActivate={() => {}} isHiddenAfterReveal={false} />,
     );
     expect(screen.getByText(copy.eyebrow)).toBeInTheDocument();
-    expect(container.querySelector(`.${styles.headline} span`)).toHaveTextContent("с помощью ИИ");
+    expect(container.querySelector(`.${styles.headline} span`)).toHaveTextContent(
+      "без дополнительного найма",
+    );
   });
 
   it("renders the subheadline and all value points", () => {

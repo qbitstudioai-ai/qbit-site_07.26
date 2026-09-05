@@ -26,7 +26,16 @@ export function HeroCopy({ copy, onActivate, isHiddenAfterReveal }: HeroCopyProp
   const sectionClassName = isHiddenAfterReveal
     ? `${styles.hero} ${styles.hiddenAfterReveal}`
     : styles.hero;
-  const accentPhrase = "с помощью ИИ";
+  /**
+   * Медью подсвечивается ровно одна фраза заголовка (`docs/04-homepage-copy.md`). До правки
+   * заголовка 04.09.2026 это было «с помощью ИИ»; новый заголовок такой фразы не содержит, и
+   * акцент переехал на коммерческую выгоду — «без дополнительного найма».
+   *
+   * Фраза остаётся в коде, а не в текстах: подсветка — приём оформления первого экрана, а не
+   * содержимое, и владелец сайта не должен уметь испортить вёрстку H1 через админ-панель. Если
+   * фразы в заголовке нет, заголовок просто рендерится одним цветом — падать нечему.
+   */
+  const accentPhrase = "без дополнительного найма";
   const accentIndex = copy.headline.lastIndexOf(accentPhrase);
   const headlineStart = accentIndex >= 0 ? copy.headline.slice(0, accentIndex) : copy.headline;
   const headlineAccent = accentIndex >= 0 ? accentPhrase : "";

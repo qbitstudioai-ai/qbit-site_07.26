@@ -35,13 +35,17 @@ const publishedArticleSlugs = new Set(
     .map((item) => item.slug),
 );
 
-/** Ровно те пять пар, что заказаны пакетом SEO №2. Лишняя или пропавшая строка обязана уронить тест. */
+/**
+ * Ровно тот состав, что заказан: пять пар пакета SEO №2 и шестая — `/examples` → `/cases`.
+ * Лишняя или пропавшая строка обязана уронить тест.
+ */
 const EXPECTED: ReadonlyArray<readonly [source: string, destination: string]> = [
   ["/pricing", "/products"],
   ["/integrations", "/products/leads-to-crm"],
   ["/blog/ai-document-automation", "/blog/avtomatizatsiya-dokumentov-s-ai"],
   ["/blog/lead-automation-telegram-crm", "/blog/sayt-crm-i-messendzhery"],
   ["/blog/n8n-business-automation", "/blog/chto-mozhno-avtomatizirovat-na-n8n"],
+  ["/examples", "/cases"],
 ];
 
 describe("переадресации старых адресов", () => {
@@ -138,6 +142,16 @@ describe("переадресации старых адресов", () => {
 
     for (const rule of LEGACY_REDIRECTS) {
       if (rule.destination === "/products") continue;
+
+      // `/cases` — статический маршрут в коде, а не запись в `data/seed`: сторожем служит сам файл
+      // страницы. Пропадёт он — переадресация поведёт на 404, и эта проверка упадёт.
+      if (rule.destination === "/cases") {
+        expect(
+          fs.existsSync(path.join(ROOT, "src", "app", "cases", "page.tsx")),
+          "нет страницы для /cases",
+        ).toBe(true);
+        continue;
+      }
 
       if (rule.destination.startsWith("/products/")) {
         expect(productSlugs, `нет продукта для ${rule.destination}`).toContain(
