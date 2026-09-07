@@ -73,7 +73,16 @@ export function DepartmentNavigationRail({
       const railRect = rail.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
       updateIndicator({
-        y: Math.round((targetRect.top - railRect.top) * 100) / 100,
+        // `+ rail.scrollTop` переводит замер из координат ВИДИМОЙ области в координаты СОДЕРЖИМОГО.
+        // Разница рождается только там, где рельс прокручивается: на низком широком экране
+        // (844×390, 932×430) `DepartmentNavigationRail.module.css` даёт ему `overflow-y: auto`,
+        // а `.activeIndicator` позиционирован абсолютно ВНУТРИ этого скролл-контейнера, то есть
+        // едет вместе со списком. Без слагаемого замер, сделанный при прокрутке (пользователь
+        // проматывает рельс и переключает отдел), клал индикатор ровно на `scrollTop` выше пункта —
+        // замерено: 57px при scrollTop 58 на 844×390, 17px при scrollTop 18 на 932×430.
+        // При `scrollTop === 0` — то есть на всех экранах, где рельс не прокручивается, — значение
+        // не меняется. Слушатель прокрутки не нужен: индикатор и пункты едут одним содержимым.
+        y: Math.round((targetRect.top - railRect.top + rail.scrollTop) * 100) / 100,
         height: Math.round(targetRect.height * 100) / 100,
       });
     };
