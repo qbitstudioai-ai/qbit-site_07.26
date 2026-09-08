@@ -337,6 +337,29 @@ function ArticleForm({
     [article],
   );
 
+  /**
+   * Адрес и дата первой публикации зафиксированы.
+   *
+   * Условие ровно то же, по которому решает сервер (`slugLocked` в
+   * `src/app/api/admin/articles/[id]/route.ts`): статья опубликована ИЛИ дата публикации у неё уже
+   * есть — значит страница была видна снаружи, и её адрес больше не наш.
+   *
+   * У двух полей при этом РАЗНЫЕ основания, и обходятся они по-разному:
+   *
+   * — АДРЕС роут не запишет в любом случае, что бы ни прислала форма, поэтому поля ввода для него
+   *   нет вовсе: вместо него текст, как у кейса. Редактируемое поле обещало бы правку, которой не
+   *   будет;
+   * — ДАТУ роут принимает: он защищает её только от обнуления, а присланную непустую записывает.
+   *   Поэтому поле остаётся редактируемым — ошибочную дату первой публикации нужно уметь
+   *   исправить, — но очистить его нельзя: пустое значение сервер всё равно не примет, а дата
+   *   служит ключом к замку адреса.
+   *
+   * У черновика, который ни разу не публиковался, оба поля работают как прежде: его адрес ещё
+   * никому не известен и подбирается как раз при подготовке материала.
+   */
+  const urlLocked =
+    article !== null && (article.status === "published" || article.publishedAt !== null);
+
   const [showPreview, setShowPreview] = useState(false);
 
   const save = useCallback(
@@ -434,14 +457,22 @@ function ArticleForm({
         />
 
         <div className={styles.fieldRow}>
-          <TextField
-            label="Адрес статьи (slug)"
-            required
-            hint="Строчные латинские буквы, цифры и дефис. Должен быть уникальным."
-            value={value.slug}
-            error={fieldErrors.slug}
-            onChange={(next) => update("slug", next)}
-          />
+          {urlLocked ? (
+            <div className={styles.field}>
+              <span className={styles.label}>Адрес статьи (slug)</span>
+              <p className={styles.readonlyValue}>/blog/{value.slug}</p>
+              <span className={styles.hint}>Адрес зафиксирован после первой публикации.</span>
+            </div>
+          ) : (
+            <TextField
+              label="Адрес статьи (slug)"
+              required
+              hint="Строчные латинские буквы, цифры и дефис. Должен быть уникальным."
+              value={value.slug}
+              error={fieldErrors.slug}
+              onChange={(next) => update("slug", next)}
+            />
+          )}
           <TextField
             label="Автор"
             value={value.author}
@@ -499,10 +530,18 @@ function ArticleForm({
           <TextField
             label="Дата публикации"
             type="date"
-            hint="Если оставить пустой, при публикации подставится сегодняшняя дата."
+            hint={
+              urlLocked
+                ? "Дату можно исправить, но после первой публикации её нельзя очистить."
+                : "Если оставить пустой, при публикации подставится сегодняшняя дата."
+            }
             value={value.publishedAt ?? ""}
             error={fieldErrors.publishedAt}
-            onChange={(next) => update("publishedAt", next || null)}
+            // Очистка уже существующей даты не проходит: сервер её всё равно не примет, и поле,
+            // молча вернувшее прежнее значение после сохранения, читалось бы как сбой формы.
+            onChange={(next) =>
+              update("publishedAt", next || (urlLocked ? value.publishedAt : null))
+            }
           />
           <TextField
             label="Порядок отображения"

@@ -4,7 +4,7 @@ import { revalidateSection, revalidateSiteWide } from "@/server/api/revalidate";
 import { productUpdateSchema } from "@/server/api/schemas";
 import { submitIndexNow } from "@/server/indexnow/client";
 import { productUpdateIndexNowUrls } from "@/server/indexnow/urls";
-import { getProductById, isProductSlugTaken, updateProduct } from "@/server/repositories/products";
+import { getProductById, updateProduct } from "@/server/repositories/products";
 
 /**
  * Чтение и сохранение одного продукта.
@@ -29,6 +29,18 @@ export async function GET(
   return NextResponse.json({ product });
 }
 
+/**
+ * Правка продукта.
+ *
+ * АДРЕС НЕ МЕНЯЕТСЯ. `slug` берётся из существующей записи, а присланный клиентом игнорируется
+ * молча и полностью — как у кейса. Смена адреса опубликованной страницы обрывает внешние ссылки,
+ * обнуляет историю страницы в поиске и оставляет прежний адрес отвечать 404 без перенаправления.
+ * Отдельной операции переезда в проекте нет, поэтому и случайно выполнить её нельзя — ни из формы,
+ * ни прямым запросом к API.
+ *
+ * Занятость присланного адреса поэтому и НЕ проверяется: проверять уникальность значения, которое
+ * заведомо не будет записано, значит отвечать 409 на сохранение, которое ничего не нарушает.
+ */
 export async function PUT(
   request: Request,
   context: { params: Promise<{ id: string }> },
@@ -43,15 +55,10 @@ export async function PUT(
   const body = await readJsonBody(request, productUpdateSchema);
   if (!body.ok) return body.response;
 
-  // Адрес продукта — часть публичной ссылки: занятый slug должен давать понятную ошибку формы, а
-  // не нарушение UNIQUE где-то в глубине.
-  if (isProductSlugTaken(body.data.slug, id)) {
-    return jsonError(409, `Адрес «${body.data.slug}» уже занят другим продуктом`);
-  }
-
   try {
     const product = updateProduct(id, {
       ...body.data,
+      slug: existing.slug,
       layout: existing.layout,
       hotspot: existing.hotspot,
     });

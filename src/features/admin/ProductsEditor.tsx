@@ -439,14 +439,21 @@ function ProductForm({
             error={fieldErrors.menuTitle}
             onChange={(next) => update("menuTitle", next)}
           />
-          <TextField
-            label="Адрес страницы (slug)"
-            required
-            hint="Строчные латинские буквы, цифры и дефис. Меняет публичную ссылку продукта."
-            value={value.slug}
-            error={fieldErrors.slug}
-            onChange={(next) => update("slug", next)}
-          />
+          {/*
+           * Адрес показывается, но не редактируется — тем же способом, что и у кейса: текст рядом
+           * с подписью, а не поле ввода. Поле, в которое нельзя вводить, выглядит поломкой формы
+           * (решение записано в `admin.module.css`, класс `.readonlyValue`).
+           *
+           * Роут продукта присланный slug не записывает вообще (`api/admin/products/[id]`), так
+           * что редактируемое поле здесь обещало бы правку, которой не будет.
+           */}
+          <div className={styles.field}>
+            <span className={styles.label}>Адрес страницы (slug)</span>
+            <p className={styles.readonlyValue}>/products/{value.slug}</p>
+            <span className={styles.hint}>
+              Публичный адрес продукта зафиксирован и не меняется обычным редактированием.
+            </span>
+          </div>
         </div>
 
         <TextField
