@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ARTICLE_PLACEMENTS, ARTICLE_STATUSES } from "@/content/article-placements";
 import { CONTACT_KINDS } from "../repositories/contacts";
+import { CONTENT_ENTITY_TYPES, CONTENT_RELATION_ROLES } from "../repositories/contentRelations";
 
 /**
  * Схемы административного API.
@@ -142,6 +143,43 @@ export const articleSchema = z.object({
   isFeatured: z.boolean().default(false),
   sortOrder: z.number().int().min(0).default(0),
   publishedAt: isoDate.nullable().default(null),
+});
+
+/**
+ * Одна связь материала в теле запроса.
+ *
+ * Повторяет входной контракт репозитория связей (`ContentRelationInput`): цель по ИДЕНТИФИКАТОРУ,
+ * никогда по адресу. `role` и `sortOrder` необязательны — репозиторий подставляет роль «связанный»
+ * и порядок по позиции в массиве, и схема не должна навязывать значения, которых клиент не
+ * присылал.
+ *
+ * Списки допустимых типов и ролей берутся из самого репозитория, а не переписываются здесь.
+ */
+const contentRelationInputSchema = z.object({
+  targetType: z.enum(CONTENT_ENTITY_TYPES),
+  targetId: required("Идентификатор цели связи"),
+  role: z.enum(CONTENT_RELATION_ROLES).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+});
+
+/**
+ * Правка статьи (PUT) — та же статья плюс необязательные связи.
+ *
+ * Отдельная схема, а не расширение `articleSchema` на месте: создание (POST) связи не принимает, и
+ * общее поле означало бы, что присланный при создании список молча отбрасывается.
+ *
+ * У `relations` НЕТ `.default([])`, и это главное свойство схемы. Различаются три состояния:
+ * поля нет — связи не трогаются; `[]` — связи очищаются; непустой список — полная замена. С
+ * `.default([])` первое состояние стало бы вторым, и каждое сохранение текста статьи из формы,
+ * которая про связи ещё не знает, молча стирало бы всю перелинковку.
+ *
+ * Верхняя граница списка — предел здравого смысла, а не требование схемы БД: перелинковку
+ * составляет человек, и сотня связей у одной статьи означала бы не перелинковку, а ошибку клиента.
+ * Она заметно выше, чем `.max(6)` у прежнего `relatedSlugs`: новые связи ведут на материалы четырёх
+ * типов, а не только на статьи.
+ */
+export const articleUpdateSchema = articleSchema.extend({
+  relations: z.array(contentRelationInputSchema).max(24).optional(),
 });
 
 // ── Кейсы ─────────────────────────────────────────────────────────────────────────────────────

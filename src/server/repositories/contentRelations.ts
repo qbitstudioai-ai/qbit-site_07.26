@@ -36,7 +36,21 @@ const ENTITY_TABLES: Readonly<Record<ContentEntityType, string>> = Object.freeze
   department: "departments",
 });
 
-const RELATION_ROLES: readonly ContentRelationRole[] = ["primary", "related"];
+/**
+ * Роли и типы материалов списками — для схем административного API.
+ *
+ * Экспортируются отсюда, а не перечисляются заново в `schemas.ts`: проверка на границе сервера и
+ * проверка репозитория обязаны знать один и тот же набор значений, иначе форма начнёт принимать то,
+ * что репозиторий отвергнет пятисотой. Тот же приём, что у `CONTACT_KINDS`.
+ */
+export const CONTENT_RELATION_ROLES = ["primary", "related"] as const;
+
+export const CONTENT_ENTITY_TYPES = Object.keys(ENTITY_TABLES) as [
+  ContentEntityType,
+  ...ContentEntityType[],
+];
+
+const RELATION_ROLES: readonly ContentRelationRole[] = CONTENT_RELATION_ROLES;
 
 /** Роль по умолчанию: обычная связь «рядом», а не главная. Совпадает с DEFAULT в схеме. */
 const DEFAULT_ROLE: ContentRelationRole = "related";
@@ -200,79 +214,96 @@ export function listRelationsTo(
  *
  * `created_at` у переживших замену связей ставится заново: замена — это новый список, а не правка
  * старого, и различать «когда связь появилась впервые» здесь нечем и незачем.
+ *
+ * Операция разделена на ядро без транзакции и обёртку с ней. Причина та же, что у статей:
+ * «сохранить материал вместе со связями» — одна транзакция на две таблицы, а `BEGIN` внутри `BEGIN`
+ * в этом проекте не просто падает, его `ROLLBACK` отменяет ВНЕШНЮЮ транзакцию. Контракт обёртки
+ * при разделении не изменился.
+ *
+ * Это — ЯДРО, без собственной транзакции. Синхронно намеренно: `transaction()` не ждёт промисов, и
+ * `await` внутри означал бы `COMMIT` до конца работы. Вызывать напрямую можно ТОЛЬКО изнутри уже
+ * открытой транзакции — иначе отказ на середине списка оставит материал без связей. Во всех
+ * остальных случаях — `replaceRelationsFrom()`.
  */
+export function replaceRelationsFromCore(
+  sourceType: ContentEntityType,
+  sourceId: string,
+  relations: readonly ContentRelationInput[],
+): ContentRelation[] {
+  requireEntity(sourceType, sourceId, "источник связи");
+
+  const seen = new Set<string>();
+  const rows = relations.map((relation, index) => {
+    const role = relation.role ?? DEFAULT_ROLE;
+    if (!RELATION_ROLES.includes(role)) {
+      throw new ContentRelationError(
+        "unknown_relation_role",
+        `Неизвестная роль связи «${String(role)}»`,
+      );
+    }
+
+    requireEntity(relation.targetType, relation.targetId, "цель связи");
+
+    if (relation.targetType === sourceType && relation.targetId === sourceId) {
+      throw new ContentRelationError(
+        "self_link",
+        `Материал «${sourceType}:${sourceId}» не может ссылаться сам на себя`,
+      );
+    }
+
+    const key = `${relation.targetType}:${relation.targetId}`;
+    if (seen.has(key)) {
+      throw new ContentRelationError(
+        "duplicate_relation",
+        `Материал «${key}» указан в связях источника «${sourceType}:${sourceId}» дважды`,
+      );
+    }
+    seen.add(key);
+
+    return {
+      targetType: relation.targetType,
+      targetId: relation.targetId,
+      role,
+      sortOrder: relation.sortOrder ?? index,
+    };
+  });
+
+  const db = getDatabase();
+  db.prepare("DELETE FROM content_relations WHERE source_type = ? AND source_id = ?").run(
+    sourceType,
+    sourceId,
+  );
+
+  const timestamp = nowIso();
+  const insert = db.prepare(
+    `INSERT INTO content_relations
+       (source_type, source_id, target_type, target_id, relation_role, sort_order,
+        created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  rows.forEach((row) => {
+    insert.run(
+      sourceType,
+      sourceId,
+      row.targetType,
+      row.targetId,
+      row.role,
+      row.sortOrder,
+      timestamp,
+      timestamp,
+    );
+  });
+
+  return listRelationsFrom(sourceType, sourceId);
+}
+
+/** Замена связей отдельной операцией: то же ядро, своя транзакция. Контракт не менялся. */
 export function replaceRelationsFrom(
   sourceType: ContentEntityType,
   sourceId: string,
   relations: readonly ContentRelationInput[],
 ): ContentRelation[] {
-  return transaction(() => {
-    requireEntity(sourceType, sourceId, "источник связи");
-
-    const seen = new Set<string>();
-    const rows = relations.map((relation, index) => {
-      const role = relation.role ?? DEFAULT_ROLE;
-      if (!RELATION_ROLES.includes(role)) {
-        throw new ContentRelationError(
-          "unknown_relation_role",
-          `Неизвестная роль связи «${String(role)}»`,
-        );
-      }
-
-      requireEntity(relation.targetType, relation.targetId, "цель связи");
-
-      if (relation.targetType === sourceType && relation.targetId === sourceId) {
-        throw new ContentRelationError(
-          "self_link",
-          `Материал «${sourceType}:${sourceId}» не может ссылаться сам на себя`,
-        );
-      }
-
-      const key = `${relation.targetType}:${relation.targetId}`;
-      if (seen.has(key)) {
-        throw new ContentRelationError(
-          "duplicate_relation",
-          `Материал «${key}» указан в связях источника «${sourceType}:${sourceId}» дважды`,
-        );
-      }
-      seen.add(key);
-
-      return {
-        targetType: relation.targetType,
-        targetId: relation.targetId,
-        role,
-        sortOrder: relation.sortOrder ?? index,
-      };
-    });
-
-    const db = getDatabase();
-    db.prepare("DELETE FROM content_relations WHERE source_type = ? AND source_id = ?").run(
-      sourceType,
-      sourceId,
-    );
-
-    const timestamp = nowIso();
-    const insert = db.prepare(
-      `INSERT INTO content_relations
-         (source_type, source_id, target_type, target_id, relation_role, sort_order,
-          created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    rows.forEach((row) => {
-      insert.run(
-        sourceType,
-        sourceId,
-        row.targetType,
-        row.targetId,
-        row.role,
-        row.sortOrder,
-        timestamp,
-        timestamp,
-      );
-    });
-
-    return listRelationsFrom(sourceType, sourceId);
-  });
+  return transaction(() => replaceRelationsFromCore(sourceType, sourceId, relations));
 }
 
 /**

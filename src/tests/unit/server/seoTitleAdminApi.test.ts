@@ -156,6 +156,20 @@ vi.mock("@/server/repositories/articles", () => ({
   deleteArticle: vi.fn(() => true),
 }));
 
+/**
+ * Запись статьи идёт через составную операцию «статья + связи», а не напрямую в репозиторий:
+ * текст и перелинковка сохраняются одной транзакцией. Проверяемое здесь свойство от этого не
+ * изменилось — роут по-прежнему обязан донести `seoTitle` до слоя записи в трёх различимых
+ * состояниях, — поэтому подменяется тот слой, который роут теперь вызывает, а утверждения тестов
+ * остались прежними. Связи этому файлу не интересны: их поведение проверяет
+ * `articleRelationsAdminApi.test.ts`.
+ */
+vi.mock("@/server/repositories/articleWithRelations", () => ({
+  updateArticleWithRelations: (id: string, input: unknown) => ({
+    article: updateArticle(id, input),
+  }),
+}));
+
 vi.mock("@/server/api/revalidate", () => ({
   revalidateSection: (section: string) => revalidateSection(section),
   revalidateSiteWide: () => revalidateSiteWide(),

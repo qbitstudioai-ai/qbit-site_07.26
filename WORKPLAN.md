@@ -1,5 +1,74 @@
 # WORKPLAN
 
+## Amendment 56 — связи между материалами CMS: атомарное сохранение статьи со связями (2026-09-08)
+
+- Status: `COMPLETED` (skeptic: раунд 1 `PASS`, блокирующих находок нет; попутно исправлены
+  четыре неблокирующие находки — докстринги, список отката и вакуумное утверждение в тесте).
+- Расширение scope (зафиксировано по факту): `src/tests/unit/server/seoTitleAdminApi.test.ts` —
+  файл подменяет модуль статей частичной фабрикой и следил за `updateArticle`; после переноса
+  записи в `updateArticleWithRelations()` он падал с `No "updateArticleCore" export`. Добавлен
+  мок нового модуля, направляющий вызов в тот же шпион; утверждения не изменены. См. `WORKLOG.md`.
+- User approval: прямое ТЗ пользователя 2026-09-08 («REL-02A: атомарное сохранение article +
+  content_relations») после read-only архитектурной проверки с вердиктом `PASS` (см. `WORKLOG.md`).
+- Причина: `replaceRelationsFrom()` из REL-01 открывает СВОЮ транзакцию. Пока связи никто не пишет
+  из админ-панели, это безвредно; в момент, когда одно сохранение статьи должно записать и текст, и
+  связи, вложенный `BEGIN` падает с `cannot start a transaction within a transaction`, а его
+  `ROLLBACK` при этом убивает ВНЕШНЮЮ транзакцию (измерено, см. `WORKLOG.md`). Нужен один владелец
+  транзакции на всю операцию.
+- Scope: transaction-neutral ядро в двух существующих репозиториях, новый составной модуль,
+  отдельная PUT-схема, маппинг ошибок связей в роуте, два новых файла тестов.
+- Out of scope (прямой запрет ТЗ): `src/server/db/client.ts` (никакой реентерабельности и
+  SAVEPOINT), `createArticle`/POST, `BlogEditor` и админ-UI, `articles.related_slugs`, публичный
+  рендеринг, backfill, схема миграций, `/solutions/sales`, увязка `deleteArticle` с
+  `deleteRelationsForEntity`, commit/push/deploy.
+
+### Step REL-02A — один атомарный write boundary для статьи и её связей
+
+- Objective: `article update + optional relations replacement` выполняется одним `BEGIN`/`COMMIT`;
+  отказ на любом шаге откатывает и текст статьи, и связи, и ревизию, и запись журнала.
+- In scope: `src/server/repositories/articles.ts`, `src/server/repositories/contentRelations.ts`,
+  `src/server/repositories/articleWithRelations.ts` (новый), `src/server/api/schemas.ts`,
+  `src/app/api/admin/articles/[id]/route.ts`,
+  `src/tests/unit/server/articleWithRelations.test.ts` (новый),
+  `src/tests/unit/server/articleRelationsAdminApi.test.ts` (новый).
+- Acceptance criteria:
+  1. `updateArticleCore()` и `replaceRelationsFromCore()` transaction-neutral: не выдают `BEGIN`.
+  2. `updateArticle()` и `replaceRelationsFrom()` остаются тонкими обёртками
+     `transaction(() => core(...))`; их публичный контракт не изменён.
+  3. `updateArticleWithRelations()` — ЕДИНСТВЕННЫЙ владелец `transaction()` в операции; внутри
+     вызываются только ядра; функция и callback синхронны.
+  4. `relations === undefined` — связи не трогаются; `relations === []` — связи очищаются;
+     непустой массив — полная замена.
+  5. `articleUpdateSchema` (PUT) отделена от `articleSchema` (POST); `relations` опционально и БЕЗ
+     `.default([])`, иначе «поле не прислано» стало бы неотличимо от «очистить».
+  6. `relations` не попадает в `ArticleInput` и `articleColumns()`.
+  7. `ContentRelationError` отображается в 400/409 с различимым `code`; прочие ошибки уходят в
+     `handleUnexpected()`.
+  8. `revalidateSection()` и IndexNow выполняются строго ПОСЛЕ успешного commit.
+  9. Откат после выполненного `DELETE FROM content_relations` доказан триггером
+     `RAISE(ABORT, ...)` на `content_relations`, а не невалидной ролью; тест падает при снятии
+     внешней обёртки `transaction(...)`.
+  10. `articles.related_slugs` не изменяется этим механизмом.
+  11. Существующий `src/tests/unit/server/contentRelations.test.ts` проходит БЕЗ правок.
+- Verification: `npx vitest run src/tests/unit/server/contentRelations.test.ts`,
+  `npx vitest run src/tests/unit/server/articleWithRelations.test.ts
+  src/tests/unit/server/articleRelationsAdminApi.test.ts`, `npx tsc --noEmit`, `npx eslint .`,
+  `npx prettier --check` по затронутым файлам, полный `npx vitest run`.
+- Risks: (а) вложенный `BEGIN` при случайном вызове обёртки изнутри ядра — закрыто тестом 6 и
+  правилом «внутри составной операции только ядра»; (б) `transaction()` не ждёт промисов, один
+  `await` внутри привёл бы к раннему `COMMIT` — закрыто синхронной сигнатурой ядра;
+  (в) `ContentRelationError` без маппинга дал бы 500 на исправимую ошибку ввода — закрыто
+  критерием 7 и тестами 9–11; (г) известная нестабильность полного прогона
+  (`seo-titles.test.ts`, таймаут импорта `@/app/page`) — воспроизводить отдельно на чистом
+  `master`, не относить к шагу без доказательства.
+- Rollback: `git checkout -- src/server/repositories/articles.ts
+  src/server/repositories/contentRelations.ts src/server/api/schemas.ts
+  "src/app/api/admin/articles/[id]/route.ts" src/tests/unit/server/seoTitleAdminApi.test.ts`;
+  удаление трёх новых файлов. Последний файл — из расширенного scope: его мок нового модуля без
+  самого модуля безвреден (проверено: `vi.mock()` с фабрикой на несуществующий модуль vitest не
+  роняет), но откатывать его вместе с остальным правильнее. Схему БД шаг не трогает,
+  миграций нет, данные не переносятся.
+
 ## Amendment 55 — связи между материалами CMS: фундамент хранилища (2026-09-08)
 
 - Status: `COMPLETED` (skeptic: раунд 1 `FAIL` → раунд 2 `BLOCKED` → раунд 3 `FAIL` →

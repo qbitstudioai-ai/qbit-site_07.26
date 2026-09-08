@@ -197,22 +197,39 @@ export function createArticle(id: string, input: ArticleInput): ArticleRecord {
   });
 }
 
+/**
+ * Правка статьи БЕЗ собственной транзакции.
+ *
+ * Ядро отделено от `updateArticle()` ради одного случая: сохранить статью и её связи ОДНОЙ
+ * транзакцией (`updateArticleWithRelations()`). Транзакция в проекте не реентерабельна — `BEGIN`
+ * внутри `BEGIN` не просто падает, его `ROLLBACK` отменяет ВНЕШНЮЮ транзакцию, — поэтому составная
+ * операция обязана звать это ядро, а не обёртку.
+ *
+ * Функция СИНХРОННА, и это требование, а не совпадение: `transaction()` не ждёт промисов, и один
+ * `await` внутри означал бы `COMMIT` до конца работы.
+ *
+ * Вызывать напрямую можно ТОЛЬКО изнутри уже открытой транзакции. Во всех остальных случаях —
+ * `updateArticle()`.
+ */
+export function updateArticleCore(id: string, input: ArticleInput): ArticleRecord {
+  const previous = getArticleById(id);
+  if (!previous) throw new Error(`Статья «${id}» не найдена`);
+  saveRevision("article", id, previous);
+
+  const columns = articleColumns(input);
+  const assignments = columns.map((column) => `${column.name} = ?`).join(", ");
+
+  getDatabase()
+    .prepare(`UPDATE articles SET ${assignments}, updated_at = ? WHERE id = ?`)
+    .run(...(columns.map((column) => column.value) as never[]), nowIso(), id);
+
+  logActivity("article", id, "update", `Статья «${input.title}» обновлена`);
+  return getArticleById(id) as ArticleRecord;
+}
+
+/** Правка статьи отдельной операцией: то же ядро, своя транзакция. Контракт не менялся. */
 export function updateArticle(id: string, input: ArticleInput): ArticleRecord {
-  return transaction(() => {
-    const previous = getArticleById(id);
-    if (!previous) throw new Error(`Статья «${id}» не найдена`);
-    saveRevision("article", id, previous);
-
-    const columns = articleColumns(input);
-    const assignments = columns.map((column) => `${column.name} = ?`).join(", ");
-
-    getDatabase()
-      .prepare(`UPDATE articles SET ${assignments}, updated_at = ? WHERE id = ?`)
-      .run(...(columns.map((column) => column.value) as never[]), nowIso(), id);
-
-    logActivity("article", id, "update", `Статья «${input.title}» обновлена`);
-    return getArticleById(id) as ArticleRecord;
-  });
+  return transaction(() => updateArticleCore(id, input));
 }
 
 export function deleteArticle(id: string): boolean {

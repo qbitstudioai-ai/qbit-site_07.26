@@ -1,5 +1,71 @@
 # WORKLOG
 
+## 2026-09-08 — Amendment 56 / Step REL-02A: атомарное сохранение статьи со связями
+
+**Файлы.** Изменены: `src/server/repositories/articles.ts`,
+`src/server/repositories/contentRelations.ts`, `src/server/api/schemas.ts`,
+`src/app/api/admin/articles/[id]/route.ts`, `src/tests/unit/server/seoTitleAdminApi.test.ts`.
+Созданы: `src/server/repositories/articleWithRelations.ts`,
+`src/tests/unit/server/articleWithRelations.test.ts`,
+`src/tests/unit/server/articleRelationsAdminApi.test.ts`.
+
+**Транзакция.** Единственный `BEGIN` — в `updateArticleWithRelations()`. Внутри только ядра:
+`updateArticleCore()` → `replaceRelationsFromCore()`. `saveRevision()`, `logActivity()`,
+`getArticleById()`, `requireEntity()` собственных транзакций не открывают (проверено чтением),
+поэтому наследуют внешнюю. `revalidateSection()` и IndexNow — после возврата, в роуте.
+
+**Семантика `relations`.** `undefined` — связи не трогаются; `[]` — очистка; список — замена.
+В `articleUpdateSchema` у поля намеренно НЕТ `.default([])`: иначе «поле не прислано» стало бы
+«очистить», и каждое сохранение текста из формы, которая про связи ещё не знает, стирало бы всю
+перелинковку.
+
+**HTTP-маппинг `ContentRelationError`.** `duplicate_relation` → 409, остальные коды → 400; поле
+`code` в теле. Прочие ошибки по-прежнему уходят в `handleUnexpected()`.
+
+**Мутационные прогоны — два, оба воспроизведены.**
+1. Снята внешняя обёртка `transaction(...)` в `updateArticleWithRelations()` → падают ровно два
+   теста отката: «несуществующая цель откатывает уже выполненную правку статьи» и «отказ ПОСЛЕ
+   удаления старых связей». Статья оставалась с новым названием. Обёртка возвращена, 8/8 зелёные.
+2. `relations === undefined` заменено на очистку → падают «поле отсутствует — прежние связи
+   сохранены» (unit) и «PUT без relations не трогает связи» (роут). Возвращено, 17/17 зелёные.
+
+**Доказательство отката ПОСЛЕ `DELETE`.** Триггер `BEFORE INSERT ON content_relations` с
+`RAISE(ABORT, 'forced relation insert failure')`. Условие `WHEN` срабатывает, только если к моменту
+вставки старых связей статьи уже нет И статья уже носит новое название, — то есть само срабатывание
+доказывает, что точка отказа лежит после `UPDATE articles` и после `DELETE`, без допущений о порядке
+строк в коде. Невалидная роль как источник сбоя не использована намеренно: она отсеивается
+проверками репозитория ДО удаления и доказывала бы не то.
+
+**Найденная и устранённая регрессия шага.** Полный прогон дал 8 падений в
+`src/tests/unit/server/seoTitleAdminApi.test.ts`:
+`No "updateArticleCore" export is defined on the "@/server/repositories/articles" mock`. Причина
+настоящая, не инфраструктурная: файл подменяет весь модуль статей частичной фабрикой и следит за
+`updateArticle`, а роут теперь пишет через `updateArticleWithRelations()`, который берёт
+`updateArticleCore` из того же подменённого модуля. Шов записи сместился на один модуль наружу.
+Правка минимальная: добавлен мок `@/server/repositories/articleWithRelations`, направляющий вызов в
+тот же шпион `updateArticle`; ни одно утверждение файла не изменено. Файл в утверждённый список шага
+не входил — расширение scope зафиксировано здесь и в `WORKPLAN.md`.
+
+**Проверки.**
+- `npx vitest run src/tests/unit/server/contentRelations.test.ts` — 27/27, файл НЕ изменён
+  (`git diff --stat` по нему пуст).
+- `npx vitest run src/tests/unit/server/articleWithRelations.test.ts` — 8/8.
+- `npx vitest run src/tests/unit/server/articleRelationsAdminApi.test.ts` — 9/9.
+- `npx tsc --noEmit` — exit 0.
+- `npx eslint .` — exit 0.
+- `npx prettier --check` по девяти затронутым файлам — exit 0 (три файла предварительно
+  отформатированы `--write`).
+- `npx vitest run` — 70 файлов / 757 тестов, все зелёные, 28.6 с. Известная нестабильность
+  (`seo-titles.test.ts`, таймаут импорта `@/app/page`) в этом прогоне не проявилась.
+
+**Не тронуто.** `src/server/db/client.ts`, `createArticle`/POST, `articleSchema`, админ-UI,
+`articles.related_slugs` (проверено отдельным тестом), публичный рендеринг, схема миграций,
+`deleteArticle`/`deleteRelationsForEntity`.
+
+**Остаётся долгом (не в scope REL-02A).** `deleteArticle()` не вызывает
+`deleteRelationsForEntity()`. Пока связи писались только из тестов, это было безвредно; с этого шага
+их пишет админ-API, и удаление статьи начнёт оставлять ссылки в никуда с обеих сторон. Отдельный шаг.
+
 ## 2026-09-08 — Amendment 55 / Step REL-01: хранилище связей между материалами
 
 **Базис.** `master`, `7ca830c`. Коммита нет.

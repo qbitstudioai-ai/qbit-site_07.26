@@ -2,19 +2,32 @@ import { after, NextResponse } from "next/server";
 import { articlePlacementHref } from "@/content/article-placements";
 import { handleUnexpected, jsonError, readJsonBody, requireSession } from "@/server/api/guard";
 import { revalidateSection } from "@/server/api/revalidate";
-import { articleSchema } from "@/server/api/schemas";
+import { articleUpdateSchema } from "@/server/api/schemas";
 import { submitIndexNow } from "@/server/indexnow/client";
 import { articleDeleteIndexNowUrls, articleUpdateIndexNowUrls } from "@/server/indexnow/urls";
-import {
-  deleteArticle,
-  getArticleById,
-  isArticleSlugTaken,
-  updateArticle,
-} from "@/server/repositories/articles";
+import { deleteArticle, getArticleById, isArticleSlugTaken } from "@/server/repositories/articles";
+import { updateArticleWithRelations } from "@/server/repositories/articleWithRelations";
+import { ContentRelationError } from "@/server/repositories/contentRelations";
 
 /** Чтение, сохранение и удаление одной статьи. */
 
 export const runtime = "nodejs";
+
+/**
+ * Отказ по связям — это ошибка ЗАПОЛНЕНИЯ, а не сбой.
+ *
+ * Без этого разбора `handleUnexpected()` вернул бы 500 и текст «попробуйте ещё раз» на исправимую
+ * ошибку: цель удалили в соседней вкладке, материал сослался сам на себя, один и тот же материал
+ * попал в список дважды. Код отдаётся отдельным полем `code`, чтобы форма показала сообщение у
+ * нужного поля, не разбирая текст.
+ *
+ * Повтор — 409, остальное — 400: повтор конфликтует с уже присланной строкой того же списка, и
+ * отдельный статус делает три случая различимыми даже для клиента, который `code` не читает.
+ */
+function relationErrorResponse(error: ContentRelationError): NextResponse {
+  const status = error.code === "duplicate_relation" ? 409 : 400;
+  return NextResponse.json({ error: error.message, code: error.code }, { status });
+}
 
 export async function GET(
   _request: Request,
@@ -64,7 +77,7 @@ export async function PUT(
   const existing = getArticleById(id);
   if (!existing) return jsonError(404, "Статья не найдена");
 
-  const body = await readJsonBody(request, articleSchema);
+  const body = await readJsonBody(request, articleUpdateSchema);
   if (!body.ok) return body.response;
 
   const slugLocked = existing.status === "published" || existing.publishedAt !== null;
@@ -92,13 +105,28 @@ export async function PUT(
         ? (body.data.publishedAt ?? existing.publishedAt ?? new Date().toISOString().slice(0, 10))
         : body.data.publishedAt;
 
-  try {
-    const article = updateArticle(id, {
-      ...body.data,
-      slug: slugLocked ? existing.slug : body.data.slug,
-      publishedAt: nextPublishedAt,
-    });
+  /**
+   * Связи и текст статьи сохраняются ОДНОЙ транзакцией.
+   *
+   * `relations` разбирается схемой без `default`, поэтому сюда доходят три различимых состояния:
+   * поля не было (`undefined`) — связи не трогаются; `[]` — связи очищаются; список — замена.
+   * Первое состояние — сегодняшняя норма: форма перелинковки появится отдельным шагом, и до тех
+   * пор админ-панель шлёт `PUT` вообще без этого поля.
+   */
+  const { relations, ...articleInput } = body.data;
 
+  try {
+    const { article } = updateArticleWithRelations(
+      id,
+      {
+        ...articleInput,
+        slug: slugLocked ? existing.slug : body.data.slug,
+        publishedAt: nextPublishedAt,
+      },
+      relations,
+    );
+
+    // Всё, что ниже, транзакцией не откатывается, поэтому стоит строго ПОСЛЕ успешной записи.
     // Сбрасываются оба раздела: если статью перенесли, старый список тоже обязан обновиться.
     revalidateSection(articlePlacementHref(existing.placement));
     revalidateSection(articlePlacementHref(article.placement));
@@ -107,6 +135,7 @@ export async function PUT(
     });
     return NextResponse.json({ article });
   } catch (error) {
+    if (error instanceof ContentRelationError) return relationErrorResponse(error);
     return handleUnexpected(error, `сохранение статьи ${id}`);
   }
 }
