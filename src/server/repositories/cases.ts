@@ -1,5 +1,6 @@
 import type { CaseInput, CaseRecord } from "@/features/cases/caseRecord";
 import { getDatabase, nowIso, parseJsonColumn, transaction } from "../db/client";
+import { deleteRelationsForEntity } from "./contentRelations";
 import { logActivity, saveRevision } from "./revisions";
 
 /**
@@ -199,6 +200,13 @@ export function updateCase(id: string, input: CaseInput, modifiedAt: string): Ca
   });
 }
 
+/**
+ * Удаление кейса вместе с его связями.
+ *
+ * Причина и порядок те же, что у статьи (см. `deleteArticle()`): каскада у полиморфной ссылки нет,
+ * поэтому связи снимает код удаления, и снимает ОБЕ стороны — кейс чаще оказывается целью чужих
+ * ссылок, чем источником своих. Всё в уже существующей транзакции удаления, второй не заводится.
+ */
 export function deleteCase(id: string): boolean {
   return transaction(() => {
     const previous = getCaseById(id);
@@ -208,6 +216,7 @@ export function deleteCase(id: string): boolean {
     saveRevision("case", id, previous);
 
     getDatabase().prepare("DELETE FROM cases WHERE id = ?").run(id);
+    deleteRelationsForEntity("case", id);
     logActivity("case", id, "delete", `Кейс «${previous.shortTitle}» удалён`);
     return true;
   });

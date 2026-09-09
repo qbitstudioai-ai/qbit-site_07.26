@@ -1,6 +1,7 @@
 import type { ArticleStatus } from "@/content/article-placements";
 import { normalizeSeoTitle } from "@/lib/seo";
 import { getDatabase, nowIso, parseJsonColumn, transaction } from "../db/client";
+import { deleteRelationsForEntity } from "./contentRelations";
 import { logActivity, saveRevision } from "./revisions";
 
 /**
@@ -232,6 +233,21 @@ export function updateArticle(id: string, input: ArticleInput): ArticleRecord {
   return transaction(() => updateArticleCore(id, input));
 }
 
+/**
+ * Удаление статьи вместе с её связями.
+ *
+ * Уборка связей — часть удаления, а не отдельная операция: у полиморфной ссылки нет внешнего
+ * ключа, поэтому каскада у базы нет, и снять связи обязан код, удаляющий материал. Снимаются ОБЕ
+ * стороны: не только «на что ссылалась эта статья», но и «кто ссылался на неё» — иначе чужие
+ * страницы остались бы со ссылками в никуда.
+ *
+ * Всё в УЖЕ существующей транзакции удаления, второй не заводится: статья без снятых связей и
+ * снятые связи без удалённой статьи одинаково плохи.
+ *
+ * Порядок намеренный: уборка идёт ПОСЛЕ подтверждения существования статьи. Для несуществующего
+ * идентификатора функция выходит раньше и не трогает ничего — иначе случайное совпадение
+ * идентификатора сняло бы чужие связи.
+ */
 export function deleteArticle(id: string): boolean {
   return transaction(() => {
     const previous = getArticleById(id);
@@ -239,6 +255,7 @@ export function deleteArticle(id: string): boolean {
     saveRevision("article", id, previous);
 
     getDatabase().prepare("DELETE FROM articles WHERE id = ?").run(id);
+    deleteRelationsForEntity("article", id);
     logActivity("article", id, "delete", `Статья «${previous.title}» удалена`);
     return true;
   });
