@@ -108,6 +108,13 @@ content_relations_source_idx`, PK-lookup в `articles` для источника
 
 **Статус:** `COMPLETED`.
 
+**Production-приёмка REL-02E (REL-02E.1 + REL-02E.2) — `PASS` (данные руководителя; у меня доступа к
+production нет).** Deploy commit `fee40a4d7ca067b89b6e1f3a8c48ac36f989b285`. Контейнер `healthy`.
+`content_relations` = 19, из них article→article = 19. Backfill: `state=already-applied`,
+`conflicts=0`, `changed=0`. Павел вручную проверил production: блок «Связанные статьи» отображается;
+переход по связанной статье работает; блок после перехода обновляется; production blog relations —
+PASS. Production DB вручную не изменялась. REL-02E завершён.
+
 ## 2026-09-14 — Amendment 60 / Step REL-02E.1: seed создаёт структурные связи статей
 
 **Статус записи: шаг завершён (`COMPLETED`).** Amendment 60 утверждена руководителем 2026-09-14 и
