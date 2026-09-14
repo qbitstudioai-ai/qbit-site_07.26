@@ -1,5 +1,143 @@
 # WORKPLAN
 
+## Amendment 60 — публичный блок «Связанные статьи» читает `content_relations` (2026-09-14)
+
+- Status: `APPROVED` — текст подготовлен по решениям руководителя R1/R2 от 2026-09-14; утверждена
+  руководителем 2026-09-14 («Amendment 60 руководителем УТВЕРЖДЕНА»).
+- Основание: read-only аудит REL-02E на HEAD `7ee9fb8` (вердикт `PASS` с двумя предусловиями по
+  данным вне production — R1, R2), см. `WORKLOG.md`.
+- Причина: после REL-02D структурные связи редактируются из админ-панели, а публичный блок
+  по-прежнему читает `articles.related_slugs`, которую сервер лишь выводит из связей. Пока публичное
+  чтение идёт через производную колонку, новая модель не является источником истины для
+  посетителя, и снять dual-write в будущем нельзя.
+- Отношение к Amendment 56/59: снимается ровно один запрет — «перевод публичного чтения на
+  `content_relations`» (`src/server/content/articles.ts`) — и добавляется `scripts/db-seed.mjs`.
+  Остальные запреты продолжают действовать.
+- Решение R1 (руководитель, 2026-09-14): существующая локальная `var/content.db` НЕ меняется и НЕ
+  сбрасывается. Для e2e и ручной приёмки — отдельный временный `QBIT_DATA_DIR`; подготовка тестовой
+  базы: `db:seed -- --reset` → backfill `--apply`. Production DB не затрагивается.
+- Решение R2 (руководитель, 2026-09-14): `db-seed.mjs` расширяется так, чтобы свежая база сразу после
+  seed имела `content_relations`; обязательного ручного backfill для нового окружения нет;
+  `related_slugs` пока сохраняется (dual-write переходный); seed гарантирует parity legacy ↔
+  structured для seed-статей.
+- Scope: `scripts/db-seed.mjs`; пакетное чтение article→article в
+  `src/server/repositories/contentRelations.ts`; источник `relatedSlugs` в
+  `src/server/content/articles.ts`; тесты; e2e блога — только на отдельной тестовой базе; журналы.
+- Out of scope: `src/features/blog/BlogExperience.tsx`, `src/features/blog/posts.ts`,
+  `src/app/blog/[[...slug]]/page.tsx`, `src/app/sitemap.ts`, `blogSeo`/metadata/JSON-LD, URL и
+  внешний вид; вывод product/case/department в публичном блоке; write path REL-02D
+  (`articleWithRelations.ts`, роут, админ-UI); `src/server/repositories/articles.ts`; удаление или
+  миграция колонки `related_slugs`; схема и миграции; backfill-скрипт; локальная `var/content.db`;
+  production DB; commit, push, deploy.
+- Разбиение: два шага, выполняются и проходят skeptic по отдельности — REL-02E.1 (seed) раньше
+  REL-02E.2 (переключение чтения). Seed независим от чтения и нужен для подготовки тестовой базы
+  приёмки второго шага.
+
+### Step REL-02E.1 — свежая seed-база сразу имеет структурные связи статей
+
+- Status: `COMPLETED` (skeptic: раунд 1 `PASS`, блокирующих находок нет; неблокирующие закрыты в
+  журнале или записаны как известные свойства — см. `WORKLOG.md`).
+- Objective: `npm run db:seed` на пустой базе создаёт статьи И их связи article→article в
+  `content_relations`, в parity с `related_slugs` seed-статей; повторный запуск идемпотентен.
+- In scope: `scripts/db-seed.mjs`, `src/tests/unit/server/dbSeedRelations.test.ts` (новый), журналы.
+- Acceptance criteria:
+  1. После seed на пустой `QBIT_DATA_DIR` для каждой seed-статьи связи article→article совпадают с
+     её `relatedSlugs`: те же цели, тот же порядок (`sort_order` = позиция в массиве), роль
+     `related`. Проверяется функциями backfill-скрипта: dry-run на этой базе даёт
+     `state = already-applied`, `conflicts = 0`, `changed = 0`.
+  2. `source_id`/`target_id` — идентификаторы, slug цели разрешается в id через `articles` той же
+     базы; совпадение id и slug у seed-статей нигде не используется.
+  3. Связи пишутся ТОЛЬКО для статей, вставленных в этом запуске. Существующая статья и её связи
+     (правки владельца) не трогаются; повторный seed не меняет ни одной строки `content_relations`.
+  4. Вставка статей и их связей — одна транзакция: неразрешимый slug, ссылка на себя или повтор
+     цели в seed-данных отменяют весь блок статей с ненулевым кодом возврата; частичного состояния
+     «статья без связей» нет.
+  5. `--reset` очищает связи, у которых источник или цель относится к очищаемым таблицам
+     (`article`, `product`, `department`); связи между кейсами (таблица `cases` не очищается)
+     сохраняются. После `--reset` выполняется критерий 1.
+  6. `related_slugs` seed пишет как прежде (dual-write переходный).
+  7. Тесты запускают seed как дочерний процесс на временном `QBIT_DATA_DIR`; `var/content.db` не
+     открывается ни одной командой шага.
+  8. Мутации роняют тесты: снятие записи связей (критерий 1); подстановка slug вместо id
+     (критерий 2) — на фикстуре, где они различаются, либо проверкой источника значения; запись
+     связей для уже существующей статьи (критерий 3).
+- Verification: `npx vitest run src/tests/unit/server/dbSeedRelations.test.ts`, смежные
+  `backfillArticleRelations`, `contentRelations`; `npx tsc --noEmit`, `npx eslint .`,
+  `npx prettier --check` по затронутым файлам; полный `npx vitest run`.
+- Risks: (а) seed не транзакционен целиком сегодня — транзакция вводится только для блока статей и
+  связей, остальные блоки не меняются; (б) `--reset`, не чистящий связи, оставил бы висячие строки и
+  дал бы конфликт первичного ключа при повторной вставке — закрыто критерием 5; (в) расхождение
+  логики seed и backfill — закрыто проверкой через функции самого backfill.
+- Rollback: `git checkout -- scripts/db-seed.mjs`, удаление нового теста. Уже созданные seed-связи
+  валидны и совпадают с тем, что дал бы backfill.
+
+### Step REL-02E.2 — публичный блок читает только `content_relations`
+
+- Status: `PROPOSED`. Зависит от REL-02E.1 (`PASS`).
+- Objective: `BlogPost.relatedSlugs` у каждой статьи публичного списка формируется сервером из
+  `content_relations`; `articles.related_slugs` на публичный вывод больше не влияет. Форма
+  `BlogPost` и клиентский `BlogExperience` не меняются.
+- In scope: `src/server/repositories/contentRelations.ts` (новая функция чтения),
+  `src/server/content/articles.ts`, `src/tests/unit/server/publicArticleRelations.test.ts` (новый),
+  при необходимости `src/tests/unit/components/blog/blog-experience-related.test.tsx` (новый, jsdom),
+  `src/tests/e2e/blog-experience.spec.ts` (только после подготовки отдельной тестовой базы по R1),
+  журналы.
+- Архитектура:
+  - `contentRelations.ts`: одна функция пакетного чтения на раздел — ОДИН SQL-запрос, возвращает
+    `Map<sourceId, slug[]>`. Условия: `source_type = 'article'`, `target_type = 'article'`; источник
+    и цель `published` и в заданном `placement`; `source_id <> target_id`; slug цели — из строки
+    `articles` по `target_id`. Порядок: `sort_order`, затем `target_type`, `target_id`,
+    `relation_role` — как в `listRelationsFrom()`. Повтор цели у источника (две роли на одну цель,
+    строки мимо репозитория) схлопывается до первого вхождения.
+  - `articles.ts`: `getPublishedArticles(placement)` строит Map один раз и передаёт в `toBlogPost`
+    для КАЖДОЙ статьи; `record.relatedSlugs` в публичном слое не читается; отсутствие ключа — `[]`.
+    Fallback на legacy нет.
+- Acceptance criteria:
+  1. Источник — только `content_relations`: изменение `articles.related_slugs` прямым SQL не меняет
+     `relatedSlugs` публичного списка (legacy SQL mutation test).
+  2. Статья без article-связей получает `[]` даже при непустой legacy-колонке.
+  3. Выводятся только связи article→article; product/case/department не попадают.
+  4. Цель-черновик не выводится.
+  5. Цель другого `placement` не выводится; источник другого `placement` не влияет на список.
+  6. Ссылка на себя не выводится; повтор цели не даёт дубля slug.
+  7. Порядок — `sort_order` с детерминированными tie-breakers `target_type`, `target_id`,
+     `relation_role`.
+  8. Slug цели берётся по stable ID: после смены slug цели прямым SQL публичный список отдаёт новый
+     slug без правки связей.
+  9. Актуальные связи получает ВЕСЬ `posts[]`, а не только открытая статья: клиентская навигация
+     `BlogExperience` между статьями без полной перезагрузки показывает связи целевой статьи.
+  10. Один пакетный SQL-запрос на раздел, без N+1: число обращений к `content_relations` не зависит
+      от числа статей (проверяется тестом).
+  11. Форма `relatedSlugs` в `GET /api/content/articles` не меняется, источник — новый.
+  12. Не изменены: `BlogExperience.tsx`, `posts.ts`, `page.tsx`, `sitemap.ts`, `blogSeo`, схема,
+      миграции, write path REL-02D. Тесты `blog-seo`, `blog-metadata`, `robots-and-sitemap`,
+      `posts`, `articleLegacyDualWrite`, `articleWithRelations`, `articleRelationsAdminApi` проходят
+      без правок.
+  13. Мутации роняют тесты: возврат `record.relatedSlugs` (1, 2); снятие фильтра status (4),
+      placement (5), `target_type` (3), self-link (6); удаление или перестановка ключей порядка (7);
+      чтение связей только для открытой статьи (9).
+  14. e2e и ручная приёмка — на отдельном временном `QBIT_DATA_DIR`, подготовленном
+      `db:seed -- --reset` → backfill `--apply`; e2e проверяет состав и порядок ссылок блока, в том
+      числе после перехода без перезагрузки, а не только заголовок.
+  15. `var/content.db` не открывается ни одной командой шага; production DB не затрагивается.
+- Verification: vitest по новым файлам и смежным (`contentRelations`, `articleWithRelations`,
+  `articleLegacyDualWrite`, `articleRelationsAdminApi`, blog-тесты); `npx tsc --noEmit`,
+  `npx eslint .`, `npx prettier --check`; полный `npx vitest run`; `npm run build`;
+  `npx playwright test src/tests/e2e/blog-experience.spec.ts` с временным `QBIT_DATA_DIR`; ручная
+  приёмка в браузере на той же базе.
+- Risks: (а) связи только для открытой статьи сломали бы клиентскую навигацию — закрыто
+  критериями 9 и 13; (б) N+1 на `force-dynamic` странице — закрыто критерием 10; (в) повтор цели с
+  разными ролями дал бы дублирующийся React `key` — закрыто критерием 6; (г) ограничение ≤ 6
+  article-целей теперь гарантирует только write path; строки мимо него не обрезаются молча —
+  известное свойство, решение об обрезке не принималось; (д) существующий e2e проверял лишь
+  заголовок блока, который рисуется и при пустом списке, — закрыто критерием 14; (е) `posts.test`
+  проверяет seed-фикстуру, а не публичный путь, и доказательством шага не считается; (ж) порт 3200
+  занят локальным standalone (PID 12908 на момент аудита), а Playwright поднимает свой сервер с
+  `reuseExistingServer: false` — остановка процесса только с подтверждения пользователя.
+- Rollback: `git checkout -- src/server/repositories/contentRelations.ts
+  src/server/content/articles.ts`, удаление новых тестов, откат правки e2e. Dual-write продолжает
+  писать `related_slugs`, поэтому возврат к legacy-чтению безопасен без действий с базой.
+
 ## Amendment 59 — Blog Admin: управление связями и переходный dual-write (2026-09-10)
 
 - Status: `COMPLETED` (skeptic: раунд 1 `FAIL` — две блокирующие находки, молчаливая потеря выбора

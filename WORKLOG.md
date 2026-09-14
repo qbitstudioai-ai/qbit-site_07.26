@@ -1,5 +1,134 @@
 # WORKLOG
 
+## 2026-09-14 — Amendment 60 / Step REL-02E.1: seed создаёт структурные связи статей
+
+**Статус записи: шаг завершён (`COMPLETED`).** Amendment 60 утверждена руководителем 2026-09-14 и
+переведена в `APPROVED`. Запись открыта до правки кода со статусом `IN_PROGRESS` и дополнена по
+итогам проверок и ревью. REL-02E.2 — `PROPOSED`.
+
+**Scope шага:** `scripts/db-seed.mjs`, `src/tests/unit/server/dbSeedRelations.test.ts` (новый),
+журналы. Публичное чтение (`contentRelations.ts`, `server/content/articles.ts`,
+`BlogExperience`/`posts`/`page`) не трогается. Все проверки — только на временном `QBIT_DATA_DIR`;
+`var/content.db` не открывается.
+
+**Изменено.**
+
+- `scripts/db-seed.mjs`: экспортированы `seedArticles(db, articles, timestamp)`, `resetContent(db)`,
+  `RESET_RELATION_ENTITY_TYPES`, `SEED_RELATION_ROLE`; заполнение выполняется только при прямом
+  запуске (защита по `import.meta.url`, как в backfill-скрипте), иначе тест не смог бы импортировать
+  модуль. Остальные блоки (отделы, продукты, страницы, контакты, документы) перенесены внутрь
+  `runSeed()` без изменения логики. `git diff --stat` 336+/208−, без учёта пробелов `-w` 184+/56−.
+- `seedArticles`: статьи и их связи — одна транзакция; связи только для статей, вставленных в
+  этом запуске; slug цели разрешается в id через `articles` той же базы; порядок = позиция в
+  `relatedSlugs`, роль `related`. Отказ (и откат всего блока) на неразрешимом адресе, ссылке на
+  себя, повторе цели, цели-черновике, пустом адресе и не-массиве — те же правила, что у backfill.
+  `related_slugs` пишется как прежде.
+- `resetContent`: одна транзакция; снимает связи, где источник ИЛИ цель — `article`/`product`/
+  `department`, затем очищает прежний список таблиц. Связи между кейсами сохраняются. Прежний
+  `--reset` не имел `ROLLBACK` при отказе — теперь имеет.
+- `src/tests/unit/server/dbSeedRelations.test.ts` (новый, 11 тестов). Реальный скрипт дочерним
+  процессом на `mkdtemp`-каталоге (`QBIT_DB_PATH`/`QBIT_UPLOADS_DIR` сняты из окружения, путь базы из
+  вывода seed проверяется): свежий seed — parity со всеми `relatedSlugs`, `related_slugs` не изменён,
+  backfill dry-run `already-applied`/`conflicts 0`/`changed 0`; повторный seed не меняет ни одной
+  строки, включая удалённую владельцем связь; `--reset` — case→case сохранена, case→article,
+  product→case, department→case сняты, parity восстановлен. `seedArticles` на базе в памяти: id ≠
+  slug и порядок; пять видов отказа откатывают статьи и связи; существующая статья связей не
+  получает.
+
+**Команды и результат.**
+
+- `npx vitest run` по `dbSeedRelations`, `backfillArticleRelations`, `contentRelations` — 3 файла,
+  69 тестов, exit 0.
+- `npx tsc --noEmit` — exit 0. `npx eslint .` — exit 0.
+- `npx prettier --check` по двум файлам шага — сначала 2 warn; `prettier --write` только по ним;
+  повторная проверка с журналами — чисто.
+- Полный `npx vitest run`, первый прогон — 3 падения «Test timed out in 5000ms» в
+  `casesAdminApi`, `slugLifecycleAdminApi`, `articleRelationsAdminApi`. Запуск совпал с
+  параллельным ручным прогоном seed (конкуренция за CPU). Три файла отдельно — 47/47; полный прогон
+  повторно без параллельной нагрузки — 75 файлов, 858 тестов, exit 0. Файлы вне диффа; записано как
+  известная нестабильность под нагрузкой, не замаскировано.
+- Ручной прогон CLI на временном `QBIT_DATA_DIR`: seed — статьи 6, exit 0; backfill dry-run —
+  `already-applied`, `plannedRelations 12`, `existingArticleRelations 12`, `conflicts 0`,
+  `changed 0`; повторный seed — добавлено 0; `--reset` — exit 0; backfill dry-run — снова
+  `already-applied` 12/12. Каталог удалён.
+- Мутации (скрипт в scratchpad, файл восстанавливается побайтно, SHA-256 после серии совпал с
+  исходным): M1 связи не пишутся — 4 падения; M2 slug вместо id — 2 (ловят тесты на базе в памяти,
+  у seed-статей id = slug); M3 связи для всех статей, а не вставленных — 2; M4 без транзакции блока
+  статей — 5 (все виды отказа); M5 reset не снимает связи — 1; M6 reset снимает все связи, включая
+  case→case — 1; M7 роль `primary` — 4; M8 порядок не из позиции — 3. Все восемь убиты. Контрольный
+  прогон на восстановленном файле — 11/11.
+- `var/content.db`: хэш снять нельзя — файл занят локальным standalone (PID 12908). Размер 348160,
+  mtime 2026-09-08 05:02 UTC; `-wal` 2026-09-14 05:31 UTC (ручная приёмка REL-02D, до начала шага).
+  Ни одна команда шага не указывала на `var`.
+- `git status`: изменены `WORKLOG.md`, `WORKPLAN.md`, `scripts/db-seed.mjs`; новый
+  `src/tests/unit/server/dbSeedRelations.test.ts`. Публичное чтение и `var/` — без изменений.
+
+**Известные свойства (не дефекты шага).**
+
+1. Новая seed-статья отменяет весь блок статей с ненулевым кодом, если её цель — существующая статья,
+   чей адрес владелец сменил, ИЛИ которую владелец снял с публикации (воспроизведено skeptic: exit 1,
+   статей 5, связей у вставляемой статьи 0). По AC4 это правильный отказ, а не частичная запись. Блоки
+   seed до статей (отделы, продукты, страницы) к этому моменту уже записаны, контакты и документы не
+   выполняются — разрыв между блоками существовал и до шага (риск (а) плана).
+2. Seed на базе, где `related_slugs` заполнен, а backfill НЕ выполнялся: если одной статьи со
+   связями не хватает, seed вставит её вместе со связями, и последующий backfill dry-run даст
+   `conflict` (skeptic: planned 12, existing 2, conflicts 10, exit 1). Это прямое следствие AC3
+   («связи только для вставленных статей»). Порядок для такой базы: сначала backfill `--apply`, затем
+   `db:seed`, либо `db:seed -- --reset`.
+3. Сверка раздела (`placement`) цели в seed не делается — её не делает и backfill; все seed-статьи в
+   разделе `blog`.
+4. Ненулевой код возврата при отказе обеспечивается необработанным исключением при прямом запуске;
+   автотестом через дочерний процесс не проверен (подменить `data/seed` в реальном скрипте нельзя
+   без правки данных). Skeptic подтвердил вручную: exit 1 и полный откат блока.
+5. В `runSeed()` `openDatabase()` и `resolveUploadsDir()` вызываются до `try`: исключение в
+   `resolveUploadsDir()` оставило бы базу незакрытой. Практического эффекта нет — процесс завершается.
+   Не исправлено намеренно: правка кода после `PASS` потребовала бы повторного цикла проверок ради
+   свойства без последствий.
+
+**Skeptic, раунд 1 — `PASS`. Блокирующих находок нет.** Ревьюер независимо выполнил: vitest по трём
+файлам (69 тестов), `tsc`, `eslint`, `prettier` — exit 0; `git diff --quiet HEAD -- src/server
+src/features src/app data Dockerfile package.json` — exit 0; импорт модуля не создаёт базу и
+хранилище; прямой запуск по абсолютному пути с кириллицей, пробелами и `c:` в нижнем регистре —
+работает; `npm run db:seed` и `-- --reset` на временном `QBIT_DATA_DIR` + backfill dry-run —
+`already-applied` 12/12; отказ (цель-черновик) — exit 1 и полный откат; сравнение со старым seed из
+`git archive HEAD` на пустых базах — вывод и все таблицы совпадают, кроме `content_relations` (0 → 12)
+и случайных UUID документов. `var/` не использовался. Пять неблокирующих находок: три — журнал
+(свойства 1 и 2 выше дополнены, заголовок записи исправлен), одна записана как свойство 5, одна уже
+была записана (свойство 4).
+
+**Итоговые проверки после правок журнала:** см. `prettier --check` и `git status` в отчёте шага.
+
+**Статус:** `COMPLETED`.
+
+## 2026-09-14 — Amendment 60 / REL-02E: подготовка (read-only аудит и решения R1/R2)
+
+**Статус записи: подготовка.** Amendment 60 внесена в `WORKPLAN.md` со статусом `PROPOSED`. Код не
+менялся, commit/push/deploy не выполнялись.
+
+**Read-only аудит на HEAD `7ee9fb8` — `PASS` с предусловиями.** Цепочка сейчас:
+`articles.related_slugs` → `toArticle()` → `getPublishedArticles(placement)` → `toBlogPost()`
+(`relatedSlugs: record.relatedSlugs`) → `page.tsx` (`force-dynamic`) → `BlogExperience` →
+`findRelatedBlogPosts(posts, post)`. Связанные статьи при клиентской навигации берутся из
+`posts[]`, пришедшего пропсом, поэтому `relatedSlugs` обязан быть актуален у КАЖДОЙ статьи
+списка. Sitemap, metadata и `blogSeo` поле не читают; `GET /api/content/articles` отдаёт его
+наружу, в `src` не вызывается. `db-seed.mjs` пишет только `related_slugs`. Тестов seed-скрипта нет.
+e2e `blog-experience.spec.ts:97` проверяет только заголовок блока, который рисуется и при пустом
+списке. `posts.test.ts:178` проверяет seed-фикстуру, а не публичный путь.
+
+**Замер локальной `var/content.db` (открыта `readOnly`, скрипт вне репозитория).**
+`content_relations`: article→article 1, article→product 1, article→department 1. Parity нового
+источника с `related_slugs` — 1 из 6 опубликованных статей. Backfill на этой базе дал бы `conflict`
+(существующая связь не совпадает с планом). Production по данным REL-02D: 19/19.
+
+**Решения руководителя 2026-09-14.** R1: `var/content.db` не менять и не сбрасывать; e2e и ручная
+приёмка — на отдельном временном `QBIT_DATA_DIR` (`db:seed -- --reset` → backfill `--apply`);
+production DB не трогать. R2: `db-seed.mjs` сам создаёт `content_relations` для свежей базы, без
+обязательного ручного backfill; `related_slugs` сохраняется; parity legacy ↔ structured для
+seed-статей гарантируется.
+
+**Разбиение.** REL-02E.1 (seed) и REL-02E.2 (переключение публичного чтения) — отдельные шаги с
+отдельным skeptic, по протоколу «не объединять шаги».
+
 ## 2026-09-10 — Amendment 59 / Step REL-02D: Blog Admin и переходный dual-write
 
 **Статус записи: НАЧАТА в начале шага.** Порядок как в REL-02C: Amendment 59 оформлена в
