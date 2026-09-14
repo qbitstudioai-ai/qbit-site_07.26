@@ -73,7 +73,9 @@
 
 ### Step REL-02E.2 — публичный блок читает только `content_relations`
 
-- Status: `PROPOSED`. Зависит от REL-02E.1 (`PASS`).
+- Status: `COMPLETED` (skeptic: раунд 1 `PASS`, блокирующих находок нет; неблокирующие закрыты в
+  журнале или записаны как известные свойства — см. `WORKLOG.md`). Зависит от REL-02E.1
+  (`COMPLETED`, commit `2199c65`).
 - Objective: `BlogPost.relatedSlugs` у каждой статьи публичного списка формируется сервером из
   `content_relations`; `articles.related_slugs` на публичный вывод больше не влияет. Форма
   `BlogPost` и клиентский `BlogExperience` не меняются.

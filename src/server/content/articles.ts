@@ -8,6 +8,7 @@ import {
   getPublishedArticles as readPublishedArticles,
   type ArticleRecord,
 } from "../repositories/articles";
+import { listPublishedArticleRelatedSlugs } from "../repositories/contentRelations";
 import { getPageContent } from "../repositories/pageContent";
 import { safePageCopy } from "./pageContentSchemas";
 
@@ -27,7 +28,12 @@ export interface BlogPageCopy {
   seoDescription: string;
 }
 
-function toBlogPost(record: ArticleRecord, index: number): BlogPost {
+/**
+ * `relatedSlugs` приходит отдельным аргументом, а не из `record`: публичный блок «Связанные статьи»
+ * читает только таблицу связей. Прежняя колонка `related_slugs` в записи остаётся ради переходного
+ * dual-write админ-панели, но на публичный вывод не влияет.
+ */
+function toBlogPost(record: ArticleRecord, index: number, relatedSlugs: string[]): BlogPost {
   const wordCount = countWords(record.bodyMarkdown);
   const publishedAt = record.publishedAt ?? record.createdAt.slice(0, 10);
   const modifiedAt = record.updatedAt.slice(0, 10);
@@ -53,14 +59,23 @@ function toBlogPost(record: ArticleRecord, index: number): BlogPost {
     seoTitle: record.seoTitle,
     seoDescription: record.seoDescription,
     sections: parseBlogMarkdown(record.bodyMarkdown),
-    relatedSlugs: record.relatedSlugs,
+    relatedSlugs,
   };
 }
 
-/** Опубликованные статьи выбранного раздела сайта. */
+/**
+ * Опубликованные статьи выбранного раздела сайта.
+ *
+ * Связи раздела читаются ОДНИМ запросом и раздаются КАЖДОЙ статье списка: при переходе между
+ * статьями без перезагрузки клиент берёт связанные статьи из этого же списка.
+ */
 export const getPublishedArticles = cache(
-  (placement: string = DEFAULT_ARTICLE_PLACEMENT): BlogPost[] =>
-    readPublishedArticles(placement).map(toBlogPost),
+  (placement: string = DEFAULT_ARTICLE_PLACEMENT): BlogPost[] => {
+    const relatedSlugs = listPublishedArticleRelatedSlugs(placement);
+    return readPublishedArticles(placement).map((record, index) =>
+      toBlogPost(record, index, relatedSlugs.get(record.id) ?? []),
+    );
+  },
 );
 
 /**

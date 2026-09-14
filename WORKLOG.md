@@ -1,5 +1,113 @@
 # WORKLOG
 
+## 2026-09-14 — Amendment 60 / Step REL-02E.2: публичный блок читает только `content_relations`
+
+**Статус записи: шаг завершён (`COMPLETED`).** Запись открыта до правки кода со статусом
+`IN_PROGRESS` и дополнена по итогам проверок и ревью. HEAD `2199c65` (REL-02E.1 закоммичен и
+запушен). Scope: `src/server/repositories/contentRelations.ts`, `src/server/content/articles.ts`,
+`src/tests/unit/server/publicArticleRelations.test.ts` (новый), при необходимости jsdom-тест
+клиентской навигации, `src/tests/e2e/blog-experience.spec.ts`, журналы. Не меняются:
+`BlogExperience.tsx`, `posts.ts`, `app/blog/[[...slug]]/page.tsx`, sitemap, metadata/`blogSeo`,
+схема и миграции, write path REL-02D, `articles.related_slugs`, production DB, `var/content.db`.
+e2e — только на отдельном временном `QBIT_DATA_DIR`; остановка локального standalone на порту 3200
+(PID 12908) разрешена пользователем.
+
+**Изменено.**
+
+- `src/server/repositories/contentRelations.ts`: новая `listPublishedArticleRelatedSlugs(placement)`
+  → `Map<sourceId, slug[]>`. Один SQL: `content_relations` JOIN `articles` источника и цели;
+  `source_type = 'article'`, `target_type = 'article'`, `source_id <> target_id`, источник и цель
+  `published` и в `placement`; slug цели — `target.slug` по `target_id`; `ORDER BY source_id,
+  sort_order, target_type, target_id, relation_role`. Повтор цели (разные роли) схлопывается до
+  первого вхождения. Legacy не читается.
+- `src/server/content/articles.ts`: `getPublishedArticles` строит Map один раз и передаёт
+  `relatedSlugs` в `toBlogPost` для каждой статьи; нет ключа — `[]`; `record.relatedSlugs` в
+  публичном слое не используется. `getArticleBySlug` берёт статью из того же списка.
+- `src/tests/unit/server/publicArticleRelations.test.ts` (новый, 13 тестов, временная база,
+  id ≠ slug): legacy SQL mutation; пустые связи → `[]`; цель-черновик и цель другого раздела не
+  выводятся и появляются после публикации/переноса; источник-черновик и источник другого раздела не
+  попадают в карту; связи на product/case/department не выводятся, в том числе при совпадении
+  `target_id`/`source_id` с id статьи; ссылка на себя отвергается CHECK схемы; повтор цели
+  схлопывается; порядок `sort_order` + tie-breaker `target_id` при обратной вставке; смена slug
+  цели видна без правки связи; связи у каждой статьи списка и совпадение с `getArticleBySlug`;
+  один запрос к `content_relations` на 17 статей (spy на `prepare`).
+- `src/tests/unit/components/blog/blog-experience-related.test.tsx` (новый, jsdom): клик по
+  связанной статье → в окне до ответа роутера заголовок и связи целевой статьи берутся из уже
+  полученного `posts[]`; ответ роутера имитируется только новым `initialSlug` при том же объекте
+  `posts`; два перехода подряд. Заглушка `Element.prototype.scrollTo` — только в файле теста (jsdom).
+- `src/tests/e2e/blog-experience.spec.ts`: новый тест — состав и порядок ссылок блока, два перехода
+  без перезагрузки (метка в `window` сохраняется). Существующие тесты не менялись.
+- Не изменены (`git diff --name-only` по путям пуст): `BlogExperience.tsx`, `posts.ts`, `app/blog`,
+  `sitemap.ts`, `blogSeo.ts`, `src/server/db`, `articles.ts` (репозиторий), `articleWithRelations.ts`,
+  admin-роут и `src/features/admin`, `scripts`, `var`.
+
+**Команды и результат.**
+
+- Первый прогон targeted vitest (12 файлов): 144 passed, 1 failed — jsdom-тест упал на
+  `scrollTo is not a function`; после заглушки — на `toHaveTextContent` (заголовок вернулся к статье 1).
+  Причина — тест: мок роутера не подаёт новый `initialSlug`, и эффект синхронизации `BlogExperience`
+  откатывает статью. Тест переписан на порядок событий приложения; продуктовый код не менялся.
+- Два новых теста после правки — 14/14. `npx tsc --noEmit` — exit 0. `npx eslint .` — exit 0.
+  `npx prettier --check` по файлам шага — сначала 4 warn, `--write` только по ним, затем чисто.
+- Полный `npx vitest run` — 77 файлов, 872 теста, exit 0.
+- `npm run build` — первый запуск `EBUSY rmdir .next/standalone`: папку держал локальный standalone
+  на 3200. PID 12908 уже не существовал; порт занимал PID 18884 — перезапуск того же сервера
+  пользователем (`node --env-file=.env.local .next\standalone\server.js`). Командная строка проверена,
+  процесс остановлен по разрешению на «старый локальный standalone на 3200». Повторная сборка —
+  exit 0, `/blog/[[...slug]]` динамический.
+- Временная база e2e (scratchpad, `rel02e2-e2e-data`): `db:seed -- --reset` — статьи 6, exit 0;
+  backfill `--apply` — `already-applied`, planned 12, existing 12, `conflicts 0`, `changed 0`.
+- e2e: конфиг Playwright в scratchpad (порт 3300, `testMatch` blog-experience). Три препятствия
+  окружения, не шага: (1) `webServer.env` заменяет окружение целиком — без `SystemRoot` node падал
+  с 0xC0000409, исправлено наследованием `process.env`; (2) `scripts/start-standalone.mjs` на этом
+  пути сам падает с 0xC0000409 до копирования `.next/static` (замерено кодом выхода; скрипт и путь
+  не менялись) — `.next/static` и `public` скопированы в standalone через `Copy-Item`, сервер
+  запущен напрямую `node server.js`, как в Dockerfile; (3) `HOSTNAME=localhost` — Playwright не
+  дождался `localhost:3300`, переведено на `127.0.0.1` (ручная проверка: `/`, `/blog`, статья — 200).
+  Итог: `blog-experience.spec.ts` — 10 passed, exit 0; порт 3300 после прогона свободен.
+- Мутации (скрипт в scratchpad, файлы восстановлены побайтно, SHA-256 совпал): убиты 14 из 15.
+  N1 цель-черновик — 1 падение; N2 раздел цели — 2; N3 раздел источника — 1; N4 источник-черновик —
+  1; N5 без `target_type` — 1; N6 без `source_type` — 1; N8 без схлопывания — 1; N9 без `sort_order`
+  — 4; N10 без tie-breaker `target_id` — 1; N11 id вместо slug — 11; N12 fallback на legacy — 4;
+  N13 источник — legacy-колонка — 12; N14 связи только у первой статьи — 3; N15 N+1 — 1.
+  Выжила N7 (снят фильтр `source_id <> target_id`) — эквивалентный мутант: CHECK схемы
+  `NOT (source_type = target_type AND source_id = target_id)` не даёт записать такую строку, что
+  зафиксировано отдельным тестом. Первый запуск сценария мутаций не выполнился вовсе (PowerShell 5.1
+  прочитал файл без BOM как ANSI) — ни один файл не был изменён; сценарий переписан латиницей.
+- `var/content.db`: SHA-256 `BB408DD4…6B20D08`, 348160 байт, mtime 2026-09-08 05:02 UTC; `-wal`
+  2026-09-14 05:31 UTC (до шага); `-shm` 2026-09-14 18:34 UTC — момент остановки PID 18884 (SQLite
+  трогает индекс разделяемой памяти при закрытии соединения). Ни одна команда шага не указывала на
+  `var`.
+
+**Известные свойства.**
+
+1. e2e ожидает `relatedSlugs` seed-фикстуры: на свежей seed-базе обе модели совпадают, поэтому e2e не
+   различает источник — это доказывают unit-тесты `publicArticleRelations`.
+2. jsdom-тест подаёт синтетический `posts[]` и тоже не различает источник: он доказывает, что клиент
+   берёт связи из `posts[]`; серверная сторона AC9 закрыта unit-тестом «каждая статья списка» и N14.
+3. Ограничение ≤ 6 article-целей в публичном чтении не применяется (риск (г) плана, решение не
+   принималось).
+4. Возможный повторный запрос за рендер статьи: `page.tsx` зовёт `getPublishedArticles()` без
+   аргумента, а `getArticleBySlug` — с `record.placement`; ключи React `cache` различаются (`undefined`
+   и `"blog"`). Запрос статей дублировался и до шага; шаг добавляет второй индексированный запрос
+   связей. Кандидат на отдельную уборку, в scope шага не входит (`page.tsx` вне scope).
+5. Локальный standalone пользователя на 3200 остановлен и не перезапущен.
+
+**Skeptic, раунд 1 — `PASS`. Блокирующих находок нет.** Ревьюер независимо выполнил: targeted vitest
+(10 файлов, 131 тест), `tsc`, `eslint`, `prettier` по 7 файлам — exit 0; полный `npx vitest run` без
+параллельной нагрузки — 77 файлов, 872 теста, exit 0; `git diff --name-only HEAD` по путям вне scope
+— пусто; `EXPLAIN QUERY PLAN` на своей временной базе — `SEARCH relation USING INDEX
+content_relations_source_idx`, PK-lookup в `articles` для источника и цели, временная сортировка.
+Подтвердил: spy на `prepare` не вакуумен (единый объект `globalThis.__qbitDatabase`); React `cache`
+вне RSC не мемоизирует; jsdom-тест проверяет окно ДО ответа роутера; e2e не проходит при пустом
+блоке; N7 — эквивалентный мутант (CHECK `schema.mjs:385`); снятие ключей `target_type` и
+`relation_role` из порядка — тоже эквивалентно (тип всегда `article`, строки с разной ролью имеют ту
+же цель и схлопываются). `var/content.db` и `.env*` не открывал, сервер не поднимал; e2e не
+воспроизводил. Пять неблокирующих находок: заголовок записи исправлен; остальные четыре записаны как
+свойства 1, 2, 3, 4 выше.
+
+**Статус:** `COMPLETED`.
+
 ## 2026-09-14 — Amendment 60 / Step REL-02E.1: seed создаёт структурные связи статей
 
 **Статус записи: шаг завершён (`COMPLETED`).** Amendment 60 утверждена руководителем 2026-09-14 и

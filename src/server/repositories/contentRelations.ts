@@ -209,6 +209,73 @@ export function listRelationsTo(
 }
 
 /**
+ * Публичный блок «Связанные статьи»: адреса связанных статей для КАЖДОЙ опубликованной статьи
+ * раздела, одним запросом.
+ *
+ * Источник — ТОЛЬКО эта таблица. Прежняя колонка `articles.related_slugs` здесь не читается и не
+ * служит запасным вариантом: пустой результат означает пустой блок, а не «взять старое значение».
+ *
+ * Карта, а не список для одной статьи, по двум причинам. Клиентский `BlogExperience` при переходе
+ * между статьями без перезагрузки берёт связанные статьи из уже полученного списка, поэтому
+ * актуальные связи нужны каждой статье списка, а не только открытой. И один запрос на раздел вместо
+ * запроса на статью: страница блога рендерится на каждый запрос.
+ *
+ * Условия отбора — те же, по которым блок показывал статьи и раньше:
+ * - только связь статьи на статью: связи на продукты, кейсы и отделы в этом блоке не выводятся;
+ * - и источник, и цель опубликованы и лежат в запрошенном разделе;
+ * - адрес цели берётся из строки `articles` по `target_id`, поэтому смена адреса цели видна сразу;
+ * - ссылка на себя исключена (её запрещает и CHECK схемы — условие страхует от строк мимо неё).
+ *
+ * Порядок — тот же, что в `listRelationsFrom()`: `sort_order`, затем тип, идентификатор цели и роль.
+ * Первичный ключ различает роль, поэтому одна цель может встретиться у источника дважды; в блоке она
+ * остаётся один раз, на месте первого вхождения — иначе ссылка повторилась бы на странице.
+ */
+export function listPublishedArticleRelatedSlugs(placement: string): Map<string, string[]> {
+  const rows = getDatabase()
+    .prepare(
+      `SELECT relation.source_id AS source_id,
+              relation.target_id AS target_id,
+              target.slug AS target_slug
+         FROM content_relations AS relation
+         JOIN articles AS source ON source.id = relation.source_id
+         JOIN articles AS target ON target.id = relation.target_id
+        WHERE relation.source_type = 'article'
+          AND relation.target_type = 'article'
+          AND relation.source_id <> relation.target_id
+          AND source.status = 'published'
+          AND source.placement = ?
+          AND target.status = 'published'
+          AND target.placement = ?
+        ORDER BY relation.source_id ASC, relation.sort_order ASC, relation.target_type ASC,
+                 relation.target_id ASC, relation.relation_role ASC`,
+    )
+    .all(placement, placement) as {
+    source_id: unknown;
+    target_id: unknown;
+    target_slug: unknown;
+  }[];
+
+  const slugsBySource = new Map<string, string[]>();
+  const seenBySource = new Map<string, Set<string>>();
+
+  for (const row of rows) {
+    const sourceId = String(row.source_id);
+    const targetId = String(row.target_id);
+
+    const seen = seenBySource.get(sourceId) ?? new Set<string>();
+    if (seen.has(targetId)) continue;
+    seen.add(targetId);
+    seenBySource.set(sourceId, seen);
+
+    const slugs = slugsBySource.get(sourceId) ?? [];
+    slugs.push(String(row.target_slug));
+    slugsBySource.set(sourceId, slugs);
+  }
+
+  return slugsBySource;
+}
+
+/**
  * Полная замена исходящих связей материала.
  *
  * Форма перелинковки присылает итоговый список целиком, а не разницу, поэтому операция одна:

@@ -86,6 +86,55 @@ test.describe("published blog experience", () => {
     expect(consoleErrors).toEqual([]);
   });
 
+  /**
+   * Состав и порядок блока «Связанные статьи», в том числе после перехода без перезагрузки
+   * (Amendment 60 / REL-02E.2).
+   *
+   * Раньше здесь проверялся только заголовок блока, а он рисуется и при пустом списке. Ожидание
+   * строится из `relatedSlugs` seed-статей: на свежей seed-базе структурные связи совпадают с ними
+   * (REL-02E.1), поэтому тест требует прогона на отдельной, только что заполненной базе. Что источник
+   * — именно таблица связей, а не прежняя колонка, доказывают unit-тесты
+   * `publicArticleRelations.test.ts`: на seed-базе обе модели одинаковы и e2e их не различает.
+   */
+  test("shows related articles in order and keeps them correct after client-side navigation", async ({
+    page,
+  }) => {
+    const relatedBlock = page.getByRole("complementary", { name: "Связанные статьи" });
+    const relatedHrefs = () =>
+      relatedBlock
+        .getByRole("link")
+        .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+    const expectedHrefs = (slug: string) =>
+      blogPosts.find((post) => post.slug === slug)!.relatedSlugs.map((target) => `/blog/${target}`);
+
+    const start = blogPosts.find((post) => post.relatedSlugs.length > 0)!;
+    await page.goto(`/blog/${start.slug}`);
+    await expect.poll(relatedHrefs).toEqual(expectedHrefs(start.slug));
+    expect(expectedHrefs(start.slug).length).toBeGreaterThan(0);
+
+    // Метка в window переживает только переход без перезагрузки документа.
+    await page.evaluate(() => {
+      (window as unknown as { __blogNoReload?: boolean }).__blogNoReload = true;
+    });
+
+    let current = start;
+    for (let hop = 0; hop < 2; hop += 1) {
+      const next = blogPosts.find((post) => post.slug === current.relatedSlugs[0])!;
+      await relatedBlock.getByRole("link").first().click();
+
+      await expect(page).toHaveURL(`/blog/${next.slug}`);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(next.title);
+      await expect.poll(relatedHrefs).toEqual(expectedHrefs(next.slug));
+
+      current = next;
+      if (current.relatedSlugs.length === 0) break;
+    }
+
+    expect(
+      await page.evaluate(() => (window as unknown as { __blogNoReload?: boolean }).__blogNoReload),
+    ).toBe(true);
+  });
+
   test("renders full article navigation and responsive scrolling", async ({ page }) => {
     const post = blogPosts[3];
     await page.setViewportSize({ width: 1440, height: 900 });
