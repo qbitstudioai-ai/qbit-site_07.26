@@ -251,6 +251,14 @@ PASS. Сообщения в Console признаны не относящимис
 закрыт в части внешнего вида и клавиатуры; отдельный прогон axe не выполнялся. REL-02D принят
 руководителем полностью. Деплой не выполнялся.
 
+**Production-приёмка — `PASS` (данные руководителя; у меня доступа к production нет).** Deploy
+commit `4bb5b57f83c57ef712954b23b3c13b39f279da18`. `docker build` — PASS. Схема БД уже актуальна.
+Homepage release `changed=0`, `lastmod` главной не изменился. Контейнер `healthy`.
+`content_relations` = 19. Backfill dry-run: `state=already-applied`, `plannedRelations=19`,
+`existingArticleRelations=19`, `conflicts=0`, `changed=0`. Павел вручную открыл production
+`/admin/blog`: существующие связи отображаются корректно, production admin smoke-test — PASS.
+Production DB через UI не изменялась. REL-02D завершён.
+
 ## 2026-09-09 — Amendment 58 / Step REL-02C: backfill перелинковки статей
 
 **Статус записи: НАЧАТА в начале шага.** Порядок обычный, в отличие от REL-02B: Amendment 58
