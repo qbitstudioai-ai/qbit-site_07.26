@@ -1,5 +1,120 @@
 # WORKPLAN
 
+## Amendment 59 — Blog Admin: управление связями и переходный dual-write (2026-09-10)
+
+- Status: `COMPLETED` (skeptic: раунд 1 `FAIL` — две блокирующие находки, молчаливая потеря выбора
+  связей в режиме создания статьи и потеря фокуса при перестановке; после исправлений раунд 2
+  `PASS`, блокирующих находок нет. Неблокирующие находки обоих раундов закрыты inline либо вынесены
+  в долги — см. `WORKLOG.md`.) Деплой — по отдельному подтверждению пользователя.
+- Расширение scope (зафиксировано по факту): `src/features/admin/relationTargets.ts` — НОВЫЙ файл
+  вместо объявления тех же типов, констант и функции приведения внутри `RelationEditor.tsx`.
+  Причина найдена при сборке: серверный компонент `/admin/blog` вызывает `toRelationValues()`, а
+  вызов рантайм-функции, экспортированной из модуля с `"use client"`, на сервере не проходит
+  границу — типы стёрлись бы при компиляции, сборка прошла бы, и отказ наступил бы только во время
+  запроса к динамическому маршруту. Нейтральный модуль снимает этот класс отказа целиком. Объём
+  работ шага не изменился. `src/features/admin/admin.module.css` из заявленного списка НЕ
+  понадобился: редактор связей собран на существующих классах. См. `WORKLOG.md`.
+- User approval: прямое решение руководителя проекта 2026-09-10 («Amendment 59 руководителем
+  УТВЕРЖДЕНА») после read-only архитектурного аудита. Первая редакция аудита получила `BLOCKED` за
+  противоречие в семантике `relations === undefined`; исправленная редакция утверждена вместе с
+  непереговорным контрактом A/B/C, воспроизведённым ниже дословно.
+- Отношение к Amendment 56: та поправка относила `BlogEditor`/админ-UI, `articles.related_slugs` и
+  dual-write к «Out of scope», когда связи ещё некому было редактировать. Amendment 59 снимает ровно
+  эти три строки. Остальные запреты Amendment 56 продолжают действовать: публичный рендеринг, схема
+  миграций, `createArticle`/POST, `db/client.ts`, commit/push/deploy.
+- Причина: REL-02A дал атомарную запись связей, REL-02C перенёс 19 связей в `content_relations`.
+  Обе модели содержат одно и то же, но редактировать новую нечем: единственный путь записи — `PUT`
+  с полем, которого админ-панель не шлёт. Пока UI не появился, любая правка перелинковки идёт мимо
+  новой таблицы и разводит модели. Переключать публичное чтение до появления редактора нельзя,
+  снимать поддержку legacy тоже.
+- Данные production на 2026-09-10 (аудит руководителя, у меня доступа к базе нет): commit
+  `353c0fc`, `content_relations` = 19, legacy parity 19/19, `crossPlacement` = 0, backfill state
+  `already-applied`. Эти числа НЕ попадают ни в реализацию, ни в тесты: тесты строят свои данные.
+- Scope: структурный редактор связей в разделе «Блог» для четырёх типов материалов; серверный вывод
+  `articles.related_slugs` из structured relations; сохранение существующего `related_slugs` при
+  `relations === undefined`; валидация published и same-placement для article-целей; ограничение
+  article-подмножества шестью; возврат связей из GET и PUT; передача каталогов сущностей серверным
+  рендером; `relatedSlugs: []` в payload копии статьи.
+- Out of scope (прямой запрет ТЗ): перевод публичного чтения на `content_relations`;
+  `findRelatedBlogPosts`, `src/server/content/articles.ts`, страница блога, sitemap, публичные URL;
+  `POST`/`createArticle` и `articleSchema`; `src/server/db/client.ts`, `src/server/db/schema.mjs` и
+  миграции; backfill-скрипт; редакторы продуктов, кейсов и отделов; роль `primary` в интерфейсе;
+  исправление предсуществующего дефекта «форма остаётся в create mode после успешного POST»
+  (зафиксирован отдельным UX-долгом); production DB; commit, push, deploy.
+
+### Step REL-02D — структурный редактор связей и переходный dual-write
+
+- Objective: владелец сайта управляет связями статьи на материалы четырёх типов из админ-панели;
+  legacy-колонка `articles.related_slugs` выводится сервером из structured relations и перестаёт
+  быть записываемой клиентом; публичный сайт продолжает читать legacy без единого изменения.
+- In scope: `src/server/repositories/articleWithRelations.ts`,
+  `src/server/repositories/contentRelations.ts` (только union кодов ошибок),
+  `src/app/api/admin/articles/[id]/route.ts`, `src/app/admin/blog/page.tsx`,
+  `src/features/admin/BlogEditor.tsx`, `src/features/admin/RelationEditor.tsx` (новый),
+  `src/features/admin/relationTargets.ts` (новый, см. расширение scope),
+  `src/tests/unit/server/articleWithRelations.test.ts`,
+  `src/tests/unit/server/articleRelationsAdminApi.test.ts`,
+  `src/tests/unit/server/articleLegacyDualWrite.test.ts` (новый),
+  `src/tests/unit/components/admin/relation-editor.test.tsx` (новый), журналы.
+- НЕПЕРЕГОВОРНЫЙ КОНТРАКТ (дословно из утверждённого ТЗ):
+  - **A. `relations === undefined`.** В одной существующей транзакции: `previous =
+    getArticleById(id)`; `relatedSlugs` из тела запроса ИГНОРИРУЕТСЯ; `updateArticleCore` получает
+    `{ ...input, relatedSlugs: previous.relatedSlugs }`. `content_relations` не менять. Обычные
+    поля статьи сохраняются. Никаких новых `BEGIN`; `updateArticleWithRelations` остаётся
+    единственным владельцем транзакции.
+  - **B. `relations === []`.** `updateArticleCore` получает `relatedSlugs = []`;
+    `replaceRelationsFromCore` получает `[]`; обе модели очищаются атомарно.
+  - **C. `relations` непустой.** Structured relations — единственный источник истины операции;
+    article→article подмножество ≤ 6; article-цель обязана существовать, быть `published` и иметь
+    `placement === input.placement`; slug цели берётся ТОЛЬКО через stable target ID;
+    `relatedSlugs` выводится сервером из article-подмножества; `content_relations` заменяется
+    полным смешанным списком. Присланный клиентом `relatedSlugs` не используется.
+- Acceptance criteria:
+  1. Присланный клиентом `relatedSlugs` не участвует в записи НИ ПРИ КАКОМ входе `PUT`.
+  2. `relations === undefined` не меняет ни `content_relations`, ни `related_slugs`, но сохраняет
+     остальные поля статьи обычным образом (тест J, old-client mutation).
+  3. `relations === []` очищает обе модели атомарно.
+  4. Смешанный список: `content_relations` получает весь список, `related_slugs` — только
+     article-подмножество в пользовательском порядке.
+  5. Article-цель другого раздела → `placement_mismatch` 409, полный откат.
+  6. Article-цель со статусом `draft` → `unpublished_target` 409, полный откат.
+  7. Article-подмножество > 6 → `too_many_legacy_targets` 400, полный откат.
+  8. `updateArticleWithRelations()` — единственный владелец транзакции; ни одного нового `BEGIN`;
+     ядра и callback синхронны.
+  9. `GET` и `PUT` возвращают `{ article, relations }`; `PUT` без `relations` возвращает ТЕКУЩИЕ
+     связи, а не `undefined`.
+  10. Связи приходят в `BlogEditor` из SSR-props; асинхронной загрузки связей после mount нет;
+      состояние «ещё не загрузилось → `[]`» недостижимо.
+  11. UI не отправляет `role` и не отправляет явный `sortOrder`; порядок задаётся позицией в
+      массиве.
+  12. Копия статьи создаётся с `relatedSlugs: []` и без structured relations; legacy-only связь
+      кнопкой «Копия» не создаётся.
+  13. Публичный рендерер, `findRelatedBlogPosts`, `src/server/content/articles.ts`, страница блога
+      и sitemap не изменены; их тесты проходят БЕЗ правок.
+  14. Мутация: снятие подстановки `previous.relatedSlugs` роняет тест J; снятие внешней
+      `transaction(...)` роняет тест отката.
+  15. Добавлено по итогам ревью раунда 1: в режиме СОЗДАНИЯ статьи редактор связей не показывается
+      (создание их не принимает, и молчаливая потеря выбора недопустима); перестановка связи не
+      уводит фокус с нажатой кнопки. Оба закрыты тестами и мутациями.
+- Verification: `npx vitest run` по четырём файлам тестов связей и админ-компонента, смежные
+  `contentRelations`, `deleteWithRelations`, `seoTitleAdminApi`, `slugLifecycleAdminApi`,
+  `npx tsc --noEmit`, `npx eslint .`, `npx prettier --check` по затронутым файлам, полный
+  `npx vitest run`, `npm run build`.
+- Risks: (а) новый UI, потерявший поле `relations`, отправил бы `[]` и стёр связи — закрыто тем,
+  что связи приходят из SSR и поле в значении формы всегда массив, плюс серверным правилом «нет
+  поля — не трогать»; (б) старая вкладка со stale `relatedSlugs` перезаписала бы актуальную
+  колонку — закрыто контрактом A и тестом J с мутацией; (в) вложенный `BEGIN` при случайном вызове
+  обёртки — закрыто правилом «внутри только ядра» и существующим тестом REL-02A; (г) известная
+  перемежающаяся нестабильность полного прогона тестов — наследуется из REL-02B/REL-02C, не
+  закрывается этим шагом.
+- Rollback: `git checkout --` по изменённым файлам; удаление новых файлов
+  (`src/features/admin/RelationEditor.tsx`, `src/features/admin/relationTargets.ts`,
+  `src/tests/unit/server/articleLegacyDualWrite.test.ts`,
+  `src/tests/unit/components/admin/relation-editor.test.tsx`). Схема БД не меняется, миграций нет,
+  данные не переносятся. Записанные через новый UI связи откатом кода не удаляются и остаются
+  валидными строками `content_relations` — состояние совпадает с состоянием после REL-02C.
+
+
 ## Amendment 58 — перенос прежней перелинковки статей в таблицу связей (2026-09-09)
 
 - Status: `COMPLETED` (skeptic: раунд 1 `FAIL` — сырой байт U+0000 в разделителе ключа сравнения;

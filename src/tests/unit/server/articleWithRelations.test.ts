@@ -202,8 +202,14 @@ describe("составное сохранение: три состояния п�
 
     const result = updateArticleWithRelations(ARTICLE_ID, articleInput({ title: NEW_TITLE }));
 
-    // Отсутствие поля — не пустой список: возвращать здесь нечего, потому что ничего не менялось.
-    expect(result.relations).toBeUndefined();
+    /**
+     * Связи возвращаются и здесь — фактическим состоянием базы, а не `undefined`.
+     *
+     * Форма админ-панели делает ответ сервера новым состоянием и новым baseline, поэтому ответ без
+     * связей означал бы, что список на экране пропал после сохранения текста статьи. «Ничего не
+     * менялось» и «связей нет» для клиента различаются содержимым ответа, а не его формой.
+     */
+    expect(result.relations.map((relation) => relation.targetId)).toEqual(["product-a", "sales"]);
 
     const after = await snapshot();
     expect(after.title).toBe(NEW_TITLE);
@@ -369,11 +375,20 @@ describe("составное сохранение: вложенная транз
 });
 
 describe("составное сохранение: прежняя перелинковка статей", () => {
-  it("не трогает articles.related_slugs", async () => {
+  /**
+   * ЭТОТ РАЗДЕЛ ЗАМЕНЁН Amendment 59 и проверяет ОБРАТНОЕ прежнему.
+   *
+   * До REL-02D здесь стояло утверждение «замена связей не трогает `articles.related_slugs`»: обе
+   * модели жили порознь, и колонку писал клиент. Переходный dual-write делает колонку производной
+   * от структурных связей, поэтому прежнее утверждение стало описанием дефекта, а не контракта.
+   * Старая формулировка не дописывается рядом, а заменяется: два взаимоисключающих утверждения об
+   * одном механизме — это не история, а неясность.
+   */
+  it("связи только на материалы других типов очищают прежнюю колонку", async () => {
     /**
-     * Старая колонка адресов и новая таблица связей до отдельного шага переноса живут порознь.
-     * Замена связей не должна ни очищать её, ни дописывать в неё цели: значение колонки после
-     * составной операции обязано совпадать с тем, что прислано в теле статьи, и ни с чем больше.
+     * Продукт и отдел в блоке «материалы по теме» не показываются: публичный блок собирает только
+     * статьи. Значит, выведенное подмножество пусто, и колонка обязана стать пустой — иначе на
+     * странице остались бы висеть прежние адреса, которых больше нет ни в одной связи.
      */
     await seedEntities();
     await seedRelations();
@@ -385,10 +400,32 @@ describe("составное сохранение: прежняя перелин
       { targetType: "department", targetId: "sales" },
     ]);
 
-    const after = await snapshot();
-    expect(JSON.parse(after.relatedSlugs)).toEqual(RELATED_SLUGS);
-    // И очистка связей её тоже не задевает.
+    expect(JSON.parse((await snapshot()).relatedSlugs)).toEqual([]);
+  });
+
+  it("очистка связей очищает и прежнюю колонку", async () => {
+    await seedEntities();
+    await seedRelations();
+    const { updateArticleWithRelations } =
+      await import("@/server/repositories/articleWithRelations");
+
     updateArticleWithRelations(ARTICLE_ID, articleInput({ title: NEW_TITLE }), []);
+
+    expect(JSON.parse((await snapshot()).relatedSlugs)).toEqual([]);
+  });
+
+  it("без поля relations прежняя колонка остаётся ровно такой, какой была в базе", async () => {
+    await seedEntities();
+    await seedRelations();
+    const { updateArticleWithRelations } =
+      await import("@/server/repositories/articleWithRelations");
+
+    // В теле запроса намеренно ДРУГОЕ значение: оно не должно дойти до базы.
+    updateArticleWithRelations(
+      ARTICLE_ID,
+      articleInput({ title: NEW_TITLE, relatedSlugs: ["postoronnij-adres"] }),
+    );
+
     expect(JSON.parse((await snapshot()).relatedSlugs)).toEqual(RELATED_SLUGS);
   });
 });

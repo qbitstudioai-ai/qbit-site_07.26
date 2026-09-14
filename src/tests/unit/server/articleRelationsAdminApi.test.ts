@@ -314,3 +314,296 @@ describe("PUT статьи: внешние эффекты только посл�
     expect(submitIndexNow).toHaveBeenCalledTimes(1);
   });
 });
+
+// ── Контракт ответа и защита прежней колонки на границе HTTP ──────────────────────────────────
+
+/** Вторая статья, пригодная целью: опубликованная и того же раздела. */
+const TARGET_ID = "uuid-target-published";
+const TARGET_SLUG = "statya-tsel";
+
+async function seedTargets(): Promise<void> {
+  const { getDatabase } = await import("@/server/db/client");
+  const db = getDatabase();
+  const now = "2026-09-01T10:00:00.000Z";
+
+  const insert = db.prepare(
+    `INSERT INTO articles (id, slug, title, excerpt, body_markdown, placement, status,
+                           related_slugs, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'Текст.', ?, ?, '[]', ?, ?)`,
+  );
+
+  insert.run(TARGET_ID, TARGET_SLUG, "Статья-цель", "Анонс.", "blog", "published", now, now);
+  insert.run(
+    "uuid-target-chernovik",
+    "statya-chernovik",
+    "Черновик",
+    "Анонс.",
+    "blog",
+    "draft",
+    now,
+    now,
+  );
+  insert.run(
+    "uuid-target-drugoj-razdel",
+    "statya-drugogo-razdela",
+    "Статья другого раздела",
+    "Анонс.",
+    // Раздела нет в справочнике; сюда он попадает прямым INSERT, а не через схему API.
+    "spravochnik",
+    "published",
+    now,
+    now,
+  );
+}
+
+/** Опубликованная статья-источник: связь на статью требует пригодной пары, а не черновика. */
+async function publishSource(): Promise<void> {
+  const { getDatabase } = await import("@/server/db/client");
+  getDatabase()
+    .prepare("UPDATE articles SET status = 'published', published_at = '2026-09-01' WHERE id = ?")
+    .run(ARTICLE_ID);
+}
+
+const PUBLISHED_BODY = { ...ARTICLE_BODY, status: "published", publishedAt: "2026-09-01" };
+
+async function getArticle(): Promise<Response> {
+  const { GET } = await import("@/app/api/admin/articles/[id]/route");
+  return GET(new Request(`http://localhost/api/admin/articles/${ARTICLE_ID}`), {
+    params: Promise.resolve({ id: ARTICLE_ID }),
+  });
+}
+
+async function currentRelatedSlugs(): Promise<string[]> {
+  const { getArticleById } = await import("@/server/repositories/articles");
+  return getArticleById(ARTICLE_ID)?.relatedSlugs ?? [];
+}
+
+interface ArticleResponse {
+  article: { relatedSlugs: string[]; title: string };
+  relations?: { targetType: string; targetId: string; role: string; sortOrder: number }[];
+}
+
+describe("GET статьи: связи приходят вместе со статьёй", () => {
+  it("возвращает связи в сохранённом порядке", async () => {
+    await seedEntities();
+    await seedRelations();
+
+    const response = await getArticle();
+    const body = (await response.json()) as ArticleResponse;
+
+    expect(response.status).toBe(200);
+    expect(
+      body.relations?.map((relation) => `${relation.targetType}:${relation.targetId}`),
+    ).toEqual(["product:product-a", "department:sales"]);
+  });
+
+  it("у статьи без связей — пустой список, а не отсутствующее поле", async () => {
+    /**
+     * Различие практическое: форма кладёт этот список в своё значение. Отсутствующее поле стало бы
+     * `undefined`, а `undefined` в значении формы — это уже не «связей нет», а «неизвестно», и
+     * следующее сохранение отправило бы неизвестность как очистку.
+     */
+    await seedEntities();
+
+    const body = (await (await getArticle()).json()) as ArticleResponse;
+
+    expect(body.relations).toEqual([]);
+  });
+});
+
+describe("PUT статьи: контракт ответа", () => {
+  it("возвращает связи и тогда, когда поле relations не присылали", async () => {
+    await seedEntities();
+    await seedRelations();
+
+    const body = (await (
+      await putArticle({ ...ARTICLE_BODY, title: "Новое название" })
+    ).json()) as ArticleResponse;
+
+    expect(body.relations?.map((relation) => relation.targetId)).toEqual(["product-a", "sales"]);
+  });
+
+  it("возвращает итоговые связи после замены", async () => {
+    await seedEntities();
+    await seedRelations();
+
+    const body = (await (
+      await putArticle({
+        ...ARTICLE_BODY,
+        relations: [{ targetType: "department", targetId: "sales" }],
+      })
+    ).json()) as ArticleResponse;
+
+    expect(body.relations?.map((relation) => relation.targetId)).toEqual(["sales"]);
+  });
+
+  it("два сохранения подряд не теряют связи", async () => {
+    /**
+     * Воспроизводит поведение формы: ответ сервера становится её новым значением, и второе
+     * сохранение отправляет то, что пришло с первого. Если бы ответ не содержал связей, второй
+     * запрос ушёл бы без них или с пустым списком — и перелинковка исчезла бы на ровном месте.
+     */
+    await seedEntities();
+    await publishSource();
+    await seedTargets();
+
+    const first = (await (
+      await putArticle({
+        ...PUBLISHED_BODY,
+        relations: [{ targetType: "article", targetId: TARGET_ID }],
+      })
+    ).json()) as ArticleResponse;
+
+    const echoed = (first.relations ?? []).map((relation) => ({
+      targetType: relation.targetType,
+      targetId: relation.targetId,
+    }));
+
+    const second = (await (
+      await putArticle({ ...PUBLISHED_BODY, title: "Второе сохранение", relations: echoed })
+    ).json()) as ArticleResponse;
+
+    expect(second.relations?.map((relation) => relation.targetId)).toEqual([TARGET_ID]);
+    expect(await currentRelatedSlugs()).toEqual([TARGET_SLUG]);
+  });
+});
+
+describe("PUT статьи: прежняя колонка не управляется клиентом", () => {
+  it("старый клиент: relatedSlugs из тела не доходит до базы, обычные поля сохраняются", async () => {
+    /**
+     * Тот же old-client mutation test, но на границе HTTP: проверяется, что защита стоит в пути
+     * запроса, а не только в репозитории.
+     */
+    await seedEntities();
+    await publishSource();
+    await seedTargets();
+
+    // Исходное состояние: связь на статью и выведенная из неё колонка.
+    await putArticle({
+      ...PUBLISHED_BODY,
+      relations: [{ targetType: "article", targetId: TARGET_ID }],
+    });
+    expect(await currentRelatedSlugs()).toEqual([TARGET_SLUG]);
+
+    // Запрос старой вкладки: поля `relations` нет, `relatedSlugs` устарел.
+    const response = await putArticle({
+      ...PUBLISHED_BODY,
+      title: "Правка из старой вкладки",
+      relatedSlugs: ["postoronnij-adres"],
+    });
+
+    expect(response.status).toBe(200);
+    expect(await currentRelatedSlugs()).toEqual([TARGET_SLUG]);
+    expect(await currentRelations()).toEqual([`article:${TARGET_ID}`]);
+    expect(await currentTitle()).toBe("Правка из старой вкладки");
+  });
+
+  it("при замене связей присланный relatedSlugs игнорируется", async () => {
+    await seedEntities();
+    await publishSource();
+    await seedTargets();
+
+    await putArticle({
+      ...PUBLISHED_BODY,
+      relatedSlugs: ["podmena"],
+      relations: [{ targetType: "article", targetId: TARGET_ID }],
+    });
+
+    expect(await currentRelatedSlugs()).toEqual([TARGET_SLUG]);
+  });
+
+  it("пустой список связей очищает и колонку", async () => {
+    await seedEntities();
+    await publishSource();
+    await seedTargets();
+
+    await putArticle({
+      ...PUBLISHED_BODY,
+      relations: [{ targetType: "article", targetId: TARGET_ID }],
+    });
+    await putArticle({ ...PUBLISHED_BODY, relatedSlugs: ["podmena"], relations: [] });
+
+    expect(await currentRelatedSlugs()).toEqual([]);
+    expect(await currentRelations()).toEqual([]);
+  });
+});
+
+describe("PUT статьи: пригодность цели для публичного блока", () => {
+  it("цель-черновик → 409 с кодом unpublished_target", async () => {
+    await seedEntities();
+    await publishSource();
+    await seedTargets();
+
+    const response = await putArticle({
+      ...PUBLISHED_BODY,
+      title: "Новое название",
+      relations: [{ targetType: "article", targetId: "uuid-target-chernovik" }],
+    });
+    const body = (await response.json()) as RelationFailure;
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe("unpublished_target");
+    expect(await currentTitle()).toBe(ORIGINAL_TITLE);
+  });
+
+  it("цель другого раздела → 409 с кодом placement_mismatch", async () => {
+    await seedEntities();
+    await publishSource();
+    await seedTargets();
+
+    const response = await putArticle({
+      ...PUBLISHED_BODY,
+      title: "Новое название",
+      relations: [{ targetType: "article", targetId: "uuid-target-drugoj-razdel" }],
+    });
+    const body = (await response.json()) as RelationFailure;
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe("placement_mismatch");
+    expect(await currentTitle()).toBe(ORIGINAL_TITLE);
+  });
+
+  it("больше шести статей → 400 с кодом too_many_legacy_targets", async () => {
+    await seedEntities();
+    await publishSource();
+
+    const { getDatabase } = await import("@/server/db/client");
+    const insert = getDatabase().prepare(
+      `INSERT INTO articles (id, slug, title, excerpt, body_markdown, placement, status,
+                             related_slugs, created_at, updated_at)
+       VALUES (?, ?, ?, 'Анонс.', 'Текст.', 'blog', 'published', '[]', ?, ?)`,
+    );
+    const now = "2026-09-01T10:00:00.000Z";
+    const ids: string[] = [];
+    for (let index = 1; index <= 7; index += 1) {
+      const id = `uuid-many-${index}`;
+      insert.run(id, `statya-many-${index}`, `Статья ${index}`, now, now);
+      ids.push(id);
+    }
+
+    const response = await putArticle({
+      ...PUBLISHED_BODY,
+      title: "Новое название",
+      relations: ids.map((id) => ({ targetType: "article", targetId: id })),
+    });
+    const body = (await response.json()) as RelationFailure;
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe("too_many_legacy_targets");
+    expect(await currentTitle()).toBe(ORIGINAL_TITLE);
+  });
+
+  it("общий предел списка — двадцать четыре — остаётся отказом схемы", async () => {
+    await seedEntities();
+
+    const response = await putArticle({
+      ...ARTICLE_BODY,
+      relations: Array.from({ length: 25 }, () => ({
+        targetType: "department",
+        targetId: "sales",
+      })),
+    });
+
+    expect(response.status).toBe(422);
+  });
+});

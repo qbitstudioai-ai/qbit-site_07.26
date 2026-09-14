@@ -19,6 +19,13 @@ import {
   TextAreaField,
   TextField,
 } from "./formKit";
+import { RelationEditor } from "./RelationEditor";
+import {
+  toRelationValues,
+  type ArticleRelationValue,
+  type RelationOption,
+  type RelationTargetShape,
+} from "./relationTargets";
 import { readApiError, useEditableForm } from "./useEditableForm";
 
 /**
@@ -46,7 +53,24 @@ export interface ArticleRecordView {
   placement: string;
   category: string;
   tags: string[];
+  /**
+   * Прежняя перелинковка адресами — как она лежит в базе.
+   *
+   * В интерфейсе НЕ показывается и в значение формы не попадает: с этого шага колонку выводит
+   * сервер из `relations`. Поле остаётся в записи, потому что его отдаёт API статьи, и убирать его
+   * из типа значило бы описывать ответ сервера неточно.
+   */
   relatedSlugs: string[];
+  /**
+   * Связи статьи с материалами четырёх типов. Приходят СРАЗУ, вместе со списком статей, из
+   * серверного рендера страницы `/admin/blog`.
+   *
+   * Это не оптимизация, а требование безопасности: отдельная асинхронная загрузка создала бы
+   * промежуток, в котором список связей на экране ещё пуст. Сохранение в этот промежуток прислало
+   * бы пустой массив как намеренную очистку и стёрло бы всю перелинковку статьи. Здесь такого
+   * промежутка не существует.
+   */
+  relations: ArticleRelationValue[];
   author: string;
   /** Заголовок для выдачи. `null` — не задан, используется название статьи. */
   seoTitle: string | null;
@@ -61,7 +85,14 @@ export interface ArticleRecordView {
 
 type StatusFilter = "all" | "draft" | "published";
 
-const EMPTY_ARTICLE: Omit<ArticleRecordView, "id" | "createdAt" | "updatedAt"> = {
+/**
+ * Значение формы новой статьи.
+ *
+ * Тип — `ArticleFormValue`, а не запись целиком: прежней колонки адресов в значении формы нет ни у
+ * существующей статьи, ни у новой. Оставить её здесь значило бы отправлять при создании поле,
+ * которое форма нигде не показывает и не заполняет.
+ */
+const EMPTY_ARTICLE: ArticleFormValue = {
   slug: "",
   title: "",
   excerpt: "",
@@ -72,7 +103,7 @@ const EMPTY_ARTICLE: Omit<ArticleRecordView, "id" | "createdAt" | "updatedAt"> =
   placement: ARTICLE_PLACEMENTS[0].value,
   category: ARTICLE_CATEGORIES[0],
   tags: [],
-  relatedSlugs: [],
+  relations: [],
   author: "QBit-Studio-Ai",
   seoTitle: null,
   seoDescription: "",
@@ -82,7 +113,14 @@ const EMPTY_ARTICLE: Omit<ArticleRecordView, "id" | "createdAt" | "updatedAt"> =
   publishedAt: null,
 };
 
-export function BlogEditor({ articles }: { articles: ArticleRecordView[] }) {
+export function BlogEditor({
+  articles,
+  relationOptions,
+}: {
+  articles: ArticleRecordView[];
+  /** Каталог материалов четырёх типов для выбора связей. Собран на сервере. */
+  relationOptions: RelationOption[];
+}) {
   const [records, setRecords] = useState(articles);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -125,7 +163,15 @@ export function BlogEditor({ articles }: { articles: ArticleRecordView[] }) {
     setListError(null);
   };
 
-  /** Копия статьи: тот же текст с пометкой в названии, новый адрес и статус «черновик». */
+  /**
+   * Копия статьи: тот же текст с пометкой в названии, новый адрес и статус «черновик».
+   *
+   * КОПИЯ СОЗДАЁТСЯ БЕЗ СВЯЗЕЙ, и это не упущение. Создание (`POST`) структурные связи не
+   * принимает: у новой статьи нет идентификатора до вставки. Если бы копия при этом унаследовала
+   * прежнюю колонку адресов, она вышла бы с перелинковкой в старой модели и без единой строки в
+   * новой — то есть кнопка «Копия» производила бы ровно то расхождение, которое устраняет весь этот
+   * шаг. Поэтому `relatedSlugs` обнуляется явно, а связи добавляются в копии после её создания.
+   */
   const duplicate = async (article: ArticleRecordView) => {
     const payload = {
       ...article,
@@ -134,6 +180,8 @@ export function BlogEditor({ articles }: { articles: ArticleRecordView[] }) {
       status: "draft" as ArticleStatus,
       publishedAt: null,
       isFeatured: false,
+      relatedSlugs: [],
+      relations: [],
     };
 
     const response = await fetch("/api/admin/articles", {
@@ -148,8 +196,10 @@ export function BlogEditor({ articles }: { articles: ArticleRecordView[] }) {
       return;
     }
 
+    // Ответ создания связей не содержит и содержать не может — у копии их нет. Пустой список
+    // проставляется здесь, чтобы запись в списке имела ту же форму, что и пришедшие с сервера.
     const result = (await response.json()) as { article: ArticleRecordView };
-    setRecords((current) => [...current, result.article]);
+    setRecords((current) => [...current, { ...result.article, relations: [] }]);
     setListError(null);
   };
 
@@ -158,6 +208,7 @@ export function BlogEditor({ articles }: { articles: ArticleRecordView[] }) {
       <ArticleForm
         key={editing?.id ?? "new"}
         article={editing}
+        relationOptions={relationOptions}
         onClose={() => {
           setIsCreating(false);
           setEditingId(null);
@@ -308,27 +359,43 @@ export function BlogEditor({ articles }: { articles: ArticleRecordView[] }) {
   );
 }
 
-type ArticleFormValue = Omit<ArticleRecordView, "id" | "createdAt" | "updatedAt">;
+type ArticleFormValue = Omit<ArticleRecordView, "id" | "createdAt" | "updatedAt" | "relatedSlugs">;
 
 /**
  * Служебные поля записи в форму не попадают: идентификатор и даты создания/изменения ставит
  * сервер, и их присутствие в значении формы делало бы «есть несохранённые изменения» истинным
  * сразу после сохранения.
+ *
+ * `relatedSlugs` убран по другой причине. Значение формы уходит в тело запроса целиком, а прежнюю
+ * колонку адресов теперь выводит сервер из структурных связей. Оставить поле в значении формы
+ * значило бы отправлять серверу второе, конкурирующее описание той же перелинковки — которое он
+ * обязан игнорировать. Проще не отправлять его вовсе: тогда «клиент прислал одно, а связи говорят
+ * другое» — не ситуация, которую надо разбирать, а состояние, которого нет.
  */
 function toFormValue(article: ArticleRecordView): ArticleFormValue {
   const value = { ...article } as Partial<ArticleRecordView>;
   delete value.id;
   delete value.createdAt;
   delete value.updatedAt;
+  delete value.relatedSlugs;
   return value as ArticleFormValue;
+}
+
+/** Значение формы без связей — тело запроса на СОЗДАНИЕ статьи. */
+function withoutRelations(value: ArticleFormValue): Omit<ArticleFormValue, "relations"> {
+  const copy = { ...value } as Partial<ArticleFormValue>;
+  delete copy.relations;
+  return copy as Omit<ArticleFormValue, "relations">;
 }
 
 function ArticleForm({
   article,
+  relationOptions,
   onClose,
   onSaved,
 }: {
   article: ArticleRecordView | null;
+  relationOptions: RelationOption[];
   onClose: () => void;
   onSaved: (article: ArticleRecordView) => void;
 }) {
@@ -364,20 +431,48 @@ function ArticleForm({
 
   const save = useCallback(
     async (value: ArticleFormValue) => {
+      /**
+       * При СОЗДАНИИ поле связей из тела убирается совсем.
+       *
+       * Создание их не принимает: связь хранится по идентификатору источника, а его выдаёт сервер
+       * при вставке. Отправить поле, которое схема молча отбросит, — значит послать серверу
+       * описание, за которое никто не отвечает. Пустой список тут ничем не лучше непустого:
+       * различие только в том, что второй потерялся бы заметнее.
+       */
+      const requestBody = article ? value : withoutRelations(value);
+
       const response = await fetch(
         article ? `/api/admin/articles/${article.id}` : "/api/admin/articles",
         {
           method: article ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(value),
+          body: JSON.stringify(requestBody),
         },
       );
 
       if (!response.ok) throw await readApiError(response);
 
-      const payload = (await response.json()) as { article: ArticleRecordView };
-      onSaved(payload.article);
-      return toFormValue(payload.article);
+      /**
+       * Связи берутся ИЗ ОТВЕТА, а не из локального состояния формы.
+       *
+       * `useEditableForm` делает возвращённое отсюда значение и текущим значением, и новым
+       * baseline. Если бы связи в него не попали, список на экране опустел бы сразу после
+       * сохранения, а следующее сохранение отправило бы этот пустой список как намеренную очистку.
+       *
+       * `PUT` возвращает связи всегда. `POST` их не возвращает и не может: у новой статьи связей
+       * нет, они добавляются после создания — отсюда `?? []`.
+       */
+      const payload = (await response.json()) as {
+        article: ArticleRecordView;
+        relations?: readonly RelationTargetShape[];
+      };
+      const saved: ArticleRecordView = {
+        ...payload.article,
+        relations: toRelationValues(payload.relations ?? []),
+      };
+
+      onSaved(saved);
+      return toFormValue(saved);
     },
     [article, onSaved],
   );
@@ -627,20 +722,43 @@ function ArticleForm({
       <section className={styles.panel}>
         <h2 className={styles.panelTitle}>Связи и поисковые системы</h2>
 
-        <TextField
-          label="Материалы по теме (адреса статей через запятую)"
-          hint="Например: sayt-crm-i-messendzhery, chto-mozhno-avtomatizirovat-na-n8n"
-          value={value.relatedSlugs.join(", ")}
-          onChange={(next) =>
-            update(
-              "relatedSlugs",
-              next
-                .split(",")
-                .map((item) => item.trim())
-                .filter(Boolean),
-            )
-          }
-        />
+        {/*
+          У НЕСОЗДАННОЙ СТАТЬИ СВЯЗЕЙ НЕ БЫВАЕТ, и редактор здесь не показывается.
+
+          Причина не в аккуратности: связь хранится по идентификатору цели И источника, а
+          идентификатор статье выдаёт сервер при вставке — до неё связывать нечего и не с чем.
+          Создание (`POST`) поле связей не принимает вовсе. Показать редактор в этом состоянии
+          значило бы предложить выбор, который исчезнет при сохранении без единого сообщения:
+          форма отрапортовала бы «Сохранено», а список материалов опустел бы.
+
+          Поэтому здесь стоит объяснение, а не отключённый список: выключенный элемент выглядит
+          как временная неисправность, а не как порядок работы.
+        */}
+        {article ? (
+          <>
+            <RelationEditor
+              value={value.relations}
+              onChange={(next) => update("relations", next)}
+              options={relationOptions}
+              currentArticleId={article.id}
+              placement={value.placement}
+              error={fieldErrors.relations}
+            />
+            <p className={styles.panelNote}>
+              Блок «материалы по теме» на самой странице статьи собирается по этому списку. В нём
+              показываются опубликованные статьи того же раздела сайта; продукты, кейсы и отделы
+              сохраняются для будущих блоков и на странице статьи пока не выводятся.
+            </p>
+          </>
+        ) : (
+          <div className={styles.field}>
+            <span className={styles.label}>Материалы по теме</span>
+            <p className={styles.panelNote}>
+              Связи добавляются после создания статьи: сохраните её, и список материалов появится
+              здесь при следующем открытии.
+            </p>
+          </div>
+        )}
 
         <TextField
           label="Теги (через запятую)"

@@ -55,12 +55,25 @@ const RELATION_ROLES: readonly ContentRelationRole[] = CONTENT_RELATION_ROLES;
 /** Роль по умолчанию: обычная связь «рядом», а не главная. Совпадает с DEFAULT в схеме. */
 const DEFAULT_ROLE: ContentRelationRole = "related";
 
+/**
+ * Коды отказов перелинковки.
+ *
+ * Первые пять принадлежат самому репозиторию. Последние три выдаёт составная операция
+ * `updateArticleWithRelations()`: они описывают не связь как таковую, а пригодность цели для
+ * ПРЕЖНЕЙ модели (`articles.related_slugs`), которую сервер выводит из структурных связей. Их место
+ * здесь, а не в отдельном перечислении, по той же причине, по которой роль и типы материалов
+ * экспортируются отсюда в схемы: у роута обязан быть ОДИН словарь кодов, иначе `relationErrorResponse()`
+ * пришлось бы собирать из двух объединений и молча пропускать всё, чего нет ни в одном.
+ */
 export type ContentRelationErrorCode =
   | "unknown_entity_type"
   | "unknown_relation_role"
   | "missing_entity"
   | "self_link"
-  | "duplicate_relation";
+  | "duplicate_relation"
+  | "too_many_legacy_targets"
+  | "unpublished_target"
+  | "placement_mismatch";
 
 /**
  * Отказ репозитория связей.

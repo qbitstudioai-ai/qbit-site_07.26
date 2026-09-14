@@ -7,7 +7,11 @@ import { submitIndexNow } from "@/server/indexnow/client";
 import { articleDeleteIndexNowUrls, articleUpdateIndexNowUrls } from "@/server/indexnow/urls";
 import { deleteArticle, getArticleById, isArticleSlugTaken } from "@/server/repositories/articles";
 import { updateArticleWithRelations } from "@/server/repositories/articleWithRelations";
-import { ContentRelationError } from "@/server/repositories/contentRelations";
+import {
+  ContentRelationError,
+  listRelationsFrom,
+  type ContentRelationErrorCode,
+} from "@/server/repositories/contentRelations";
 
 /** Чтение, сохранение и удаление одной статьи. */
 
@@ -23,9 +27,20 @@ export const runtime = "nodejs";
  *
  * Повтор — 409, остальное — 400: повтор конфликтует с уже присланной строкой того же списка, и
  * отдельный статус делает три случая различимыми даже для клиента, который `code` не читает.
+ *
+ * По тому же принципу 409 получили ещё два отказа: цель-черновик и цель другого раздела. Это не
+ * ошибка ЗАПОЛНЕНИЯ формы — присланное значение само по себе допустимо, — а конфликт с текущим
+ * состоянием ДРУГОГО материала, и разрешается он в другом месте: цель нужно опубликовать или
+ * перенести. Предел прежней модели остаётся 400: шесть материалов по теме — это про сам список.
  */
+const RELATION_CONFLICT_CODES: ReadonlySet<ContentRelationErrorCode> = new Set([
+  "duplicate_relation",
+  "unpublished_target",
+  "placement_mismatch",
+]);
+
 function relationErrorResponse(error: ContentRelationError): NextResponse {
-  const status = error.code === "duplicate_relation" ? 409 : 400;
+  const status = RELATION_CONFLICT_CODES.has(error.code) ? 409 : 400;
   return NextResponse.json({ error: error.message, code: error.code }, { status });
 }
 
@@ -40,7 +55,17 @@ export async function GET(
   const article = getArticleById(id);
   if (!article) return jsonError(404, "Статья не найдена");
 
-  return NextResponse.json({ article });
+  /**
+   * Связи отдаются вместе со статьёй, а не отдельным запросом.
+   *
+   * Отдельный адрес означал бы второй запрос из формы и, значит, промежуток, в котором список
+   * связей на экране ещё пуст. Отправка формы в этот промежуток прислала бы пустой список как
+   * намеренную очистку и стёрла бы перелинковку. Одного ответа этого промежутка не существует.
+   *
+   * Порядок — тот, в котором связи хранятся (`sort_order`), то есть тот, в котором их составил
+   * человек.
+   */
+  return NextResponse.json({ article, relations: listRelationsFrom("article", id) });
 }
 
 /**
@@ -106,17 +131,22 @@ export async function PUT(
         : body.data.publishedAt;
 
   /**
-   * Связи и текст статьи сохраняются ОДНОЙ транзакцией.
+   * Связи, текст статьи и прежняя колонка `related_slugs` сохраняются ОДНОЙ транзакцией.
    *
    * `relations` разбирается схемой без `default`, поэтому сюда доходят три различимых состояния:
-   * поля не было (`undefined`) — связи не трогаются; `[]` — связи очищаются; список — замена.
-   * Первое состояние — сегодняшняя норма: форма перелинковки появится отдельным шагом, и до тех
-   * пор админ-панель шлёт `PUT` вообще без этого поля.
+   * поля не было (`undefined`) — ни одна из двух моделей связей не меняется; `[]` — обе очищаются;
+   * список — замена, и прежняя колонка выводится сервером из него.
+   *
+   * `relatedSlugs` из тела запроса сюда попадает (схема его принимает ради старого клиента), но до
+   * базы НЕ доходит ни в одном из трёх состояний: координатор перезаписывает поле либо текущим
+   * значением из базы, либо выведенным. Поле остаётся в схеме, а не удаляется из неё, потому что
+   * старая вкладка админ-панели его шлёт, и отказ по неизвестному полю сломал бы ей сохранение
+   * текста статьи — при том что навредить этим полем она всё равно уже не может.
    */
   const { relations, ...articleInput } = body.data;
 
   try {
-    const { article } = updateArticleWithRelations(
+    const { article, relations: savedRelations } = updateArticleWithRelations(
       id,
       {
         ...articleInput,
@@ -133,7 +163,15 @@ export async function PUT(
     after(async () => {
       await submitIndexNow(articleUpdateIndexNowUrls(existing, article));
     });
-    return NextResponse.json({ article });
+    /**
+     * Связи возвращаются ВСЕГДА, включая запрос без поля `relations`.
+     *
+     * Форма админ-панели делает ответ сервера и новым значением, и новым baseline
+     * (`useEditableForm.save()`), поэтому ответ без связей означал бы, что список на экране пропал
+     * после сохранения. Отдавать в этом случае `undefined` — значит переложить на клиента разбор
+     * состояния «не менялось» вместо простого «вот как сейчас в базе».
+     */
+    return NextResponse.json({ article, relations: savedRelations });
   } catch (error) {
     if (error instanceof ContentRelationError) return relationErrorResponse(error);
     return handleUnexpected(error, `сохранение статьи ${id}`);
