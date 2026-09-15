@@ -1,14 +1,21 @@
 import { cache } from "react";
 import seedPageContent from "../../../data/seed/page-content.json";
 import { DEFAULT_ARTICLE_PLACEMENT } from "@/content/article-placements";
+import { publicArticleBody } from "@/features/blog/articleBody";
 import { parseBlogMarkdown } from "@/features/blog/markdown";
-import { countWords, formatRuDate, readingTimeLabel, type BlogPost } from "@/features/blog/posts";
+import {
+  countWords,
+  formatRuDate,
+  readingTimeLabel,
+  type BlogPost,
+  type PublicRelatedMaterial,
+} from "@/features/blog/posts";
 import {
   getPublishedArticleBySlug,
   getPublishedArticles as readPublishedArticles,
   type ArticleRecord,
 } from "../repositories/articles";
-import { listPublishedArticleRelatedSlugs } from "../repositories/contentRelations";
+import { listPublishedArticleRelatedMaterials } from "../repositories/contentRelations";
 import { getPageContent } from "../repositories/pageContent";
 import { safePageCopy } from "./pageContentSchemas";
 
@@ -29,12 +36,26 @@ export interface BlogPageCopy {
 }
 
 /**
- * `relatedSlugs` приходит отдельным аргументом, а не из `record`: публичный блок «Связанные статьи»
- * читает только таблицу связей. Прежняя колонка `related_slugs` в записи остаётся ради переходного
- * dual-write админ-панели, но на публичный вывод не влияет.
+ * `relatedMaterials` приходит отдельным аргументом, а не из `record`: публичный блок «Материалы по
+ * теме» читает только таблицу связей. Прежняя колонка `related_slugs` в записи остаётся ради
+ * переходного dual-write админ-панели, но на публичный вывод не влияет.
+ *
+ * Разделы, число слов и время чтения считаются по ПУБЛИЧНОМУ телу — без скрытой legacy-секции
+ * (REL-02F.2). Так уборка секции из базы в REL-02F.3 не поменяет ни текст страницы, ни `wordCount` в
+ * микроразметке. Нераспознанная секция остаётся в тексте (D5), и об этом сообщается в лог сервера.
  */
-function toBlogPost(record: ArticleRecord, index: number, relatedSlugs: string[]): BlogPost {
-  const wordCount = countWords(record.bodyMarkdown);
+function toBlogPost(
+  record: ArticleRecord,
+  index: number,
+  relatedMaterials: PublicRelatedMaterial[],
+): BlogPost {
+  const { body, legacySection } = publicArticleBody(record.bodyMarkdown);
+  if (legacySection === "invalid") {
+    console.warn(
+      `[blog] статья ${record.id} (${record.slug}): legacy-секция «Материалы по теме» не распознана и оставлена в тексте`,
+    );
+  }
+  const wordCount = countWords(body);
   const publishedAt = record.publishedAt ?? record.createdAt.slice(0, 10);
   const modifiedAt = record.updatedAt.slice(0, 10);
 
@@ -58,8 +79,8 @@ function toBlogPost(record: ArticleRecord, index: number, relatedSlugs: string[]
     coverAlt: record.coverAlt,
     seoTitle: record.seoTitle,
     seoDescription: record.seoDescription,
-    sections: parseBlogMarkdown(record.bodyMarkdown),
-    relatedSlugs,
+    sections: parseBlogMarkdown(body),
+    relatedMaterials,
   };
 }
 
@@ -67,13 +88,13 @@ function toBlogPost(record: ArticleRecord, index: number, relatedSlugs: string[]
  * Опубликованные статьи выбранного раздела сайта.
  *
  * Связи раздела читаются ОДНИМ запросом и раздаются КАЖДОЙ статье списка: при переходе между
- * статьями без перезагрузки клиент берёт связанные статьи из этого же списка.
+ * статьями без перезагрузки клиент берёт материалы по теме из этого же списка.
  */
 export const getPublishedArticles = cache(
   (placement: string = DEFAULT_ARTICLE_PLACEMENT): BlogPost[] => {
-    const relatedSlugs = listPublishedArticleRelatedSlugs(placement);
+    const relatedMaterials = listPublishedArticleRelatedMaterials(placement);
     return readPublishedArticles(placement).map((record, index) =>
-      toBlogPost(record, index, relatedSlugs.get(record.id) ?? []),
+      toBlogPost(record, index, relatedMaterials.get(record.id) ?? []),
     );
   },
 );

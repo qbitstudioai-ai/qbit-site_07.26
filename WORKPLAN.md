@@ -132,7 +132,67 @@
 
 ### Step REL-02F.2 — единый публичный блок «Материалы по теме»
 
-- Status: `PROPOSED`. Зависит от REL-02F.1 и его production apply. Scope уточняется перед стартом.
+- Status: `COMPLETED` (2026-09-15; skeptic `PASS`, блокирующих нет; проверки — `WORKLOG.md`).
+  База `dab3e4b`. Commit, push, deploy не выполнялись; production gate — отдельно. Основание: read-only pre-flight аудит (`PASS`) и
+  решения руководителя D4–D7 того же дня. REL-02F.1 production completed (25 связей).
+- Решения руководителя (2026-09-15):
+  - D4: название цели — `articles.title`, `products.full_title`, `cases.short_title`.
+  - D5: extractor `invalid` → секция НЕ скрывается, остаётся видимой, server-side warn; lossy-скрытие
+    через `parseBlogMarkdown` запрещено.
+  - D6: ошибки save-guard — отдельный `LegacySectionError`, не `ContentRelationError`.
+  - D7: `MarkdownPreview` использует тот же strip, что публичная страница, и показывает уведомление.
+  - DTO `PublicRelatedMaterial {type, id, slug, title, href}`; `BlogPost.relatedSlugs` удаляется,
+    вместо него `relatedMaterials`; клиент не разбирает slug из `href`.
+  - `wordCount`/`readingTime` считаются по ОЧИЩЕННОМУ публичному телу (F.3 не меняет JSON-LD и
+    время чтения); при `invalid` — по исходному.
+  - Удаление существующей legacy-секции обычным PUT запрещено до REL-02F.3; исключение — «Копия»
+    (секция вырезается до POST).
+  - R3 production: `articlesWithCR = 0`; нормализация `\r\n → \n` в guard всё равно обязательна.
+- Objective: на публичной статье один блок «Материалы по теме» из `content_relations` (article,
+  product, case); legacy Markdown-секция остаётся в `body_markdown`, но не рендерится, не входит в
+  TOC и не создаёт второй блок; редактор не может молча создать или изменить скрытую секцию.
+- In scope: `contentRelations.ts` (reader `listPublishedArticleRelatedMaterials` вместо
+  `listPublishedArticleRelatedSlugs`); `features/blog/posts.ts` (DTO, удаление `findRelatedBlogPosts`);
+  `features/blog/articleBody.ts` (новый, strip); `server/content/articles.ts`; `BlogExperience.tsx` и
+  CSS; `server/content/legacySectionGuard.ts` (новый); роуты статей POST/PUT;
+  `articleWithRelations.ts`; `BlogEditor.tsx` («Копия»); `MarkdownPreview.tsx`; тесты; журналы.
+- Out of scope: схема и миграции, `articles.related_slugs` и dual-write, `ArticleRecord.relatedSlugs`,
+  extractor, scripts, sitemap, metadata, IndexNow, `var/content.db`, production DB; commit, push, deploy.
+- Семантика save-guard (сравнение после `.trim()` схемы и `\r\n → \n`, точный raw slice диапазона
+  extractor, без `parseBlogMarkdown`):
+  - POST: `no_section` → allow; `ok` → `legacy_section_forbidden`; `invalid` → `legacy_section_invalid`.
+  - PUT, сохранено `no_section`: входящее `no_section` → allow; `ok` → `legacy_section_forbidden`;
+    `invalid` → `legacy_section_invalid`.
+  - PUT, сохранено `ok`: `ok` и срез идентичен → allow; `ok` и срез другой → `legacy_section_changed`;
+    `no_section` → `legacy_section_removal_forbidden`; `invalid` → `legacy_section_invalid`.
+  - PUT, сохранено `invalid`: allow только если нормализованный `bodyMarkdown` не изменён целиком,
+    иначе `legacy_section_invalid`.
+  - PUT-проверка — внутри транзакции `updateArticleWithRelations`, до `updateArticleCore`. Ответ:
+    `{error, code, details: [{path: "bodyMarkdown", message}]}`, 409 (forbidden/changed/removal) и
+    400 (invalid).
+- Acceptance criteria:
+  1. Reader: один SQL-запрос на раздел; источник — опубликованная статья раздела; цели — опубликованная
+     статья того же раздела, продукт `is_published = 1`, кейс `status = 'published'`; department
+     исключён; порядок `sort_order, target_type, target_id, relation_role`; dedupe по `type:id`.
+  2. `href`/`slug`/`title` — из актуальной строки цели по stable id.
+  3. Legacy-секция `ok` вырезается по raw range до разбора; `no_section`/`invalid` — тело без изменений,
+     на `invalid` warn; соседние разделы не склеиваются; TOC строится из очищенных разделов.
+  4. Один `aside` «Материалы по теме» с подписью «Статья/Продукт/Кейс»; «Связанные статьи» нет; при
+     пустом списке блока нет; article — `navigateToPost` (модификаторы не перехватываются), не
+     найденная в `posts` статья, продукт и кейс — обычный `Link`; после перехода — материалы целевой
+     статьи.
+  5. Save-guard по семантике выше; отказ PUT откатывает статью и связи; ответ не 500.
+  6. «Копия» статьи с секцией создаётся, в копии секции нет, связи не копируются.
+  7. Предпросмотр — очищенное тело и уведомление о скрытом блоке.
+  8. `/api/content/articles` отдаёт `relatedMaterials`, `relatedSlugs` в `BlogPost` нет.
+  9. Мутации роняют тесты: фильтры публикации, исключение department, порядок, dedupe, strip
+     ok/no_section/invalid, guard changed/removal/new/invalid, wordCount из очищенного тела, навигация
+     article vs product/case.
+- Verification: targeted vitest; полный `npx vitest run`; `npx tsc --noEmit`; `npx eslint .`;
+  `npx prettier --check`; `git diff --check`; `npm run build`; e2e на свежей seed-базе; мутации; skeptic.
+- Risks: изменение формы JSON `/api/content/articles` (внутренних потребителей нет); порядок блока
+  глобальный — продукт после статей; `wordCount` в JSON-LD уменьшается уже в F.2 (решение руководителя).
+- Rollback: revert изменений кода; данные не затрагиваются (в БД ничего не пишется).
 
 ### Step REL-02F.3 — физическое удаление legacy Markdown-секции
 

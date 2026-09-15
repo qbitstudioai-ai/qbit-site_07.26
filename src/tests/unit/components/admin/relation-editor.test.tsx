@@ -551,6 +551,32 @@ describe("копия статьи", () => {
     expect(body.relatedSlugs).toEqual([]);
     expect(body.relations).toEqual([]);
   });
+
+  it("статья со скрытой legacy-секцией копируется без неё (REL-02F.2)", async () => {
+    const bodyMarkdown = [
+      "**Краткий ответ:** текст.",
+      "",
+      "**Материалы по теме:**",
+      "- «[Сбор заявок](/products/leads-to-crm)» — пояснение.",
+    ].join("\n");
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ article: articleRecord({ id: "uuid-kopiya", slug: "kopiya" }) }),
+    });
+    render(<BlogEditor articles={[articleRecord({ bodyMarkdown })]} relationOptions={OPTIONS} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Копия" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    const body = lastRequestBody();
+    expect(body.bodyMarkdown).toBe("**Краткий ответ:** текст.\n\n");
+    expect(String(body.bodyMarkdown)).not.toContain("Материалы по теме");
+    expect(String(body.bodyMarkdown)).not.toContain("/products/leads-to-crm");
+    expect(body.relations).toEqual([]);
+    // Копия появилась в списке, ошибки нет.
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "Копия" })).toHaveLength(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 describe("создание статьи: связей ещё не существует", () => {

@@ -3,6 +3,7 @@ import { articlePlacementHref } from "@/content/article-placements";
 import { handleUnexpected, jsonError, readJsonBody, requireSession } from "@/server/api/guard";
 import { revalidateSection } from "@/server/api/revalidate";
 import { articleUpdateSchema } from "@/server/api/schemas";
+import { LegacySectionError } from "@/server/content/legacySectionGuard";
 import { submitIndexNow } from "@/server/indexnow/client";
 import { articleDeleteIndexNowUrls, articleUpdateIndexNowUrls } from "@/server/indexnow/urls";
 import { deleteArticle, getArticleById, isArticleSlugTaken } from "@/server/repositories/articles";
@@ -174,6 +175,10 @@ export async function PUT(
     return NextResponse.json({ article, relations: savedRelations });
   } catch (error) {
     if (error instanceof ContentRelationError) return relationErrorResponse(error);
+    // Скрытая legacy-секция (REL-02F.2) — исправимая ошибка текста у поля «Основной текст», не 500.
+    if (error instanceof LegacySectionError) {
+      return NextResponse.json(error.body, { status: error.status });
+    }
     return handleUnexpected(error, `сохранение статьи ${id}`);
   }
 }

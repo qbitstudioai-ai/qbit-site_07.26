@@ -4,6 +4,10 @@ import { articlePlacementHref } from "@/content/article-placements";
 import { handleUnexpected, jsonError, readJsonBody, requireSession } from "@/server/api/guard";
 import { revalidateSection } from "@/server/api/revalidate";
 import { articleSchema, reorderSchema } from "@/server/api/schemas";
+import {
+  assertLegacySectionOnCreate,
+  LegacySectionError,
+} from "@/server/content/legacySectionGuard";
 import { submitIndexNow } from "@/server/indexnow/client";
 import { articleCreateIndexNowUrls, BLOG_URL } from "@/server/indexnow/urls";
 import {
@@ -48,6 +52,17 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const body = await readJsonBody(request, articleSchema);
   if (!body.ok) return body.response;
+
+  // Новая статья не может нести скрытую legacy-секцию «Материалы по теме» (REL-02F.2): посетитель её
+  // не увидит, а материалы по теме задаются связями. Проверка — до любой записи.
+  try {
+    assertLegacySectionOnCreate(body.data.bodyMarkdown);
+  } catch (error) {
+    if (error instanceof LegacySectionError) {
+      return NextResponse.json(error.body, { status: error.status });
+    }
+    return handleUnexpected(error, "проверка текста статьи");
+  }
 
   if (isArticleSlugTaken(body.data.slug)) {
     return jsonError(409, `Адрес «${body.data.slug}» уже занят другой статьёй`);

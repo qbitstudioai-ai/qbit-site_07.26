@@ -7,6 +7,7 @@ import {
   articlePlacementLabel,
   type ArticleStatus,
 } from "@/content/article-placements";
+import { stripLegacyRelatedSection } from "@/features/blog/articleBody";
 import { formatRuDate } from "@/features/blog/posts";
 import { SEO_TITLE_RECOMMENDED_LENGTH } from "@/lib/seo";
 import styles from "./admin.module.css";
@@ -171,10 +172,14 @@ export function BlogEditor({
    * прежнюю колонку адресов, она вышла бы с перелинковкой в старой модели и без единой строки в
    * новой — то есть кнопка «Копия» производила бы ровно то расхождение, которое устраняет весь этот
    * шаг. Поэтому `relatedSlugs` обнуляется явно, а связи добавляются в копии после её создания.
+   *
+   * По той же причине из текста копии вырезается скрытая legacy-секция «Материалы по теме»
+   * (REL-02F.2): новая статья секцию нести не может, и сервер отказал бы в создании копии.
    */
   const duplicate = async (article: ArticleRecordView) => {
     const payload = {
       ...article,
+      bodyMarkdown: stripLegacyRelatedSection(article.bodyMarkdown),
       slug: `${article.slug}-kopiya`,
       title: `${article.title} (копия)`,
       status: "draft" as ArticleStatus,

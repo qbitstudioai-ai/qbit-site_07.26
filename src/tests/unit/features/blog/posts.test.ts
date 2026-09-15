@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import seedArticles from "../../../../../data/seed/articles.json";
-import { findAdjacentBlogPosts, findBlogPost, findRelatedBlogPosts } from "@/features/blog/posts";
+import { extractLegacyRelatedSection } from "@/features/blog/legacyRelatedSection.mjs";
+import { findAdjacentBlogPosts, findBlogPost } from "@/features/blog/posts";
 import { seedBlogPosts as blogPosts } from "@/tests/fixtures/seedContent";
 
 const TARGET_PRODUCT_LINKS: Record<string, { href: string; anchor: string }> = {
@@ -38,16 +39,10 @@ function markdownLinkPattern(anchor: string, href: string): RegExp {
   return new RegExp(`\\[${anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\]\\(${href}\\)`, "g");
 }
 
-function sectionMarkdown(post: (typeof blogPosts)[number]): string {
-  return post.sections
-    .flatMap((section) =>
-      section.blocks.map((block) => {
-        if (block.type === "paragraph") return block.markdown;
-        if (block.type === "code") return block.value;
-        return block.items.join("\n");
-      }),
-    )
-    .join("\n");
+function seedArticle(slug: string) {
+  const article = seedArticles.find((candidate) => candidate.slug === slug);
+  if (!article) throw new Error(`seed-статья «${slug}» не найдена`);
+  return article;
 }
 
 /**
@@ -57,6 +52,9 @@ function sectionMarkdown(post: (typeof blogPosts)[number]): string {
  * заполняют при установке. Поэтому проверяется именно seed: он обязан совпадать с каноническими
  * Markdown-файлами в `src/content/blog` и сохранять все требования к материалу (источники, связи,
  * объём, автор).
+ *
+ * Legacy-секция «Материалы по теме» (REL-02F.2) остаётся в СЫРОМ тексте seed до REL-02F.3, но в
+ * публичные разделы не попадает: проверки ссылок секции идут по сырому тексту, а не по `sections`.
  */
 describe("исходный набор статей", () => {
   it("содержит шесть статей с уникальными адресами, названиями и описаниями", () => {
@@ -89,7 +87,9 @@ describe("исходный набор статей", () => {
       expect(canonicalMarkdown.startsWith(`# ${index + 1}. ${seed.title}`)).toBe(true);
 
       expect(post.sections.some((section) => section.heading === "Источники")).toBe(true);
-      expect(post.sections.some((section) => section.heading === "Материалы по теме")).toBe(true);
+      // Секция есть в сыром тексте и распознана, но в публичных разделах её нет.
+      expect(extractLegacyRelatedSection(seed.bodyMarkdown).state).toBe("ok");
+      expect(post.sections.some((section) => section.heading === "Материалы по теме")).toBe(false);
       const sources = post.sections.find((section) => section.heading === "Источники");
       expect(JSON.stringify(sources)).toMatch(/https:\/\//);
       expect(post.wordCount).toBeGreaterThan(500);
@@ -102,28 +102,20 @@ describe("исходный набор статей", () => {
     }
   });
 
-  it("добавляет ровно одну целевую ссылку на продукт в существующий блок материалов по теме", () => {
+  it("держит ровно одну целевую ссылку на продукт в legacy-секции сырого текста", () => {
     for (const post of blogPosts) {
       const target = TARGET_PRODUCT_LINKS[post.slug];
       expect(target, post.slug).toBeDefined();
 
-      const markdown = sectionMarkdown(post);
+      const markdown = seedArticle(post.slug).bodyMarkdown;
       const targetMatches = markdown.match(markdownLinkPattern(target.anchor, target.href)) ?? [];
       expect(targetMatches, post.slug).toHaveLength(1);
 
-      const relatedSection = post.sections.find(
-        (section) => section.heading === "Материалы по теме",
+      const extraction = extractLegacyRelatedSection(markdown);
+      if (extraction.state !== "ok") throw new Error(`${post.slug}: секция не распознана`);
+      expect(markdown.slice(extraction.range.start, extraction.range.end), post.slug).toContain(
+        `[${target.anchor}](${target.href})`,
       );
-      const relatedMarkdown = relatedSection?.blocks
-        .map((block) =>
-          "items" in block
-            ? block.items.join("\n")
-            : block.type === "code"
-              ? block.value
-              : block.markdown,
-        )
-        .join("\n");
-      expect(relatedMarkdown, post.slug).toContain(`[${target.anchor}](${target.href})`);
     }
   });
 
@@ -143,7 +135,8 @@ describe("исходный набор статей", () => {
     ]);
 
     for (const post of blogPosts) {
-      const markdown = sectionMarkdown(post);
+      // Сырой текст, включая скрытую legacy-секцию: битая ссылка в ней — такой же дефект данных.
+      const markdown = seedArticle(post.slug).bodyMarkdown;
       const links = [...markdown.matchAll(/\[[^\]]+\]\((\/[^)#?]+)\)/g)].map((match) => match[1]);
 
       for (const href of links) {
@@ -175,12 +168,18 @@ describe("исходный набор статей", () => {
     });
   });
 
-  it("даёт две связанные опубликованные статьи без ссылки на себя", () => {
+  it("даёт две связанные опубликованные статьи и один продукт, без ссылки на себя", () => {
     for (const post of blogPosts) {
-      const related = findRelatedBlogPosts(blogPosts, post);
-      expect(related).toHaveLength(2);
-      expect(related).not.toContain(post);
-      expect(related.every((candidate) => candidate.draft === false)).toBe(true);
+      const articles = post.relatedMaterials.filter((material) => material.type === "article");
+      expect(articles, post.slug).toHaveLength(2);
+      expect(articles.map((material) => material.slug)).not.toContain(post.slug);
+      for (const material of articles) {
+        expect(findBlogPost(blogPosts, material.slug)?.draft, material.slug).toBe(false);
+      }
+      expect(post.relatedMaterials.map((material) => material.href)).toEqual([
+        ...articles.map((material) => `/blog/${material.slug}`),
+        TARGET_PRODUCT_LINKS[post.slug].href,
+      ]);
     }
   });
 });

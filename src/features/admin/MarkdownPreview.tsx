@@ -1,14 +1,16 @@
 "use client";
 
 import { Fragment } from "react";
+import { publicArticleBody } from "@/features/blog/articleBody";
 import { parseBlogMarkdown } from "@/features/blog/markdown";
 import styles from "./admin.module.css";
 
 /**
  * Предпросмотр статьи в админ-панели.
  *
- * Разбор — тот же `parseBlogMarkdown`, что использует публичная страница, поэтому предпросмотр
- * показывает именно ту структуру, которая попадёт на сайт, а не приблизительную.
+ * Разбор — тот же `parseBlogMarkdown`, что использует публичная страница, и по тому же публичному
+ * телу: скрытая legacy-секция «Материалы по теме» вырезается тем же helper (REL-02F.2). Поэтому
+ * предпросмотр показывает именно ту структуру, которая попадёт на сайт, а не приблизительную.
  *
  * Разметка собирается из React-элементов: строка Markdown НИКОГДА не подставляется как HTML.
  * Отсюда следует главное — вставить `<script>` или обработчик события через текст статьи
@@ -50,16 +52,28 @@ function renderInline(markdown: string, keyPrefix: string) {
 }
 
 export function MarkdownPreview({ markdown }: { markdown: string }) {
-  const sections = parseBlogMarkdown(markdown);
+  const { body, legacySection } = publicArticleBody(markdown);
+  const sections = parseBlogMarkdown(body);
+
+  const hiddenSectionNote =
+    legacySection === "ok" ? (
+      <p className={styles.panelNote} role="note">
+        Блок «Материалы по теме» скрыт в публичной статье и управляется через «Связи».
+      </p>
+    ) : null;
 
   if (sections.length === 0) {
     return (
-      <p className={styles.messageEmpty}>Текст пока пуст — предпросмотр появится после ввода</p>
+      <>
+        {hiddenSectionNote}
+        <p className={styles.messageEmpty}>Текст пока пуст — предпросмотр появится после ввода</p>
+      </>
     );
   }
 
   return (
     <div>
+      {hiddenSectionNote}
       {sections.map((section, sectionIndex) => (
         <section key={section.id}>
           <h3 className={styles.panelTitle}>{section.heading}</h3>

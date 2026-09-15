@@ -208,71 +208,119 @@ export function listRelationsTo(
     .map(toRelation);
 }
 
+/** Публичный материал блока статьи. Та же форма, что `PublicRelatedMaterial` публичного слоя. */
+export interface PublishedRelatedMaterial {
+  type: "article" | "product" | "case";
+  id: string;
+  slug: string;
+  title: string;
+  href: string;
+}
+
+/** Адрес публичной страницы цели. Отдел здесь отсутствует намеренно: своего адреса у него нет. */
+const PUBLIC_PATH_PREFIX: Readonly<Record<PublishedRelatedMaterial["type"], string>> =
+  Object.freeze({
+    article: "/blog/",
+    product: "/products/",
+    case: "/cases/",
+  });
+
 /**
- * Публичный блок «Связанные статьи»: адреса связанных статей для КАЖДОЙ опубликованной статьи
- * раздела, одним запросом.
+ * Публичный блок «Материалы по теме» (Amendment 61 / REL-02F.2): материалы для КАЖДОЙ опубликованной
+ * статьи раздела, одним запросом.
  *
- * Источник — ТОЛЬКО эта таблица. Прежняя колонка `articles.related_slugs` здесь не читается и не
- * служит запасным вариантом: пустой результат означает пустой блок, а не «взять старое значение».
+ * Источник — ТОЛЬКО эта таблица. Прежняя колонка `articles.related_slugs` и legacy-секция текста
+ * здесь не читаются и не служат запасным вариантом: пустой результат означает пустой блок.
  *
  * Карта, а не список для одной статьи, по двум причинам. Клиентский `BlogExperience` при переходе
- * между статьями без перезагрузки берёт связанные статьи из уже полученного списка, поэтому
- * актуальные связи нужны каждой статье списка, а не только открытой. И один запрос на раздел вместо
- * запроса на статью: страница блога рендерится на каждый запрос.
+ * между статьями без перезагрузки берёт материалы из уже полученного списка, поэтому актуальные связи
+ * нужны каждой статье списка, а не только открытой. И один запрос на раздел вместо запроса на статью:
+ * страница блога рендерится на каждый запрос.
  *
- * Условия отбора — те же, по которым блок показывал статьи и раньше:
- * - только связь статьи на статью: связи на продукты, кейсы и отделы в этом блоке не выводятся;
- * - и источник, и цель опубликованы и лежат в запрошенном разделе;
- * - адрес цели берётся из строки `articles` по `target_id`, поэтому смена адреса цели видна сразу;
- * - ссылка на себя исключена (её запрещает и CHECK схемы — условие страхует от строк мимо неё).
+ * Условия отбора:
+ * - источник — опубликованная статья запрошенного раздела;
+ * - цель-статья — опубликованная статья ТОГО ЖЕ раздела, не сама статья (её запрещает и CHECK схемы);
+ * - цель-продукт — `is_published = 1`, цель-кейс — `status = 'published'`: ровно те условия, при
+ *   которых публичная страница цели отвечает, а не 404;
+ * - связи на отдел не выводятся никогда: у отдела нет собственного адреса;
+ * - тип цели проверяется в условии соединения, поэтому совпадение идентификаторов у разных типов не
+ *   превращает продукт в статью;
+ * - адрес и название — из строки цели по `target_id`: смена адреса или названия видна сразу.
  *
- * Порядок — тот же, что в `listRelationsFrom()`: `sort_order`, затем тип, идентификатор цели и роль.
- * Первичный ключ различает роль, поэтому одна цель может встретиться у источника дважды; в блоке она
- * остаётся один раз, на месте первого вхождения — иначе ссылка повторилась бы на странице.
+ * Порядок — ОБЩИЙ для всех типов и тот же, что в `listRelationsFrom()`: `sort_order`, затем тип,
+ * идентификатор цели и роль. Первичный ключ различает роль, поэтому одна цель может встретиться у
+ * источника дважды; в блоке она остаётся один раз, на месте первого вхождения.
  */
-export function listPublishedArticleRelatedSlugs(placement: string): Map<string, string[]> {
+export function listPublishedArticleRelatedMaterials(
+  placement: string,
+): Map<string, PublishedRelatedMaterial[]> {
   const rows = getDatabase()
     .prepare(
       `SELECT relation.source_id AS source_id,
+              relation.target_type AS target_type,
               relation.target_id AS target_id,
-              target.slug AS target_slug
+              COALESCE(article.slug, product.slug, study.slug) AS target_slug,
+              COALESCE(article.title, product.full_title, study.short_title) AS target_title
          FROM content_relations AS relation
-         JOIN articles AS source ON source.id = relation.source_id
-         JOIN articles AS target ON target.id = relation.target_id
-        WHERE relation.source_type = 'article'
-          AND relation.target_type = 'article'
-          AND relation.source_id <> relation.target_id
+         JOIN articles AS source
+           ON source.id = relation.source_id
           AND source.status = 'published'
           AND source.placement = ?
-          AND target.status = 'published'
-          AND target.placement = ?
+         LEFT JOIN articles AS article
+           ON relation.target_type = 'article'
+          AND article.id = relation.target_id
+          AND article.status = 'published'
+          AND article.placement = ?
+         LEFT JOIN products AS product
+           ON relation.target_type = 'product'
+          AND product.id = relation.target_id
+          AND product.is_published = 1
+         LEFT JOIN cases AS study
+           ON relation.target_type = 'case'
+          AND study.id = relation.target_id
+          AND study.status = 'published'
+        WHERE relation.source_type = 'article'
+          AND relation.target_type IN ('article', 'product', 'case')
+          AND NOT (relation.target_type = 'article' AND relation.target_id = relation.source_id)
+          AND COALESCE(article.id, product.id, study.id) IS NOT NULL
         ORDER BY relation.source_id ASC, relation.sort_order ASC, relation.target_type ASC,
                  relation.target_id ASC, relation.relation_role ASC`,
     )
     .all(placement, placement) as {
     source_id: unknown;
+    target_type: unknown;
     target_id: unknown;
     target_slug: unknown;
+    target_title: unknown;
   }[];
 
-  const slugsBySource = new Map<string, string[]>();
+  const materialsBySource = new Map<string, PublishedRelatedMaterial[]>();
   const seenBySource = new Map<string, Set<string>>();
 
   for (const row of rows) {
     const sourceId = String(row.source_id);
-    const targetId = String(row.target_id);
+    const type = String(row.target_type) as PublishedRelatedMaterial["type"];
+    const id = String(row.target_id);
 
     const seen = seenBySource.get(sourceId) ?? new Set<string>();
-    if (seen.has(targetId)) continue;
-    seen.add(targetId);
+    const key = `${type}:${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
     seenBySource.set(sourceId, seen);
 
-    const slugs = slugsBySource.get(sourceId) ?? [];
-    slugs.push(String(row.target_slug));
-    slugsBySource.set(sourceId, slugs);
+    const slug = String(row.target_slug);
+    const materials = materialsBySource.get(sourceId) ?? [];
+    materials.push({
+      type,
+      id,
+      slug,
+      title: String(row.target_title),
+      href: `${PUBLIC_PATH_PREFIX[type]}${slug}`,
+    });
+    materialsBySource.set(sourceId, materials);
   }
 
-  return slugsBySource;
+  return materialsBySource;
 }
 
 /**

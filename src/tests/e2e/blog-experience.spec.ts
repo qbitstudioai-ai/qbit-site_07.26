@@ -39,7 +39,26 @@ test.describe("published blog experience", () => {
       expect(staticHtml, `${path} SSG H1`).toContain(h1Text ?? "");
       if (path !== "/blog") {
         expect(staticHtml, `${path} SSG sources`).toContain("Источники");
-        expect(staticHtml, `${path} SSG related material`).toContain("Материалы по теме");
+        // Единый блок (REL-02F.2): заголовок ровно один — legacy-раздела текста в SSR нет.
+        expect(
+          staticHtml.match(/>Материалы по теме</gu) ?? [],
+          `${path} SSG related material heading`,
+        ).toHaveLength(1);
+        expect(staticHtml, `${path} SSG no old block`).not.toContain("Связанные статьи");
+
+        const post = blogPosts.find((candidate) => `/blog/${candidate.slug}` === path)!;
+        const productHref = post.relatedMaterials.find(
+          (material) => material.type === "product",
+        )!.href;
+        // Ссылка на продукт — crawlable `<a href>` в SSR, и одна в тексте статьи: дубля из Markdown нет.
+        expect(staticHtml, `${path} SSG product link`).toContain(`href="${productHref}"`);
+        await expect(page.locator(`article a[href="${productHref}"]`), path).toHaveCount(1);
+        await expect(
+          page
+            .getByRole("navigation", { name: "Оглавление" })
+            .getByRole("link", { name: "Материалы по теме" }),
+          `${path} TOC`,
+        ).toHaveCount(0);
       }
     }
   });
@@ -87,30 +106,35 @@ test.describe("published blog experience", () => {
   });
 
   /**
-   * Состав и порядок блока «Связанные статьи», в том числе после перехода без перезагрузки
-   * (Amendment 60 / REL-02E.2).
+   * Состав и порядок единого блока «Материалы по теме», в том числе после перехода без перезагрузки
+   * (Amendment 61 / REL-02F.2; прежде — «Связанные статьи», REL-02E.2).
    *
-   * Раньше здесь проверялся только заголовок блока, а он рисуется и при пустом списке. Ожидание
-   * строится из `relatedSlugs` seed-статей: на свежей seed-базе структурные связи совпадают с ними
-   * (REL-02E.1), поэтому тест требует прогона на отдельной, только что заполненной базе. Что источник
-   * — именно таблица связей, а не прежняя колонка, доказывают unit-тесты
-   * `publicArticleRelations.test.ts`: на seed-базе обе модели одинаковы и e2e их не различает.
+   * Ожидание строится из seed-фикстуры: на свежей seed-базе структурные связи — статьи из
+   * `relatedSlugs`, затем продукты из legacy-секции (REL-02F.1), поэтому тест требует прогона на
+   * отдельной, только что заполненной базе. Что источник — именно таблица связей, доказывают
+   * unit-тесты `publicArticleRelations.test.ts`.
    */
-  test("shows related articles in order and keeps them correct after client-side navigation", async ({
+  test("shows related materials in order and keeps them correct after client-side navigation", async ({
     page,
   }) => {
-    const relatedBlock = page.getByRole("complementary", { name: "Связанные статьи" });
+    const relatedBlock = page.getByRole("complementary", { name: "Материалы по теме" });
     const relatedHrefs = () =>
       relatedBlock
         .getByRole("link")
         .evaluateAll((links) => links.map((link) => link.getAttribute("href")));
-    const expectedHrefs = (slug: string) =>
-      blogPosts.find((post) => post.slug === slug)!.relatedSlugs.map((target) => `/blog/${target}`);
+    const materialsOf = (slug: string) =>
+      blogPosts.find((post) => post.slug === slug)!.relatedMaterials;
+    const expectedHrefs = (slug: string) => materialsOf(slug).map((material) => material.href);
 
-    const start = blogPosts.find((post) => post.relatedSlugs.length > 0)!;
+    const start = blogPosts.find((post) =>
+      post.relatedMaterials.some((material) => material.type === "article"),
+    )!;
     await page.goto(`/blog/${start.slug}`);
     await expect.poll(relatedHrefs).toEqual(expectedHrefs(start.slug));
-    expect(expectedHrefs(start.slug).length).toBeGreaterThan(0);
+    // Блок смешанный: и статьи, и продукт.
+    expect(new Set(materialsOf(start.slug).map((material) => material.type))).toEqual(
+      new Set(["article", "product"]),
+    );
 
     // Метка в window переживает только переход без перезагрузки документа.
     await page.evaluate(() => {
@@ -119,15 +143,16 @@ test.describe("published blog experience", () => {
 
     let current = start;
     for (let hop = 0; hop < 2; hop += 1) {
-      const next = blogPosts.find((post) => post.slug === current.relatedSlugs[0])!;
-      await relatedBlock.getByRole("link").first().click();
+      const firstArticle = current.relatedMaterials.find((material) => material.type === "article");
+      if (!firstArticle) break;
+      const next = blogPosts.find((post) => post.slug === firstArticle.slug)!;
+      await relatedBlock.locator(`a[href="${firstArticle.href}"]`).click();
 
       await expect(page).toHaveURL(`/blog/${next.slug}`);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(next.title);
       await expect.poll(relatedHrefs).toEqual(expectedHrefs(next.slug));
 
       current = next;
-      if (current.relatedSlugs.length === 0) break;
     }
 
     expect(
@@ -143,7 +168,13 @@ test.describe("published blog experience", () => {
     await expect(page.getByText("Черновой материал")).toHaveCount(0);
     await expect(page.getByText(/Временный текст/)).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 2, name: "Источники" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Связанные статьи" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Материалы по теме", exact: true }),
+    ).toHaveCount(1);
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Материалы по теме", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Связанные статьи" })).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Получить бесплатный разбор" })).toBeVisible();
 
     const toc = page.getByRole("navigation", { name: "Оглавление" });

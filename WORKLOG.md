@@ -1,5 +1,123 @@
 # WORKLOG
 
+## 2026-09-15 — Amendment 61 / Step REL-02F.2: единый блок «Материалы по теме»
+
+**Статус записи: `COMPLETED`.** База HEAD = `origin/master` =
+`dab3e4bd37e5e81ef87d0a4ec4e8fe6d9ada75ea` (проверено `git fetch` + `rev-parse`). Основание:
+pre-flight аудит REL-02F.2 (`PASS`) и решения руководителя D4–D7 (WORKPLAN, Step REL-02F.2). R3
+production: `articlesWithCR = 0`. Production, commit, push, deploy — не выполнялись.
+
+**Изменено (код).**
+
+- `src/server/repositories/contentRelations.ts`: `listPublishedArticleRelatedSlugs` удалён;
+  `listPublishedArticleRelatedMaterials(placement)` — один SQL: источник article published + placement;
+  LEFT JOIN article (published, тот же placement), product (`is_published = 1`), case
+  (`status = 'published'`), тип цели в условии JOIN; department исключён; `ORDER BY source_id,
+  sort_order, target_type, target_id, relation_role`; dedupe по `type:id`; `href` `/blog|/products|/cases/<slug>`;
+  title D4 (`articles.title`, `products.full_title`, `cases.short_title`).
+- `src/features/blog/posts.ts`: `PublicRelatedMaterial {type, id, slug, title, href}`;
+  `BlogPost.relatedSlugs` → `relatedMaterials`; `findRelatedBlogPosts` удалён.
+- `src/features/blog/articleBody.ts` (новый): `publicArticleBody` / `stripLegacyRelatedSection` —
+  extractor, вырез raw range при `ok`; `no_section`/`invalid` — тело без изменений.
+- `src/server/content/articles.ts`: `sections`, `wordCount`, `readingTime` — по очищенному телу;
+  `console.warn` (id, slug) при `invalid`.
+- `src/features/blog/BlogExperience.tsx`: один `aside` «Материалы по теме» (стиль `relatedPosts`),
+  подписи «Статья · категория» / «Продукт» / «Кейс»; статья из `posts` по `material.slug` →
+  `navigateToPost`; не найденная статья, продукт, кейс — обычный `Link`; пустой список — блока нет.
+  «Связанные статьи» удалён. CSS не менялся.
+- `src/server/content/legacySectionGuard.ts` (новый): `LegacySectionError` (коды
+  `legacy_section_forbidden|changed|removal_forbidden` → 409, `legacy_section_invalid` → 400, `body` с
+  `details[{path: "bodyMarkdown"}]`); `normalizeArticleBody` (`\r\n → \n` + `.trim()`);
+  `assertLegacySectionOnCreate`, `assertLegacySectionOnUpdate` (семантика WORKPLAN, stored invalid —
+  только неизменённый нормализованный текст).
+- `src/app/api/admin/articles/route.ts`: POST-guard после схемы, до `isArticleSlugTaken`/`createArticle`.
+- `src/server/repositories/articleWithRelations.ts`: PUT-guard внутри `transaction()` по `previous` из
+  того же снимка, до `updateArticleCore`/`replaceRelationsFromCore`.
+- `src/app/api/admin/articles/[id]/route.ts`: `LegacySectionError` → JSON `body` со `status` ошибки.
+- `src/features/admin/BlogEditor.tsx`: «Копия» — `bodyMarkdown: stripLegacyRelatedSection(...)`.
+- `src/features/admin/MarkdownPreview.tsx`: тот же strip + `role="note"` «Блок «Материалы по теме»
+  скрыт в публичной статье и управляется через «Связи».» при `ok`.
+- Не менялись: схема/миграции, `related_slugs`/dual-write, `ArticleRecord.relatedSlugs`, extractor,
+  scripts, sitemap, metadata, IndexNow, `/api/content/[section]` (отдаёт `BlogPost` → теперь
+  `relatedMaterials`; внутренних потребителей `relatedSlugs` у `BlogPost` нет — grep).
+
+**Изменено (тесты).** `publicArticleRelations.test.ts` переписан (22 теста: смешанный порядок
+article+product, article+case, скрытый продукт, кейс draft/archived, черновик и чужой раздел,
+department и источник не-article, общий id у трёх типов, несуществующая цель, dedupe ролей у
+article и product, tie-breaker тип→id, переименование slug/title трёх типов, каждая статья списка,
+без N+1 (1 запрос к `content_relations`, 0 к products/cases), wordCount/readingTime/JSON-LD по очищенному
+телу, invalid видим + warn, статья без секции). Новые: `articleBody.test.ts` (9), `legacySectionGuard.test.ts`
+(28), `articleLegacySectionGuardApi.test.ts` (13), `markdown-preview.test.tsx` (4). Переписан
+`blog-experience-related.test.tsx` (11). `relation-editor.test.tsx` 19 → 20 (копия без секции).
+`posts.test.ts` (8): проверки секции — по сырому seed-тексту, `sections` без секции, материалы 2 статьи +
+продукт. `fixtures/seedContent.ts`: очищенное тело, `relatedMaterials` как у `db:seed`. e2e
+`blog-experience.spec.ts`: SSR — заголовок «Материалы по теме» ровно 1, нет «Связанные статьи», `href`
+продукта в SSR, в `<article>` ссылка на продукт 1, TOC без секции; блок — смешанные `href` и переход по
+статье; заголовок `exact` count 1.
+
+**Команды и результат.**
+
+- `npx prettier --write` по файлам шага — exit 0; `npx prettier --check` — exit 0.
+- `npx tsc --noEmit` — exit 0; `npx eslint .` — exit 0; `git diff --check` — exit 0.
+- Targeted vitest (13 файлов шага и смежных: guard, API, reader, strip, компонент, preview,
+  relation-editor, posts, articleRelationsAdminApi, articleWithRelations, articleLegacyDualWrite,
+  legacyRelatedSection, dbSeedRelations) — 13 files / 237 tests passed, exit 0.
+- Полный `npx vitest run`, первый прогон параллельно с `npm run build` — exit 1: `cases-model.test.ts`
+  (1 тест) и `office-experience.test.tsx` (suite). Эти два файла отдельно — 40/40 passed, exit 0;
+  повтор полного прогона без параллельной сборки — 83 files / 1050 tests passed, exit 0. Вывод:
+  нагрузка от параллельной сборки, не шаг.
+- `npm run build` — exit 0, `/blog/[[...slug]]` динамический.
+- e2e (свежая база scratchpad `rel02f2-e2e-data`: `db-seed.mjs --reset` — статьи 6, продукты 10,
+  exit 0; `.next/static` и `public` в standalone через robocopy; `node server.js` на 127.0.0.1:3300;
+  конфиг Playwright в scratchpad, `blog-experience.spec.ts`) — два полных прогона: 9 passed, 1 failed,
+  exit 1 оба раза. Упал только неизменённый тест «keeps the index, article URL and browser history in
+  sync» на `consoleErrors`: 2× `ERR_CERT_AUTHORITY_INVALID`. Диагностика (скрипт scratchpad): это
+  `https://hdrc.yandex.net/` и `https://mdd.yandex.net/` из iframe `mc.yandex.ru/metrika/match.html`
+  (Яндекс Метрика из общего layout); те же ошибки на НЕ затронутых шагом `/`, `/cases`, `/contacts`.
+  Тест отдельно — 1 passed, exit 0. Вывод: сертификат сети окружения, асинхронно попадает в окно
+  теста; не регрессия шага. Все тесты, изменённые шагом, — passed. Сервер 3300 после прогона
+  остановлен.
+- Мутации (скрипт scratchpad, baseline 115/115 green; файл восстанавливается побайтно, SHA-256):
+  37 мутантов, KILLED 36, SURVIVED 1, SKIPPED 0, UNRESTORED 0. Убиты: фильтры публикации источника,
+  статьи, раздела, продукта, кейса (M01–M05); тип в JOIN статьи — утечка department (M06); фильтр
+  `source_type` (M08); без `sort_order` (M09); без tie-breaker типа (M10); без dedupe (M11); ключ dedupe
+  без типа (M12); D4 `menu_title` (M13); strip ok no-op, потеря тела при no_section/invalid, lossy-скрытие
+  invalid, без warn (M14–M17); wordCount и sections по сырому телу (M18–M19); guard changed / removal / new
+  / invalid на update и create / без нормализации / stored invalid разрешает всё (M20–M27); без вызова
+  guard в PUT и POST (M28–M29); статья не перехватывается, продукт/кейс перехватываются, модификаторы
+  перехватываются, пустой блок рендерится, материалы первой статьи (M30–M34); preview без strip и без
+  уведомления (M35–M36); копия без strip (M37). Выжил M07 (снят `target_type IN ('article','product','case')`)
+  — эквивалентный: для department и прочих типов нет LEFT JOIN, `COALESCE(...) IS NOT NULL` исключает
+  строку; фильтр оставлен как явная защита, утечку department ловит M06.
+- `git status` после мутаций — только файлы шага и предсуществующий неотслеживаемый
+  `allqbit_geo_fact_verification_2026-07-30.md`; `var/content.db` не открывался.
+- Счётчики тестов по файлам сверены JSON-репортером vitest: 8 файлов / 115 passed, exit 0.
+
+**Skeptic — `PASS`. Блокирующих находок нет.** Ревьюер сам: `tsc`, `eslint .`, `git diff --check`,
+`prettier --check` — exit 0; vitest 15 файлов (шаг + смежные, включая `seoTitleAdminApi`,
+`slugLifecycleAdminApi`) — 276 passed, exit 0; probe extractor/strip на граничных случаях (середина,
+без пустой строки, начало, конец, CRLF, code fence). Принял: SQL (2 параметра, тип в ON всех JOIN,
+department отсекается `COALESCE`, порядок как `listRelationsFrom`), guard в транзакции до записи,
+нормализацию под `trimmed` схемы, откат статьи и связей, отсутствие stale-связей на клиенте, e2e-вывод
+про Яндекс Метрику, эквивалентность M07. Build, полный vitest, e2e и мутации сам не перезапускал.
+Неблокирующие:
+
+1. Устаревший комментарий про `findRelatedBlogPosts` в `articleWithRelations.ts` — исправлено.
+2. Extractor признаёт `invalid` абзац, начинающийся словами «Материалы по теме …» (`HEADING_LIKE`):
+   новая статья с таким абзацем получит 400, существующая — fail-closed правку текста и warn. Extractor
+   вне scope; риск для REL-02F.3 — не исправлялось.
+3. `console.warn` при `invalid` пишется на каждый запрос списка — возможный шум, в production сейчас
+   0 invalid; не исправлялось.
+4. `MarkdownPreview` без уведомления при `invalid`, хотя сохранение откажет — спецификацией не требуется;
+   не исправлялось.
+5. «Копия» оставляет концевые пустые строки (сервер обрезает); тело только из секции → копия получит
+   «поле обязательно» — крайний случай; не исправлялось.
+6. Ширина строки статуса в WORKPLAN — исправлено при отметке `COMPLETED`.
+
+После правки 1: `prettier --check` и `git diff --check` — см. ниже в отчёте шага.
+
+**Статус:** `COMPLETED`. Commit/push/deploy не выполнялись; production не трогался.
+
 ## 2026-09-15 — Amendment 61 / Step REL-02F.1: импорт product/case из legacy Markdown-секции
 
 **Статус записи: `IN_PROGRESS`.** Запись открыта до правки кода. HEAD = `origin/master` =

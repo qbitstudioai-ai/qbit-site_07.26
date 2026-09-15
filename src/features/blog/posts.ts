@@ -10,6 +10,23 @@ import type { BlogSection } from "./markdown";
  * Модуль не серверный и не клиентский: его типы нужны и странице, и клиентскому `BlogExperience`,
  * поэтому доступа к базе здесь нет.
  */
+export type PublicRelatedMaterialType = "article" | "product" | "case";
+
+/**
+ * Один материал блока «Материалы по теме» (Amendment 61 / REL-02F.2).
+ *
+ * Всё, кроме типа и идентификатора, берётся из АКТУАЛЬНОЙ строки цели по stable id: смена адреса или
+ * названия цели видна без правки связи. `slug` лежит отдельным полем, а не разбирается из `href`:
+ * клиенту он нужен, чтобы найти статью в уже полученном списке для перехода без перезагрузки.
+ */
+export type PublicRelatedMaterial = {
+  type: PublicRelatedMaterialType;
+  id: string;
+  slug: string;
+  title: string;
+  href: string;
+};
+
 export type BlogPost = {
   /** Порядковый номер в текущем списке (1, 2, 3…). Используется для нумерации и индикатора. */
   id: number;
@@ -37,18 +54,14 @@ export type BlogPost = {
    */
   seoTitle: string | null;
   seoDescription: string;
+  /** Разделы ПУБЛИЧНОГО тела: без скрытой legacy-секции «Материалы по теме». */
   sections: BlogSection[];
-  relatedSlugs: string[];
+  /** Единый блок «Материалы по теме» — только из `content_relations`, в сохранённом порядке. */
+  relatedMaterials: PublicRelatedMaterial[];
 };
 
 export function findBlogPost(posts: readonly BlogPost[], slug?: string): BlogPost | undefined {
   return slug ? posts.find((post) => post.slug === slug) : undefined;
-}
-
-export function findRelatedBlogPosts(posts: readonly BlogPost[], post: BlogPost): BlogPost[] {
-  return post.relatedSlugs
-    .map((slug) => findBlogPost(posts, slug))
-    .filter((candidate): candidate is BlogPost => Boolean(candidate));
 }
 
 export function findAdjacentBlogPosts(posts: readonly BlogPost[], post: BlogPost) {

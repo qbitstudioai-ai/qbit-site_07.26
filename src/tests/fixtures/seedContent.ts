@@ -2,7 +2,9 @@ import seedArticles from "../../../data/seed/articles.json";
 import seedContacts from "../../../data/seed/contacts.json";
 import seedDocuments from "../../../data/seed/documents.json";
 import seedProducts from "../../../data/seed/products.json";
-import type { BlogPost } from "@/features/blog/posts";
+import { stripLegacyRelatedSection } from "@/features/blog/articleBody";
+import { extractLegacyRelatedSection } from "@/features/blog/legacyRelatedSection.mjs";
+import type { BlogPost, PublicRelatedMaterial } from "@/features/blog/posts";
 import { countWords, formatRuDate, readingTimeLabel } from "@/features/blog/posts";
 import { parseBlogMarkdown } from "@/features/blog/markdown";
 import type { DocumentCategory, DocumentItem } from "@/features/documents/documents";
@@ -41,8 +43,47 @@ export const seedProductLocations: ProductLocation[] = seedProducts.map((product
   }),
 );
 
+/**
+ * Материалы по теме на СВЕЖЕЙ seed-базе (REL-02F.1/F.2): сначала статьи из `relatedSlugs`, затем
+ * продукты и кейсы из legacy-секции текста — ровно в том порядке, в каком их пишет `db:seed`.
+ *
+ * `id` статьи здесь — её адрес: seed присваивает статьям случайный идентификатор при вставке, и
+ * узнать его без базы нельзя. Проверки по фикстуре сравнивают адреса и названия, а не `id`.
+ */
+function seedRelatedMaterials(article: (typeof seedArticles)[number]): PublicRelatedMaterial[] {
+  const articles = article.relatedSlugs.map((slug): PublicRelatedMaterial => {
+    const target = seedArticles.find((candidate) => candidate.slug === slug);
+    if (!target) throw new Error(`seed: связанная статья «${slug}» не найдена`);
+    return { type: "article", id: slug, slug, title: target.title, href: `/blog/${slug}` };
+  });
+
+  const extraction = extractLegacyRelatedSection(article.bodyMarkdown);
+  const materials =
+    extraction.state === "ok"
+      ? extraction.targets
+          .filter((target) => target.type !== "article")
+          .map((target): PublicRelatedMaterial => {
+            const product = seedProducts.find((candidate) => candidate.slug === target.slug);
+            if (target.type !== "product" || !product) {
+              throw new Error(`seed: цель «${target.href}» не является продуктом seed`);
+            }
+            return {
+              type: "product",
+              id: product.id,
+              slug: product.slug,
+              title: product.fullTitle,
+              href: `/products/${product.slug}`,
+            };
+          })
+      : [];
+
+  return [...articles, ...materials];
+}
+
 export const seedBlogPosts: BlogPost[] = seedArticles.map((article, index) => {
-  const wordCount = countWords(article.bodyMarkdown);
+  // Публичное тело — без скрытой legacy-секции, как у `server/content/articles.ts`.
+  const body = stripLegacyRelatedSection(article.bodyMarkdown);
+  const wordCount = countWords(body);
 
   return {
     id: index + 1,
@@ -64,8 +105,8 @@ export const seedBlogPosts: BlogPost[] = seedArticles.map((article, index) => {
     coverAlt: article.coverAlt,
     seoTitle: normalizeSeoTitle(article.seoTitle),
     seoDescription: article.seoDescription,
-    sections: parseBlogMarkdown(article.bodyMarkdown),
-    relatedSlugs: [...article.relatedSlugs],
+    sections: parseBlogMarkdown(body),
+    relatedMaterials: seedRelatedMaterials(article),
   };
 });
 

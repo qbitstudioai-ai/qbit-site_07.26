@@ -12,7 +12,12 @@ import {
   useState,
 } from "react";
 import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
-import { findAdjacentBlogPosts, findBlogPost, findRelatedBlogPosts, type BlogPost } from "./posts";
+import {
+  findAdjacentBlogPosts,
+  findBlogPost,
+  type BlogPost,
+  type PublicRelatedMaterialType,
+} from "./posts";
 import type { BlogPageCopy } from "@/server/content/articles";
 import type { BlogContentBlock, BlogSection } from "./markdown";
 import styles from "./BlogExperience.module.css";
@@ -36,6 +41,13 @@ interface BlogExperienceProps {
 function articleHref(post: BlogPost) {
   return `/blog/${post.slug}`;
 }
+
+/** Подпись типа в карточке материала: смысл не держится на одном оформлении. */
+const MATERIAL_TYPE_LABEL: Readonly<Record<PublicRelatedMaterialType, string>> = {
+  article: "Статья",
+  product: "Продукт",
+  case: "Кейс",
+};
 
 function renderInline(markdown: string, keyPrefix: string): ReactNode[] {
   const pattern = /(\[([^\]]+)\]\(([^)]+)\)|\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`)/gu;
@@ -167,10 +179,6 @@ export function BlogExperience({
   const post = findBlogPost(posts, displayedSlug ?? undefined);
   const adjacent = useMemo(
     () => (post ? findAdjacentBlogPosts(posts, post) : undefined),
-    [posts, post],
-  );
-  const relatedPosts = useMemo(
-    () => (post ? findRelatedBlogPosts(posts, post) : []),
     [posts, post],
   );
 
@@ -404,23 +412,50 @@ export function BlogExperience({
                 ))}
               </div>
 
-              <aside className={styles.relatedPosts} aria-labelledby="related-posts-heading">
-                <p>Продолжить чтение</p>
-                <h2 id="related-posts-heading">Связанные статьи</h2>
-                <div>
-                  {relatedPosts.map((related) => (
-                    <Link
-                      key={related.slug}
-                      href={articleHref(related)}
-                      onClick={(event) => navigateToPost(event, related)}
-                    >
-                      <span>{related.category}</span>
-                      <strong>{related.title}</strong>
-                      <small>{related.readingTime}</small>
-                    </Link>
-                  ))}
-                </div>
-              </aside>
+              {/*
+               * Единый блок «Материалы по теме» (REL-02F.2) — только из `content_relations`, у
+               * КАЖДОЙ статьи свой список: после перехода без перезагрузки он берётся из новой
+               * открытой статьи. Статья открывается переходом без перезагрузки, если она есть в
+               * уже полученном списке; продукт и кейс — обычная ссылка на другой раздел.
+               */}
+              {post.relatedMaterials.length > 0 ? (
+                <aside className={styles.relatedPosts} aria-labelledby="related-materials-heading">
+                  <p>Продолжить чтение</p>
+                  <h2 id="related-materials-heading">Материалы по теме</h2>
+                  <div>
+                    {post.relatedMaterials.map((material) => {
+                      const key = `${material.type}:${material.id}`;
+                      const target =
+                        material.type === "article"
+                          ? findBlogPost(posts, material.slug)
+                          : undefined;
+
+                      if (target) {
+                        return (
+                          <Link
+                            key={key}
+                            href={material.href}
+                            onClick={(event) => navigateToPost(event, target)}
+                          >
+                            <span>
+                              {MATERIAL_TYPE_LABEL.article} · {target.category}
+                            </span>
+                            <strong>{material.title}</strong>
+                            <small>{target.readingTime}</small>
+                          </Link>
+                        );
+                      }
+
+                      return (
+                        <Link key={key} href={material.href}>
+                          <span>{MATERIAL_TYPE_LABEL[material.type]}</span>
+                          <strong>{material.title}</strong>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </aside>
+              ) : null}
 
               <footer className={styles.articleCta} aria-labelledby="blog-cta-heading">
                 <div>
