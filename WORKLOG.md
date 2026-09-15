@@ -239,6 +239,27 @@ slug, лишние сегменты, query/hash, index, абсолютные `/p
 **Статус:** `COMPLETED`. Commit/push/deploy не выполнялись; production DB не изменялась; deployed HEAD
 остался `fee40a4`.
 
+### Production closure REL-02F.1 (2026-09-15)
+
+**Данные руководителя; у меня доступа к production нет.** Код не менялся, deploy не выполнялся.
+Production source HEAD `fee40a4d7ca067b89b6e1f3a8c48ac36f989b285`, production health — healthy.
+
+- Production dry-run после Amendment 61.2: `state=ready`, `articles=8`, `articlesWithSection=8`,
+  `plannedProductRelations=6`, `plannedCaseRelations=0`, `unknownUrls=0`, все остальные blockers — 0,
+  `changed=0`.
+- Backup: `/opt/allqbit-data/backups/content-rel02f1-20260915T054053Z.db`, `integrity=ok`, SHA256
+  `9ea6fc01c3fabaf380c2ff2c8dc3c27e5b0b6cbe4f9b953c37da2235ecf7e3ba`.
+- Apply: `state=applied`, `changed=6`, `plannedProductRelations=6`, `plannedCaseRelations=0`,
+  blockers — 0.
+- Hash таблицы `articles` до и после apply совпадает:
+  `c60dbc8282d117bc0b73f10669c517d528f40725f3e3da52529976b161d462e4` → `articles` не изменена.
+- Post-apply dry-run: `state=already-applied`, `plannedProductRelations=0`, `alreadyExisting=6`,
+  `changed=0`, blockers — 0.
+- Итог `content_relations`: total 25 — article→article 19, article→product 6, article→case 0.
+- `PRAGMA integrity_check` — `ok`.
+
+**Статус: PRODUCTION COMPLETED / VERIFIED.** Следующий шаг — REL-02F.2 (`PROPOSED`, не начат).
+
 ## 2026-09-14 — Amendment 60 / Step REL-02E.2: публичный блок читает только `content_relations`
 
 **Статус записи: шаг завершён (`COMPLETED`).** Запись открыта до правки кода со статусом

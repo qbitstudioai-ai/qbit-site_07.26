@@ -18,13 +18,17 @@
   IndexNow за уборку уже скрытой секции не отправляется.
 - Разбиение: три шага, каждый проходит skeptic отдельно и имеет свой production gate —
   REL-02F.1 (импорт product/case) → REL-02F.2 (единый публичный блок) → REL-02F.3 (физическое
-  удаление Markdown-секции). Сейчас в работе только REL-02F.1; F.2 и F.3 — `PROPOSED`, их scope
+  удаление Markdown-секции). REL-02F.1 завершён на production; F.2 и F.3 — `PROPOSED`, их scope
   уточняется перед стартом.
 
 ### Step REL-02F.1 — импорт product/case из legacy Markdown-секции в `content_relations`
 
-- Status: `COMPLETED` (commit `9667709` — skeptic раунды 1–3 `PASS`; повторно открыт по Amendment 61.2;
-  раунд 4 `PASS`, неблокирующие закрыты; перед production apply — повторный dry-run, см. `WORKLOG.md`).
+- Status: `COMPLETED` — **PRODUCTION COMPLETED / VERIFIED** (2026-09-15): apply `changed=6`
+  (article→product 6, case 0), `articles` неизменна, post-apply `already-applied`, итого
+  `content_relations` 25, `integrity_check=ok`; deploy не выполнялся, source HEAD `fee40a4`. Доказательства
+  — `WORKLOG.md`, «Production closure REL-02F.1».
+  (commit `9667709` — skeptic раунды 1–3 `PASS`; повторно открыт по Amendment 61.2, commit `5e43668`;
+  раунд 4 `PASS`, неблокирующие закрыты.)
 - Amendment 61.2 — canonical URL статьи в legacy-секции (руководитель, 2026-09-15).
   - Reason: production dry-run 2026-09-15 на deployed HEAD `fee40a4` (скрипт из `9667709`):
     `state=blocked`, `unknownUrls=7` — все семь — абсолютные внутренние article URL
