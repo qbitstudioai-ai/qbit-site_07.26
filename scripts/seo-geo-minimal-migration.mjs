@@ -42,9 +42,35 @@ export const ARTICLE_OLD_SHA256 = {
     "26eb8d42b50dde3ca3b4c8763734946dd1c38afa2bd5ce30abd718f67aa537d4",
 };
 
+// Target bodies of this historical migration, frozen from data/seed/articles.json at 4be10e0 (before
+// REL-02F.3a removed the legacy section from the seed). The seed is mutable, so a drifted target
+// means the migration no longer describes the state it was written for: fail closed.
+export const ARTICLE_TARGET_SHA256 = {
+  "kak-avtomatizirovat-obrabotku-zayavok":
+    "8a263af6877bc16733b8c6789946da096033571994048d044a44bb729a2b10a7",
+  "ai-assistent-po-baze-znaniy": "3d3339d58b1b14ed5569eb85cfb0df1a8b68fa000498f58f1e3f9312ae2a5f97",
+  "analiz-zvonkov-otdela-prodazh":
+    "8bd4d1d047430bc6d27620c01faa86a478b760f7db55cfb67f652c6080d90231",
+  "avtomatizatsiya-dokumentov-s-ai":
+    "d726064fd5ff32eba78214d7130b74970d85ac2e6d8c2179386257b3110ac9e7",
+  "sayt-crm-i-messendzhery": "5f1c5a6b4d3897e5d7c77717db91136d4516a3c96112185354f61606991d4246",
+  "chto-mozhno-avtomatizirovat-na-n8n":
+    "7d548ad393a6d3b4c21a94998e075a4e82886069eea82d945d5e8ea64c9c79f5",
+};
+
 const ARTICLE_SLUGS = Object.keys(ARTICLE_OLD_SHA256);
 
 const sha256 = (value) => crypto.createHash("sha256").update(value, "utf8").digest("hex");
+
+function assertHistoricalTargets(articleTargets) {
+  for (const slug of ARTICLE_SLUGS) {
+    const target = articleTargets?.[slug];
+    if (typeof target !== "string") throw new Error(`Historical article target missing: ${slug}`);
+    if (sha256(target) !== ARTICLE_TARGET_SHA256[slug]) {
+      throw new Error(`Historical article target drifted: ${slug}`);
+    }
+  }
+}
 
 function readArticleTargets() {
   const articles = readJson("data/seed/articles.json");
@@ -143,6 +169,7 @@ export function runSeoGeoMinimalMigration(
   db,
   { apply = false, articleTargets = readArticleTargets() } = {},
 ) {
+  assertHistoricalTargets(articleTargets);
   const before = assertExpectedState({ db, articleTargets });
   if (!apply) return { mode: "dry-run", before, changed: { products: 0, articles: 0 } };
 

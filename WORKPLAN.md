@@ -200,8 +200,90 @@
 
 ### Step REL-02F.3 — физическое удаление legacy Markdown-секции
 
-- Status: `PROPOSED`. Зависит от production-приёмки REL-02F.2; `updated_at` не двигается, IndexNow не
-  отправляется (D3). Scope уточняется перед стартом.
+- Status: `IN_PROGRESS` (2026-09-15). База `4be10e0`. Основание: read-only pre-flight аудит REL-02F.3
+  (`PASS`), решения руководителя D8–D12 того же дня. REL-02F.2 production completed / verified.
+- Цель: только уборка хранения. Публичный HTML по смыслу не меняется; `content_relations`,
+  `articles.updated_at`, `published_at`, sitemap lastmod не меняются; IndexNow и revalidate не нужны;
+  связи из Markdown не пересчитываются. Strip, save-guard, POST/PUT guard и защита «Копии» остаются
+  как fail-safe (их удаление — отдельный будущий шаг).
+- Решения руководителя (2026-09-15):
+  - D8 = B: источник структурных связей seed — `relations[]` в `data/seed/articles.json`
+    (`{targetType, targetId}`, порядок массива = `sort_order`, цель по stable id; типы article, product,
+    case; department запрещён). `relatedSlugs` — legacy-проекция article→article для колонки
+    `related_slugs`; seed проверяет совпадение и порядок.
+  - D9 = exact range: удаляется точный диапазон extractor, без `trimEnd()` и переписывания соседнего
+    текста.
+  - D10: F.3b проверяет ВСЕ статьи production, включая черновики; `invalid` в любой — `blocked`.
+  - D11: `src/content/blog/*.md` и `src/features/blog/articles.generated.ts` не трогаются.
+  - D12: manifest вырезанного текста в F.3b обязателен.
+- Подшаги:
+  - REL-02F.3a — structured seed independence: `COMPLETED` (skeptic `PASS`; Amendment 61.3 `COMPLETED`;
+    не закоммичено).
+  - REL-02F.3b — ручной cleanup-скрипт production DB: `PROPOSED` / NOT STARTED.
+  - REL-02F.3c — production dry-run/backup/apply и docs closure: `PROPOSED` / NOT STARTED.
+
+#### Step REL-02F.3a — structured seed independence
+
+- Status: `COMPLETED` (2026-09-15; `BLOCKED` → `IN_PROGRESS` после утверждения 61.3 → полный gate →
+  skeptic `PASS`; commit/push/deploy не выполнялись). Общий
+  F.3 — `IN_PROGRESS`; F.3b/F.3c — `PROPOSED`.
+- Amendment 61.3 — историческая SEO/GEO-миграция читает seed-тела. Status: `COMPLETED`.
+  - Reason: `scripts/seo-geo-minimal-migration.mjs` (ручная историческая миграция production-данных, не
+    в `deploy.sh`) по умолчанию берёт `data/seed/articles.json` → `bodyMarkdown` шести статей как
+    ЦЕЛЕВОЕ («new») тело, с guard `ARTICLE_OLD_SHA256` на старое. Его тест
+    `src/tests/unit/server/seoGeoMinimalMigration.test.ts` строит старое тело из текущего seed. После
+    удаления секций из seed: тест 5/5 падает (sha старого тела не совпадает); поведение скрипта меняется —
+    на базе в «new»-состоянии он отказывает (fail-closed), на базе в «old»-состоянии с `--apply` записал
+    бы тела без секции, то есть неявный cleanup в обход F.3b и manifest. Pre-flight аудит эту зависимость
+    не нашёл (поиск шёл по extractor и заголовку секции, а не по хэшам seed-тел).
+  - Old scope F.3a: `articles.json`, `db-seed.mjs`, 4 теста/фикстуры; скрипт и его тест вне scope.
+  - Варианты: (1) заморозить цели миграции — скрипт проверяет `sha256` целевых тел против
+    зафиксированных pre-F.3a хэшей и при расхождении отказывает («цели миграции изменились»), тест
+    передаёт pre-F.3a тела явно (очищенное seed-тело + секция из `src/content/blog/*.md`, побайтно
+    совпадает — проверено) и проверяет отказ на текущем seed; (2) только тест — pre-F.3a тела явно,
+    скрипт не трогать (остаётся риск неявного cleanup через скрипт); (3) вывести скрипт и тест из
+    репозитория как исторические — нужна подтверждённая запись о production-применении.
+  - Impact: +1–2 файла в scope F.3a; публичный код, seed-связи, production — без изменений.
+  - Approval: руководитель, 2026-09-15 — вариант 1 с уточнением:
+    - `ARTICLE_OLD_SHA256` не меняется (исходное состояние БД). Новый `ARTICLE_TARGET_SHA256` фиксирует
+      sha256 шести целевых `bodyMarkdown` из `data/seed/articles.json` на HEAD `4be10e0` (до F.3a).
+    - Guard целей (slug есть, sha совпадает) выполняется до `assertExpectedState`, до любого
+      обращения к БД, в dry-run и `--apply`; при расхождении — `Historical article target drifted: <slug>`
+      (или `missing`). Очищенный текущий seed — недопустимая цель: default-запуск отказывает, старый
+      скрипт не может незаметно выполнить F.3b.
+    - `src/content/blog/*.md` не становится runtime-источником и не меняется: только тест собирает
+      исторические цели (очищенное seed-тело + секция из `.md`) и сверяет их с `ARTICLE_TARGET_SHA256`.
+    - Скрипт не удаляется; `PRODUCT_UPDATES`, `deploy.sh`, seed-секции не меняются.
+  - New scope F.3a: + `scripts/seo-geo-minimal-migration.mjs`,
+    `src/tests/unit/server/seoGeoMinimalMigration.test.ts` (итого 10 tracked-файлов).
+- Objective: свежий seed не зависит от legacy-секции; связи seed — только из `relations[]`; секции
+  физически удалены из `data/seed/articles.json`; baseline связей свежего seed не меняется.
+- Baseline (свежий `db-seed --reset` до шага): 18 связей — article→article 12, article→product 6,
+  article→case 0; по каждой статье: две статьи из `relatedSlugs` (sort_order 0, 1), затем продукт
+  (sort_order 2): kak-avtomatizirovat-obrabotku-zayavok → product-03; ai-assistent-po-baze-znaniy →
+  product-01; analiz-zvonkov-otdela-prodazh → product-05; avtomatizatsiya-dokumentov-s-ai → product-08;
+  sayt-crm-i-messendzhery → product-03; chto-mozhno-avtomatizirovat-na-n8n → product-10.
+- In scope: `data/seed/articles.json`, `scripts/db-seed.mjs`, `src/tests/unit/server/dbSeedRelations.test.ts`,
+  `src/tests/unit/features/blog/legacyRelatedSection.test.ts`, `src/tests/unit/features/blog/posts.test.ts`,
+  `src/tests/fixtures/seedContent.ts`; e2e — только при реальной необходимости; журналы.
+- Out of scope: production и production DB, cleanup-скрипт F.3b, extractor, `articleBody.ts`,
+  `legacySectionGuard.ts`, `BlogExperience`, роуты, публичный reader, оба backfill-скрипта, схема,
+  `deploy.sh`, sitemap, IndexNow, D11-файлы; commit, push, deploy.
+- Acceptance criteria:
+  1. `db-seed.mjs` не импортирует extractor и `resolveLegacyTarget`; связи — только из `relations`.
+  2. Seed отвергает (исключение, ROLLBACK блока): не массив, > 24, неизвестный/department тип, цель не
+     найдена по id, неопубликованная статья/продукт/кейс, ссылка статьи на себя, дубль `type:id`,
+     article-подмножество `relations` ≠ `relatedSlugs` (пропуск, лишняя, порядок, неизвестный slug).
+  3. Кейс как цель поддерживается.
+  4. Свежий seed и `--reset` дают ровно baseline 18 строк; повторный seed идемпотентен.
+  5. Все 6 seed-статей — extractor `no_section`; из `bodyMarkdown` удалён только точный диапазон секции.
+  6. Публичная проекция `getPublishedArticles()` (relatedMaterials, sections, wordCount, readingTime) до и
+     после шага совпадает.
+  7. F.1 backfill на свежем seed: `already-applied`, `articlesWithSection=0`, planned 0, changed 0,
+     blockers 0.
+- Verification: targeted и полный vitest; `tsc`; `eslint`; `prettier --check`; `git diff --check`;
+  `npm run build`; свежий seed/reset; blog e2e на свежей базе (фикстура зависит от seed); мутации; skeptic.
+- Rollback: revert изменений шага; данные production не затрагиваются.
 
 ## Amendment 60 — публичный блок «Связанные статьи» читает `content_relations` (2026-09-14)
 

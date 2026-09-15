@@ -1,8 +1,11 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { describe, expect, it } from "vitest";
 import seedArticles from "../../../../data/seed/articles.json";
 import {
   ARTICLE_OLD_SHA256,
+  ARTICLE_TARGET_SHA256,
   PRODUCT_UPDATES,
   runSeoGeoMinimalMigration,
 } from "../../../../scripts/seo-geo-minimal-migration.mjs";
@@ -38,7 +41,9 @@ const TARGET_LINKS: Record<string, { href: string; anchor: string }> = {
   },
 };
 
-function articleTargets(): Record<string, string> {
+const LEGACY_SECTION_HEADING = "**Материалы по теме:**";
+
+function currentSeedBodies(): Record<string, string> {
   return Object.fromEntries(
     seedArticles
       .filter((article) => Object.hasOwn(TARGET_LINKS, article.slug))
@@ -52,6 +57,28 @@ async function sha256(value: string): Promise<string> {
   return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+// The migration's targets are the seed bodies as they were before REL-02F.3a removed the legacy
+// section. Rebuilt here as cleaned seed body + the section from src/content/blog/<slug>.md (without
+// the file's final newline); the frozen hash proves the reconstruction is the exact historical body.
+async function articleTargets(): Promise<Record<string, string>> {
+  const entries: Array<[string, string]> = [];
+  for (const [slug, cleanedBody] of Object.entries(currentSeedBodies())) {
+    const markdown = readFileSync(
+      path.resolve(process.cwd(), "src/content/blog", `${slug}.md`),
+      "utf8",
+    );
+    const start = markdown.indexOf(LEGACY_SECTION_HEADING);
+    expect(start).toBeGreaterThan(-1);
+    expect(markdown.lastIndexOf(LEGACY_SECTION_HEADING)).toBe(start);
+    const target = cleanedBody + markdown.slice(start).replace(/\n$/, "");
+    expect(await sha256(target)).toBe(
+      ARTICLE_TARGET_SHA256[slug as keyof typeof ARTICLE_TARGET_SHA256],
+    );
+    entries.push([slug, target]);
+  }
+  return Object.fromEntries(entries);
+}
+
 function oldArticleBody(slug: string, body: string): string {
   const target = TARGET_LINKS[slug];
   const escapedHref = target.href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -62,9 +89,11 @@ function oldArticleBody(slug: string, body: string): string {
   );
 }
 
-async function oldArticleTargets(): Promise<Record<string, string>> {
+async function oldArticleTargets(
+  newBodies: Record<string, string>,
+): Promise<Record<string, string>> {
   const entries: Array<[string, string]> = [];
-  for (const [slug, body] of Object.entries(articleTargets())) {
+  for (const [slug, body] of Object.entries(newBodies)) {
     const oldBody = oldArticleBody(slug, body);
     expect(await sha256(oldBody)).toBe(ARTICLE_OLD_SHA256[slug as keyof typeof ARTICLE_OLD_SHA256]);
     entries.push([slug, oldBody]);
@@ -100,8 +129,8 @@ function createDb(): DatabaseSync {
 
 async function seedOldDb(): Promise<{ db: DatabaseSync; newBodies: Record<string, string> }> {
   const db = createDb();
-  const newBodies = articleTargets();
-  const oldBodies = await oldArticleTargets();
+  const newBodies = await articleTargets();
+  const oldBodies = await oldArticleTargets(newBodies);
 
   for (const update of PRODUCT_UPDATES) {
     const content =
@@ -142,6 +171,27 @@ async function seedOldDb(): Promise<{ db: DatabaseSync; newBodies: Record<string
 
 function allRows(db: DatabaseSync, table: "products" | "articles"): Row[] {
   return db.prepare(`SELECT * FROM ${table} ORDER BY slug`).all() as Row[];
+}
+
+function snapshot(db: DatabaseSync): { products: Row[]; articles: Row[] } {
+  return { products: allRows(db, "products"), articles: allRows(db, "articles") };
+}
+
+// Records every statement the migration sends, to prove a rejection happens before the database
+// is read or written at all.
+function recordingDb(db: DatabaseSync): { db: DatabaseSync; statements: string[] } {
+  const statements: string[] = [];
+  const recorder = {
+    prepare: (sql: string) => {
+      statements.push(sql);
+      return db.prepare(sql);
+    },
+    exec: (sql: string) => {
+      statements.push(sql);
+      db.exec(sql);
+    },
+  };
+  return { db: recorder as unknown as DatabaseSync, statements };
 }
 
 describe("SEO/GEO minimal data migration", () => {
@@ -237,6 +287,58 @@ describe("SEO/GEO minimal data migration", () => {
     expect({ products: allRows(db, "products"), articles: allRows(db, "articles") }).toEqual(
       before,
     );
+    db.close();
+  });
+
+  it("rejects the current cleaned seed as targets before touching the database", async () => {
+    const { db } = await seedOldDb();
+    const before = snapshot(db);
+    const cleaned = currentSeedBodies();
+
+    // Default targets (data/seed/articles.json) and the same bodies passed explicitly.
+    for (const options of [
+      {},
+      { apply: true },
+      { articleTargets: cleaned },
+      { apply: true, articleTargets: cleaned },
+    ]) {
+      const recorded = recordingDb(db);
+      expect(() => runSeoGeoMinimalMigration(recorded.db, options)).toThrow(
+        "Historical article target drifted: kak-avtomatizirovat-obrabotku-zayavok",
+      );
+      expect(recorded.statements).toEqual([]);
+    }
+
+    expect(snapshot(db)).toEqual(before);
+    db.close();
+  });
+
+  it("rejects one altered or missing historical target before touching the database", async () => {
+    const { db, newBodies } = await seedOldDb();
+    const before = snapshot(db);
+    const altered = {
+      ...newBodies,
+      "analiz-zvonkov-otdela-prodazh": `${newBodies["analiz-zvonkov-otdela-prodazh"]}\n`,
+    };
+    const missing = Object.fromEntries(
+      Object.entries(newBodies).filter(([slug]) => slug !== "sayt-crm-i-messendzhery"),
+    );
+
+    for (const apply of [false, true]) {
+      let recorded = recordingDb(db);
+      expect(() =>
+        runSeoGeoMinimalMigration(recorded.db, { apply, articleTargets: altered }),
+      ).toThrow("Historical article target drifted: analiz-zvonkov-otdela-prodazh");
+      expect(recorded.statements).toEqual([]);
+
+      recorded = recordingDb(db);
+      expect(() =>
+        runSeoGeoMinimalMigration(recorded.db, { apply, articleTargets: missing }),
+      ).toThrow("Historical article target missing: sayt-crm-i-messendzhery");
+      expect(recorded.statements).toEqual([]);
+    }
+
+    expect(snapshot(db)).toEqual(before);
     db.close();
   });
 });

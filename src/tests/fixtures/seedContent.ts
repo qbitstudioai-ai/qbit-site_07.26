@@ -3,7 +3,6 @@ import seedContacts from "../../../data/seed/contacts.json";
 import seedDocuments from "../../../data/seed/documents.json";
 import seedProducts from "../../../data/seed/products.json";
 import { stripLegacyRelatedSection } from "@/features/blog/articleBody";
-import { extractLegacyRelatedSection } from "@/features/blog/legacyRelatedSection.mjs";
 import type { BlogPost, PublicRelatedMaterial } from "@/features/blog/posts";
 import { countWords, formatRuDate, readingTimeLabel } from "@/features/blog/posts";
 import { parseBlogMarkdown } from "@/features/blog/markdown";
@@ -44,44 +43,42 @@ export const seedProductLocations: ProductLocation[] = seedProducts.map((product
 );
 
 /**
- * Материалы по теме на СВЕЖЕЙ seed-базе (REL-02F.1/F.2): сначала статьи из `relatedSlugs`, затем
- * продукты и кейсы из legacy-секции текста — ровно в том порядке, в каком их пишет `db:seed`.
- *
- * `id` статьи здесь — её адрес: seed присваивает статьям случайный идентификатор при вставке, и
- * узнать его без базы нельзя. Проверки по фикстуре сравнивают адреса и названия, а не `id`.
+ * Материалы по теме на СВЕЖЕЙ seed-базе: ровно `relations[]` seed-статьи в порядке массива — тот же
+ * источник, из которого их пишет `db:seed` (REL-02F.3a). Цель ищется по stable id; адрес и название —
+ * из seed-строки цели, как у публичного reader. Кейсов в `data/seed` нет (кейс переносит миграция),
+ * поэтому кейс-цель фикстура не поддерживает и отказывает явно.
  */
 function seedRelatedMaterials(article: (typeof seedArticles)[number]): PublicRelatedMaterial[] {
-  const articles = article.relatedSlugs.map((slug): PublicRelatedMaterial => {
-    const target = seedArticles.find((candidate) => candidate.slug === slug);
-    if (!target) throw new Error(`seed: связанная статья «${slug}» не найдена`);
-    return { type: "article", id: slug, slug, title: target.title, href: `/blog/${slug}` };
+  return article.relations.map((relation): PublicRelatedMaterial => {
+    if (relation.targetType === "article") {
+      const target = seedArticles.find((candidate) => candidate.id === relation.targetId);
+      if (!target) throw new Error(`seed: статья «${relation.targetId}» не найдена`);
+      return {
+        type: "article",
+        id: target.id,
+        slug: target.slug,
+        title: target.title,
+        href: `/blog/${target.slug}`,
+      };
+    }
+
+    const product = seedProducts.find((candidate) => candidate.id === relation.targetId);
+    if (relation.targetType !== "product" || !product) {
+      throw new Error(`seed: цель «${relation.targetType}:${relation.targetId}» не поддерживается`);
+    }
+    return {
+      type: "product",
+      id: product.id,
+      slug: product.slug,
+      title: product.fullTitle,
+      href: `/products/${product.slug}`,
+    };
   });
-
-  const extraction = extractLegacyRelatedSection(article.bodyMarkdown);
-  const materials =
-    extraction.state === "ok"
-      ? extraction.targets
-          .filter((target) => target.type !== "article")
-          .map((target): PublicRelatedMaterial => {
-            const product = seedProducts.find((candidate) => candidate.slug === target.slug);
-            if (target.type !== "product" || !product) {
-              throw new Error(`seed: цель «${target.href}» не является продуктом seed`);
-            }
-            return {
-              type: "product",
-              id: product.id,
-              slug: product.slug,
-              title: product.fullTitle,
-              href: `/products/${product.slug}`,
-            };
-          })
-      : [];
-
-  return [...articles, ...materials];
 }
 
 export const seedBlogPosts: BlogPost[] = seedArticles.map((article, index) => {
-  // Публичное тело — без скрытой legacy-секции, как у `server/content/articles.ts`.
+  // Публичное тело — тем же strip, что `server/content/articles.ts`. После REL-02F.3a секций в seed
+  // нет, и strip здесь no-op (это проверяет `posts.test.ts`).
   const body = stripLegacyRelatedSection(article.bodyMarkdown);
   const wordCount = countWords(body);
 

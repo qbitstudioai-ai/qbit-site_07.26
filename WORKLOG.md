@@ -1,5 +1,110 @@
 # WORKLOG
 
+## 2026-09-15 — Amendment 61 / Step REL-02F.3a: structured seed independence
+
+**Статус записи: `COMPLETED`** (было `BLOCKED` до утверждения Amendment 61.3; skeptic `PASS`). База HEAD = `origin/master` = `4be10e0b4985d3f08be25d34ac00be6e7e775271`.
+Решения D8–D12 — WORKPLAN, Step REL-02F.3. Production, production DB, commit, push, deploy — не
+выполнялись; cleanup-скрипт F.3b не писался.
+
+**Сделано.**
+
+- Before-снимок публичной проекции (scratchpad-конфиг vitest вне репозитория, свежий `db-seed --reset`):
+  6 статей, 18 связей.
+- `data/seed/articles.json`: скриптом scratchpad (`transform-seed.mjs relations`) у 6 статей добавлен
+  `relations[]` сразу после `relatedSlugs` (текстовая вставка, +84 строки; скрипт сверил с baseline и
+  проверил, что остальные поля не изменились).
+- `scripts/db-seed.mjs`: импорт extractor и `resolveLegacyTarget` убран; связи — только из `relations`
+  (`SEED_RELATION_TARGETS` article/product/case, поиск по id, публикация, self, дубль, ≤ 24, совпадение
+  статей с `relatedSlugs` по составу и порядку; всё в транзакции `seedArticles`).
+- Parity gate ДО удаления секций: проекция и dump связей нового seed — `posts_equal true`,
+  `relations_equal true`, 18.
+- Удаление секций: `transform-seed.mjs cleanup` — точный диапазон extractor, без `trimEnd`; удалено
+  392/407/403/407/426/406 символов, тела кончаются `\n\n`; скрипт проверил: остальные поля равны, тело =
+  точное удаление диапазона, extractor → `no_section`, тело не пустое. `git diff --numstat` файла:
+  90 добавлено / 6 удалено (84 строки `relations` + 6 строк `bodyMarkdown`).
+- Тесты: `dbSeedRelations.test.ts` переписан (baseline-константа 18 строк, счётчики 12/6/0, stable id,
+  F.1 backfill, повтор, `--reset`, 18 случаев отказа с откатом); `legacyRelatedSection.test.ts` — seed
+  без секции; `posts.test.ts` — `no_section`, strip no-op, sections/wordCount/readingTime по сырому телу,
+  продукт задан `relations`; `fixtures/seedContent.ts` — `relatedMaterials` из `relations`.
+
+**Команды и результат.**
+
+- After-снимок проекции: `posts_equal true`; relatedMaterials, sections, wordCount, readingTime,
+  modifiedAt, publishedAt — equal; relations equal, 18.
+- Свежий `db-seed --reset` (scratchpad): dump связей ровно baseline 18 строк (12 article, 6 product,
+  0 case, порядок и роль); 6 статей `no_section`, `updated_at` 2026-07-25T00:00:00.000Z.
+- F.1 backfill dry-run на этой базе: `already-applied`, `articles=6`, `articlesWithSection=0`,
+  `noSection=6`, planned product/case 0/0, `alreadyExisting=0`, `changed=0`, все blockers 0, exit 0.
+- `npx tsc --noEmit` — exit 0. `npx eslint .` — exit 0 (warning о неиспользуемой функции в
+  `dbSeedRelations.test.ts` устранён, повтор — чисто). `npx prettier --check` по файлам шага — exit 0.
+  `git diff --check` — exit 0. `npm run build` — exit 0.
+- Targeted vitest (10 файлов, зависящих от seed) — 222 passed, exit 0.
+- Полный `npx vitest run` — exit 1: 82 файла passed, `seoGeoMinimalMigration.test.ts` 5/5 failed
+  (`expected '1edb4d63…' to be '2bb61b42…'` — sha старого тела, собранного из текущего seed).
+- Причина: `scripts/seo-geo-minimal-migration.mjs` по умолчанию читает seed-тела как целевые; файл и его
+  тест вне scope F.3a. Проверено: секции в `src/content/blog/*.md` побайтно совпадают с удалёнными из
+  seed, и HEAD-тело = очищенное тело + секция у всех 6 статей.
+
+### Amendment 61.3 — фиксация целей исторической SEO/GEO-миграции (2026-09-15, `COMPLETED`)
+
+Причина: F.3a выявил скрытую зависимость `scripts/seo-geo-minimal-migration.mjs` от изменяемого
+`bodyMarkdown` seed. Решение (руководитель, вариант 1) — WORKPLAN, Step REL-02F.3a.
+
+**Сделано.**
+
+- `scripts/seo-geo-minimal-migration.mjs`: добавлен `ARTICLE_TARGET_SHA256` (6 хэшей) и
+  `assertHistoricalTargets` — первая строка `runSeoGeoMinimalMigration`, до `assertExpectedState`;
+  отказы `Historical article target missing|drifted: <slug>`. `ARTICLE_OLD_SHA256`, `PRODUCT_UPDATES`,
+  default-чтение seed не менялись.
+- Хэши получены из `git show 4be10e0:data/seed/articles.json` (не из рабочего дерева): kak… `8a263af6…`,
+  ai-assistent… `3d3339d5…`, analiz… `8bd4d1d0…`, avtomatizatsiya… `d726064f…`, sayt… `5f1c5a6b…`,
+  chto… `7d548ad3…`. Очищенные тела (для сравнения): `1edb4d63…`, `612d4366…`, `5e3739bb…`,
+  `44e51c47…`, `17b85021…`, `5d01a36d…`. HEAD-тело = очищенное + секция `.md` от заголовка до конца
+  файла без финального `\n` — у всех 6.
+- `seoGeoMinimalMigration.test.ts`: исторические цели собираются из очищенного seed + секции `.md`,
+  каждая сверяется с `ARTICLE_TARGET_SHA256`; 5 прежних сценариев — на явных целях. Новые:
+  A — default и явный очищенный seed отвергнуты (dry-run и apply), B — изменённая (+`\n`) и пропущенная
+  цель отвергнуты (dry-run и apply); в обоих обёртка БД фиксирует 0 обращений `prepare`/`exec`,
+  снимок таблиц неизменен.
+- `dbSeedRelations.test.ts` (в scope F.3a): у 18 случаев отказа ожидаемая причина (`REJECTION_REASONS`)
+  вместо голого `toThrow()` — первый прогон мутаций показал, что 5 правил маскировались соседним отказом.
+
+**Команды и результат (после 61.3).**
+
+- `seoGeoMinimalMigration.test.ts` — 7 passed; targeted 14 файлов (seed-зависимые) — 244 passed, exit 0.
+- Полный `npx vitest run` — 83 files / 1063 tests passed, exit 0 (повтор после правки
+  `dbSeedRelations.test.ts` — тот же результат).
+- `npx tsc --noEmit`, `npx eslint .`, `npx prettier --check` (10 файлов), `git diff --check` — exit 0.
+- `npm run build` — exit 0.
+- Свежий `db-seed --reset` (scratchpad `rel02f3a-613-data`): 18 связей (article→article 12,
+  article→product 6, article→case 0), порядок и `sort_order` = baseline у всех 6; статей с
+  «Материалы по теме» — 0. `relatedSlugs` и порядок статей = HEAD; отличаются только `bodyMarkdown`,
+  `relations`.
+- F.1 backfill dry-run: `already-applied`, `articlesWithSection=0`, planned product/case 0/0,
+  `changed=0`, все blockers 0, exit 0.
+- CLI исторической миграции на этой базе: dry-run и `--apply` — `Historical article target drifted:
+  kak-avtomatizirovat-obrabotku-zayavok`, exit 1.
+- e2e `blog-experience.spec.ts` (standalone 127.0.0.1:3300, свежая база, конфиг scratchpad) — 10 passed,
+  exit 0; ошибок сертификатов Метрики в этом прогоне не было. Сервер остановлен.
+- Мутации (скрипт scratchpad, baseline green, восстановление проверено `sha256sum -c`): прогон 1 —
+  14 KILLED / 5 SURVIVED (S01 не-массив, S03 department, S07 self, S08 дубль, S11 неизвестный
+  relatedSlug — тест проверял только факт отказа); после уточнения причин — 19 KILLED / 0 SURVIVED /
+  0 SKIPPED / 0 UNRESTORED. Seed: S01–S12 (не-массив, >24, department, case, не найдена, не
+  опубликована, self, дубль, расхождение/порядок relatedSlugs, неизвестный slug, sort_order). 61.3:
+  M01 guard снят, M02 TARGET↔OLD, M03 очищенный seed принят, M04 изменённая цель принята, M05 guard
+  только первый slug, M06 guard после чтения БД, M07 пропуск не отвергается.
+- Production, commit, push, deploy — не выполнялись; `src/content/blog/*.md`, `deploy.sh` не менялись.
+
+**Skeptic — `PASS`.** Блокирующих нет. Сам проверил: хэши целей = HEAD 4be10e0, guard до любого SQL,
+CLI отказ, точный диапазон удаления, 18 связей baseline, полный vitest 83/1063, scope 10 файлов,
+`REJECTION_REASONS` — допустимо в scope. Неблокирующие (код не менялся, риски на F.3b+):
+1. `db-seed.mjs` импортирует `MAX_RELATIONS_PER_SOURCE` из backfill-скрипта, который тянет extractor —
+   косвенная зависимость при будущем удалении extractor.
+2. CLI миграции с `--apply` открывает файл БД до guard (SQL нет; при несуществующем пути возможен
+   пустой файл).
+3. Тест миграции ищет `.md` через `process.cwd()` — работает при запуске из корня репозитория.
+4. 61.3 отмечен `COMPLETED` до skeptic — исправлено: шаг и amendment закрыты вместе после `PASS`.
+
 ## 2026-09-15 — Amendment 61 / Step REL-02F.2: единый блок «Материалы по теме»
 
 **Статус записи: `COMPLETED`.** База HEAD = `origin/master` =

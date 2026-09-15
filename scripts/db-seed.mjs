@@ -18,11 +18,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { extractLegacyRelatedSection } from "../src/features/blog/legacyRelatedSection.mjs";
-import {
-  MAX_RELATIONS_PER_SOURCE,
-  resolveLegacyTarget,
-} from "./backfill-legacy-material-relations.mjs";
+import { MAX_RELATIONS_PER_SOURCE } from "./backfill-legacy-material-relations.mjs";
 import {
   applyMigrations,
   nowIso,
@@ -72,8 +68,21 @@ const RESET_TABLES = [
  */
 export const RESET_RELATION_ENTITY_TYPES = Object.freeze(["article", "product", "department"]);
 
-/** Роль связей, которые seed выводит из `relatedSlugs`. Та же, что пишет backfill. */
+/** Роль связей, которые seed пишет из `relations`. Та же, что пишет backfill. */
 export const SEED_RELATION_ROLE = "related";
+
+/**
+ * Допустимые цели связей seed-статьи и условие их публикации (Amendment 61 / REL-02F.3a).
+ *
+ * Имя таблицы и условие подставляются в SQL текстом, поэтому приходят ТОЛЬКО отсюда: тип цели из
+ * JSON сначала проверяется на принадлежность этому объекту. Отдела здесь нет намеренно: у отдела нет
+ * публичной страницы, и публичный блок «Материалы по теме» его не выводит.
+ */
+const SEED_RELATION_TARGETS = Object.freeze({
+  article: { table: "articles", published: "status = 'published'" },
+  product: { table: "products", published: "is_published = 1" },
+  case: { table: "cases", published: "status = 'published'" },
+});
 
 /** Сброс контента одной транзакцией: связи очищаемых типов и сами контентные таблицы. */
 export function resetContent(db) {
@@ -97,11 +106,19 @@ export function resetContent(db) {
 }
 
 /**
- * Статьи и их связи статья → статья. Возвращает число вставленных статей.
+ * Статьи и их связи на статьи, продукты и кейсы. Возвращает число вставленных статей.
  *
- * Свежая база обязана выйти из seed с перелинковкой в ОБЕИХ моделях: публичный блок переходит на
+ * Свежая база обязана выйти из seed с перелинковкой в ОБЕИХ моделях: публичный блок читает
  * `content_relations`, а `related_slugs` пока пишется ради переходного dual-write. Требовать для
  * нового окружения ручной backfill значило бы оставить его с пустыми блоками до первой ошибки.
+ *
+ * ИСТОЧНИК СВЯЗЕЙ — ТОЛЬКО `relations` статьи (Amendment 61 / REL-02F.3a, решение D8): массив
+ * `{targetType, targetId}`, где позиция в массиве — `sort_order`, а цель задана stable id, не адресом.
+ * Текст статьи связей не задаёт: legacy-секция «Материалы по теме» из seed удалена.
+ *
+ * `relatedSlugs` — НЕ второй источник, а legacy-проекция статей для колонки `related_slugs`. Поэтому
+ * seed проверяет, что статьи из `relations` в том же порядке — ровно `relatedSlugs`, разрешённые в
+ * идентификаторы: любое расхождение означало бы, что две модели выйдут из seed разными.
  *
  * Связи пишутся ТОЛЬКО для статей, вставленных в этом запуске. Существующая статья могла быть
  * отредактирована владельцем, и её связи — его данные, а не seed.
@@ -110,11 +127,11 @@ export function resetContent(db) {
  * была бы тем самым расхождением двух моделей, которое seed обязан исключить. Отказ — исключение,
  * которое при прямом запуске завершает процесс ненулевым кодом.
  *
- * Связь хранится по ИДЕНТИФИКАТОРУ: slug цели разрешается через таблицу `articles` той же базы. У
- * статей из `data/seed` идентификатор совпадает с адресом, но на это совпадение код не опирается.
- * Правила отказа совпадают с backfill (`scripts/backfill-article-relations.mjs`): неразрешимый адрес,
- * ссылка на себя, повтор цели, цель-черновик. Иначе seed записал бы то, что backfill назвал бы
- * непереносимым, и две процедуры давали бы разные базы из одних данных.
+ * Правила отказа: `relations` не массив или длиннее предела; неизвестный тип цели (включая отдел);
+ * пустой идентификатор; цель не найдена по id; цель не опубликована; ссылка статьи на себя; повтор
+ * цели; расхождение со `relatedSlugs`, в том числе неразрешимый адрес в нём. Правила для статей
+ * совпадают с backfill (`scripts/backfill-article-relations.mjs`): иначе seed записал бы то, что
+ * backfill назвал бы непереносимым.
  */
 export function seedArticles(db, articles, timestamp = nowIso()) {
   const articleExists = db.prepare("SELECT 1 FROM articles WHERE id = ?");
@@ -124,14 +141,14 @@ export function seedArticles(db, articles, timestamp = nowIso()) {
                            status, is_featured, sort_order, published_at, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
-  const findTarget = db.prepare("SELECT id, status FROM articles WHERE slug = ?");
-  const insertRelation = db.prepare(
-    `INSERT INTO content_relations
-       (source_type, source_id, target_type, target_id, relation_role, sort_order,
-        created_at, updated_at)
-     VALUES ('article', ?, 'article', ?, ?, ?, ?, ?)`,
+  const findArticleBySlug = db.prepare("SELECT id FROM articles WHERE slug = ?");
+  const findTarget = Object.fromEntries(
+    Object.entries(SEED_RELATION_TARGETS).map(([type, target]) => [
+      type,
+      db.prepare(`SELECT id, (${target.published}) AS is_public FROM ${target.table} WHERE id = ?`),
+    ]),
   );
-  const insertMaterialRelation = db.prepare(
+  const insertRelation = db.prepare(
     `INSERT INTO content_relations
        (source_type, source_id, target_type, target_id, relation_role, sort_order,
         created_at, updated_at)
@@ -174,84 +191,78 @@ export function seedArticles(db, articles, timestamp = nowIso()) {
 
     // Связи — после ВСЕХ статей: цель может стоять в файле позже того, кто на неё ссылается.
     for (const article of inserted) {
-      const slugs = article.relatedSlugs ?? [];
-      if (!Array.isArray(slugs)) {
-        throw new Error(`Seed-статья «${article.slug}»: relatedSlugs не является массивом`);
+      const fail = (reason) => {
+        throw new Error(`Seed-статья «${article.slug}»: ${reason}`);
+      };
+
+      const relations = article.relations;
+      if (!Array.isArray(relations)) fail("relations не является массивом");
+      if (relations.length > MAX_RELATIONS_PER_SOURCE) {
+        fail(`больше ${MAX_RELATIONS_PER_SOURCE} связей`);
       }
 
       const seen = new Set();
-      slugs.forEach((slug, index) => {
-        if (typeof slug !== "string" || slug.trim() === "") {
-          throw new Error(`Seed-статья «${article.slug}»: пустой адрес связи на позиции ${index}`);
+      const rows = relations.map((relation, index) => {
+        const targetType = relation?.targetType;
+        const targetId = relation?.targetId;
+
+        if (!Object.hasOwn(SEED_RELATION_TARGETS, targetType)) {
+          fail(`недопустимый тип цели «${String(targetType)}» на позиции ${index}`);
+        }
+        if (typeof targetId !== "string" || targetId.trim() === "") {
+          fail(`пустой идентификатор цели на позиции ${index}`);
         }
 
-        const target = findTarget.get(slug);
-        if (!target) {
-          throw new Error(`Seed-статья «${article.slug}»: связанная статья «${slug}» не найдена`);
-        }
+        const target = findTarget[targetType].get(targetId);
+        if (!target) fail(`цель «${targetType}:${targetId}» не найдена`);
+        if (Number(target.is_public) !== 1)
+          fail(`цель «${targetType}:${targetId}» не опубликована`);
 
-        const targetId = String(target.id);
-        if (targetId === article.id) {
-          throw new Error(`Seed-статья «${article.slug}» ссылается сама на себя`);
-        }
-        if (seen.has(targetId)) {
-          throw new Error(`Seed-статья «${article.slug}»: связь на «${slug}» указана дважды`);
-        }
-        seen.add(targetId);
+        if (targetType === "article" && targetId === article.id) fail("ссылается сама на себя");
 
-        if (String(target.status) !== "published") {
-          throw new Error(
-            `Seed-статья «${article.slug}»: связанная статья «${slug}» не опубликована`,
-          );
-        }
+        const key = `${targetType}:${targetId}`;
+        if (seen.has(key)) fail(`цель «${key}» указана дважды`);
+        seen.add(key);
 
-        // Порядок — позиция в массиве, как у backfill и у формы админ-панели.
-        insertRelation.run(article.id, targetId, SEED_RELATION_ROLE, index, timestamp, timestamp);
+        // Порядок — позиция в массиве, как у формы админ-панели.
+        return { targetType, targetId, sortOrder: index };
       });
-    }
 
-    // Продукты и кейсы из legacy-секции «Материалы по теме» (Amendment 61 / REL-02F.1) — тем же
-    // разбором, что ручной импорт. Article-ссылки текста не пишутся: связи статей задаёт
-    // `relatedSlugs` выше (D1). Продукты и кейсы встают после article-связей в порядке текста.
-    for (const article of inserted) {
-      const extraction = extractLegacyRelatedSection(article.bodyMarkdown ?? "");
-      if (extraction.state === "no_section") continue;
-      if (extraction.state === "invalid") {
-        const codes = extraction.errors.map((error) => `${error.code}@${error.line}`).join(", ");
-        throw new Error(
-          `Seed-статья «${article.slug}»: секция «Материалы по теме» не распознана (${codes})`,
+      // `relatedSlugs` — только legacy-проекция статей для `related_slugs`: он обязан ровно совпасть
+      // со статьями из `relations`, по составу и порядку.
+      const slugs = article.relatedSlugs ?? [];
+      if (!Array.isArray(slugs)) fail("relatedSlugs не является массивом");
+      const legacyIds = slugs.map((slug, index) => {
+        if (typeof slug !== "string" || slug.trim() === "") {
+          fail(`пустой адрес в relatedSlugs на позиции ${index}`);
+        }
+        const row = findArticleBySlug.get(slug);
+        if (!row) fail(`связанная статья «${slug}» из relatedSlugs не найдена`);
+        return String(row.id);
+      });
+      const articleIds = rows
+        .filter((row) => row.targetType === "article")
+        .map((row) => row.targetId);
+      if (
+        articleIds.length !== legacyIds.length ||
+        articleIds.some((id, index) => id !== legacyIds[index])
+      ) {
+        fail(
+          `статьи из relations (${articleIds.join(", ")}) не совпадают с relatedSlugs ` +
+            `(${legacyIds.join(", ")})`,
         );
       }
 
-      let sortOrder = (article.relatedSlugs ?? []).length;
-      for (const target of extraction.targets) {
-        // Article-ссылки текста — только диагностика импорта (D1, уточнение 2026-09-15): seed их не
-        // пишет и не проверяет, как и импорт не блокируется ими ни в каком состоянии.
-        if (target.type === "article") continue;
-
-        const resolved = resolveLegacyTarget(db, target);
-        if (!resolved.found) {
-          throw new Error(`Seed-статья «${article.slug}»: цель «${target.href}» не найдена`);
-        }
-        if (!resolved.published) {
-          throw new Error(`Seed-статья «${article.slug}»: цель «${target.href}» не опубликована`);
-        }
-        if (sortOrder >= MAX_RELATIONS_PER_SOURCE) {
-          throw new Error(
-            `Seed-статья «${article.slug}»: больше ${MAX_RELATIONS_PER_SOURCE} связей`,
-          );
-        }
-
-        insertMaterialRelation.run(
+      for (const row of rows) {
+        insertRelation.run(
           article.id,
-          target.type,
-          resolved.id,
+          row.targetType,
+          row.targetId,
           SEED_RELATION_ROLE,
-          sortOrder,
+          row.sortOrder,
           timestamp,
           timestamp,
         );
-        sortOrder += 1;
       }
     }
 

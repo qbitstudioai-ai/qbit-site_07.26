@@ -2,8 +2,16 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import seedArticles from "../../../../../data/seed/articles.json";
+import seedProducts from "../../../../../data/seed/products.json";
+import { publicArticleBody } from "@/features/blog/articleBody";
 import { extractLegacyRelatedSection } from "@/features/blog/legacyRelatedSection.mjs";
-import { findAdjacentBlogPosts, findBlogPost } from "@/features/blog/posts";
+import { parseBlogMarkdown } from "@/features/blog/markdown";
+import {
+  countWords,
+  findAdjacentBlogPosts,
+  findBlogPost,
+  readingTimeLabel,
+} from "@/features/blog/posts";
 import { seedBlogPosts as blogPosts } from "@/tests/fixtures/seedContent";
 
 const TARGET_PRODUCT_LINKS: Record<string, { href: string; anchor: string }> = {
@@ -53,8 +61,8 @@ function seedArticle(slug: string) {
  * Markdown-файлами в `src/content/blog` и сохранять все требования к материалу (источники, связи,
  * объём, автор).
  *
- * Legacy-секция «Материалы по теме» (REL-02F.2) остаётся в СЫРОМ тексте seed до REL-02F.3, но в
- * публичные разделы не попадает: проверки ссылок секции идут по сырому тексту, а не по `sections`.
+ * Legacy-секции «Материалы по теме» в seed больше нет (REL-02F.3a): материалы по теме задаёт
+ * `relations[]`, а публичное тело совпадает с сырым текстом — strip на seed no-op.
  */
 describe("исходный набор статей", () => {
   it("содержит шесть статей с уникальными адресами, названиями и описаниями", () => {
@@ -87,8 +95,15 @@ describe("исходный набор статей", () => {
       expect(canonicalMarkdown.startsWith(`# ${index + 1}. ${seed.title}`)).toBe(true);
 
       expect(post.sections.some((section) => section.heading === "Источники")).toBe(true);
-      // Секция есть в сыром тексте и распознана, но в публичных разделах её нет.
-      expect(extractLegacyRelatedSection(seed.bodyMarkdown).state).toBe("ok");
+      // Секции нет ни в сыром тексте, ни в разделах; публичное тело — сам сырой текст.
+      expect(extractLegacyRelatedSection(seed.bodyMarkdown).state).toBe("no_section");
+      expect(publicArticleBody(seed.bodyMarkdown)).toEqual({
+        body: seed.bodyMarkdown,
+        legacySection: "no_section",
+      });
+      expect(post.sections).toEqual(parseBlogMarkdown(seed.bodyMarkdown));
+      expect(post.wordCount).toBe(countWords(seed.bodyMarkdown));
+      expect(post.readingTime).toBe(readingTimeLabel(countWords(seed.bodyMarkdown)));
       expect(post.sections.some((section) => section.heading === "Материалы по теме")).toBe(false);
       const sources = post.sections.find((section) => section.heading === "Источники");
       expect(JSON.stringify(sources)).toMatch(/https:\/\//);
@@ -102,20 +117,26 @@ describe("исходный набор статей", () => {
     }
   });
 
-  it("держит ровно одну целевую ссылку на продукт в legacy-секции сырого текста", () => {
+  it("целевой продукт статьи задан структурной связью по id, а не ссылкой в тексте", () => {
     for (const post of blogPosts) {
       const target = TARGET_PRODUCT_LINKS[post.slug];
       expect(target, post.slug).toBeDefined();
 
-      const markdown = seedArticle(post.slug).bodyMarkdown;
-      const targetMatches = markdown.match(markdownLinkPattern(target.anchor, target.href)) ?? [];
-      expect(targetMatches, post.slug).toHaveLength(1);
-
-      const extraction = extractLegacyRelatedSection(markdown);
-      if (extraction.state !== "ok") throw new Error(`${post.slug}: секция не распознана`);
-      expect(markdown.slice(extraction.range.start, extraction.range.end), post.slug).toContain(
-        `[${target.anchor}](${target.href})`,
+      const product = seedProducts.find(
+        (candidate) => `/products/${candidate.slug}` === target.href,
       );
+      expect(product, post.slug).toBeDefined();
+      const seed = seedArticle(post.slug);
+      expect(
+        seed.relations.filter((relation) => relation.targetType === "product"),
+        post.slug,
+      ).toEqual([{ targetType: "product", targetId: product!.id }]);
+
+      // Прежняя ссылка из legacy-секции из текста удалена.
+      expect(
+        seed.bodyMarkdown.match(markdownLinkPattern(target.anchor, target.href)) ?? [],
+        post.slug,
+      ).toHaveLength(0);
     }
   });
 

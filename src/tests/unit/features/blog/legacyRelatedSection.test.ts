@@ -137,18 +137,12 @@ describe("extractLegacyRelatedSection: распознавание", () => {
     expect(extractLegacyRelatedSection(markdown)).toEqual({ state: "no_section" });
   });
 
-  it("все seed-статьи распознаются: по одному продукту и двум статьям", () => {
+  it("seed-статьи после REL-02F.3a legacy-секции не содержат", () => {
+    expect(seedArticles).toHaveLength(6);
     for (const article of seedArticles) {
-      const result = extractOk(article.bodyMarkdown);
-      expect(
-        result.targets.map((target) => target.type),
-        article.slug,
-      ).toEqual(["product", "article", "article"]);
-      expect(
-        article.bodyMarkdown
-          .slice(result.range.start, result.range.end)
-          .startsWith("**Материалы по теме:**"),
-      ).toBe(true);
+      expect(extractLegacyRelatedSection(article.bodyMarkdown), article.slug).toEqual({
+        state: "no_section",
+      });
     }
   });
 });
