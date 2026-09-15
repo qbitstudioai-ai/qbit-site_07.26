@@ -365,6 +365,20 @@ describe("импорт: дефекты article-ссылок — только д�
       ["vtoraya"],
       (db: DatabaseSync) => addArticle(db, { id: SECOND_ID, slug: "vtoraya" }),
     ],
+    [
+      "canonical URL несуществующей статьи",
+      ["https://allqbit.ru/blog/old-slug"],
+      "unresolvedArticle",
+      ["old-slug"],
+      () => undefined,
+    ],
+    [
+      "повтор canonical URL статьи",
+      ["https://allqbit.ru/blog/vtoraya", "https://allqbit.ru/blog/vtoraya"],
+      "duplicateArticle",
+      ["vtoraya"],
+      (db: DatabaseSync) => addArticle(db, { id: SECOND_ID, slug: "vtoraya" }),
+    ],
   ])(
     "%s не блокирует импорт продукта и попадает в drift",
     (_label, hrefs, field, slugs, prepare) => {
@@ -388,6 +402,49 @@ describe("импорт: дефекты article-ссылок — только д�
       expect(articlesTable(db)).toEqual(articlesBefore);
     },
   );
+
+  it("canonical URL существующей статьи — только drift, продукт планируется (Amendment 61.2)", () => {
+    const db = sourceWithProductAnd(["https://allqbit.ru/blog/test-article"]);
+    addArticle(db, { id: "test-article-uuid", slug: "test-article" });
+
+    const report = runBackfillLegacyMaterialRelations(db, { now });
+
+    expect(report.state).toBe("ready");
+    expect(report.unknownUrls).toBe(0);
+    expect(report.plannedProductRelations).toBe(1);
+    expect(report.details.plan.map((item: { targetType: string }) => item.targetType)).toEqual([
+      "product",
+    ]);
+    expect(report.legacyArticleDrift).toEqual([
+      expect.objectContaining({
+        source: "istochnik",
+        markdown: ["test-article"],
+        missingInStructured: ["test-article"],
+      }),
+    ]);
+  });
+
+  it.each([
+    "http://allqbit.ru/blog/test",
+    "https://www.allqbit.ru/blog/test",
+    "https://example.com/blog/test",
+    "//allqbit.ru/blog/test",
+    "https://allqbit.ru/blog/test?x=1",
+    "https://allqbit.ru/blog/test#x",
+    "https://allqbit.ru/blog/test/",
+    "https://allqbit.ru/blog",
+    "https://allqbit.ru/products/test",
+    "https://allqbit.ru/cases/test",
+  ])("%s по-прежнему BLOCKED", (href) => {
+    const db = sourceWithProductAnd([href]);
+
+    const report = runBackfillLegacyMaterialRelations(db, { apply: true, now });
+
+    expect(report.state).toBe("blocked");
+    expect(report.unknownUrls).toBe(1);
+    expect(report.changed).toBe(0);
+    expect(allRelations(db)).toEqual([]);
+  });
 });
 
 describe("импорт: apply", () => {

@@ -65,6 +65,15 @@ const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 /** Адрес продукта по системному идентификатору (`/products/product-03`), а не по slug. */
 const PRODUCT_ID = /^product-\d+$/u;
 
+/**
+ * Canonical-адрес статьи этого сайта (Amendment 61.2): `https://allqbit.ru/blog/<slug>` — эквивалент
+ * `/blog/<slug>`. Форма ОДНА и точная: только `https`, только хост `allqbit.ru` (без `www`, порта,
+ * userinfo), только раздел `blog`, slug по правилам сайта, ни query, ни hash, ни `/` в конце.
+ * Абсолютные адреса продуктов и кейсов сюда намеренно не входят: импортируемые типы расширяются
+ * только при доказанной необходимости. Всё прочее абсолютное — `absolute_url`.
+ */
+const CANONICAL_ARTICLE_URL = /^https:\/\/allqbit\.ru\/blog\/([a-z0-9]+(?:-[a-z0-9]+)*)$/u;
+
 const TYPE_BY_SEGMENT = Object.freeze({ blog: "article", products: "product", cases: "case" });
 
 /** Строки тела с их положением в ИСХОДНОЙ строке: диапазон секции обязан указывать в неё, а не в копию. */
@@ -84,12 +93,18 @@ function splitLines(markdown) {
 /**
  * Внутренний адрес → тип и slug, либо код отказа.
  *
- * Допустимы только `/blog/<slug>`, `/products/<slug>`, `/cases/<slug>` дословно. Нормализовать адрес
+ * Допустимы только `/blog/<slug>`, `/products/<slug>`, `/cases/<slug>` дословно и одна абсолютная
+ * форма — canonical статьи `https://allqbit.ru/blog/<slug>` (Amendment 61.2). Нормализовать адрес
  * (срезать `/` в конце, строку запроса, якорь) модуль не пытается: ссылка другой формы — это данные,
  * которые человек написал иначе, и молча исправленная она перестала бы совпадать с текстом статьи.
  */
 function classifyHref(href) {
   if (href === "" || /\s/u.test(href)) return { code: "unknown_url" };
+
+  // Единственное исключение для абсолютных адресов — canonical статьи этого сайта (Amendment 61.2).
+  const canonicalArticle = href.match(CANONICAL_ARTICLE_URL);
+  if (canonicalArticle) return { type: "article", slug: canonicalArticle[1] };
+
   if (/^[a-z][a-z0-9+.-]*:/iu.test(href) || href.startsWith("//")) return { code: "absolute_url" };
   if (href.includes("?")) return { code: "query_url" };
   if (href.includes("#")) return { code: "hash_url" };

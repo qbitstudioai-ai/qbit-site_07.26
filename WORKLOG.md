@@ -176,6 +176,69 @@ product, `articles` неизменна; только article-дефекты → 
 **Статус:** `COMPLETED`. Commit/push/deploy не выполнялись; production DB и `var/content.db` не
 открывались. Перед production `--apply`: `backup.sh`, dry-run, сверка `articlesWithSection`.
 
+Commit `966770925bce62602af7bb71be42d1b35b3315ba` (8 файлов), push в `origin/master`; deploy не выполнялся.
+
+### Production dry-run REL-02F.1 и Amendment 61.2 (2026-09-15)
+
+**Production dry-run (данные руководителя; у меня доступа к production нет).** Deployed HEAD
+`fee40a4d7ca067b89b6e1f3a8c48ac36f989b285` (не менялся), `origin/master` `9667709`, production healthy.
+Результат: `state=blocked`, `articles=8`, `articlesWithSection=8`, `plannedProductRelations=6`,
+`plannedCaseRelations=0`, `missingTargets=0`, `unpublishedProducts=0`, `unpublishedCases=0`,
+`duplicates=0`, `structuralAnomalies=0`, `limitViolations=0`, `unknownUrls=7`, `changed=0`. Все 7 —
+абсолютные внутренние article URL `https://allqbit.ru/blog/<slug>`: `pochemu-ii-ne-rabotaet-v-biznes` —
+3, `kak-ponyat-chto-avtomatizirovat-v-biznes` — 4. Production DB не изменена.
+
+**Статус: `IN_PROGRESS`.** Amendment 61.2 (WORKPLAN): принять только точную форму
+`https://allqbit.ru/blog/<valid-slug>` как article target. Scope: extractor, тесты, журналы.
+
+**Изменено.**
+
+- `src/features/blog/legacyRelatedSection.mjs`: `CANONICAL_ARTICLE_URL =
+  /^https:\/\/allqbit\.ru\/blog\/([a-z0-9]+(?:-[a-z0-9]+)*)$/u`; в `classifyHref` проверяется до
+  общего `absolute_url` и возвращает `{type: "article", slug}`; `href` target остаётся исходным
+  абсолютным. Все прочие абсолютные формы — `absolute_url` без изменений.
+- Тесты extractor: canonical → article target с исходным `href`; +15 отказов `absolute_url` (http,
+  www, другой домен, `//allqbit.ru/blog/…`, query, hash, trailing slash, `/blog` index, абсолютные
+  `/products/` и `/cases/`, порт, userinfo, лишний сегмент, верхний регистр хоста, верхний регистр slug).
+- Тесты импорта: в таблице диагностики +«canonical несуществующей статьи» (`unresolvedArticle`) и
+  «повтор canonical» (`duplicateArticle`) — `ready`, продукт записан; +тест canonical существующей
+  статьи с продуктом (`ready`, `unknownUrls=0`, в плане только product, drift `missingInStructured`);
+  +10 адресов из ТЗ по-прежнему `blocked`, `unknownUrls=1`, `changed=0`, связей нет.
+- `dbSeedRelations`: +тест «canonical URL статьи не мешает seed и не создаёт article-связь».
+- `scripts/`, публичный код, БД — не менялись.
+
+**Команды и результат.** `prettier --write` — все файлы unchanged, `--check` чисто; `tsc` exit 0;
+`eslint .` exit 0; `git diff --check` exit 0; targeted по файлам: extractor 53, импорт 43,
+`dbSeedRelations` 19, `backfillArticleRelations` 31, `contentRelations` 27 — все passed; полный
+`npx vitest run` — 79 файлов, 976 тестов, exit 0; `npm run build` — exit 0, `/blog/[[...slug]]`
+динамический. `git status` — изменены 6 файлов шага.
+
+**Мутации, раунд 4** (тот же раннер + M23 canonical снова отвергается, M24 canonical принимает любой
+домен, M25 canonical принимает абсолютные `/products/` и `/cases/`, M26 снят якорь конца — canonical
+принимает query/hash): все 27 — `KILLED`, `restored: true`; `git status` после — только файлы шага.
+
+**Skeptic, раунд 4 — `PASS`. Блокирующих находок нет.** Ревьюер сам: targeted 5 файлов / 173 теста,
+`tsc`, `eslint .`, `prettier`, `git diff --check` — чисто; полный vitest 79/976 exit 0; мутации 27/27;
+scope — 6 путей, `scripts/` и публичный код не тронуты. Probe на 37 адресах: принимается только
+точная форма; регистр, punycode, кириллица в хосте/slug, завершающая точка хоста, поддомены, порт,
+userinfo, `http`, `//`, NBSP/`﻿`/`​`/`⁠`, перевод строки, `%`-кодирование, пустой/битый
+slug, лишние сегменты, query/hash, index, абсолютные `/products/` и `/cases/` — отказ. Смешанная секция
+(продукт + canonical существующей, та же относительной ссылкой, canonical несуществующей, canonical на
+себя) → `ready`, `unknownUrls=0`, только product; apply `changed=1`, `articles` неизменна. Неблокирующие:
+
+1. Устаревший JSDoc `classifyHref` — исправлено (упомянут canonical статьи).
+2. AC 1 в `WORKPLAN.md` без оговорки 61.2 — исправлено.
+3. `https://allqbit.ru/blog/product-03` принимается как статья, как и `/blog/product-03` — известное
+   свойство, не расширение сверх ТЗ (article-ссылки только диагностика).
+4. Условие production apply: повторный production dry-run обязан показать `unknownUrls=0`, 7 ссылок
+   в `legacyArticleDrift`, остальные blockers 0.
+
+После правок 1–2: `prettier --check` extractor чисто; `git diff --check` exit 0; vitest extractor + импорт
+— 96 passed.
+
+**Статус:** `COMPLETED`. Commit/push/deploy не выполнялись; production DB не изменялась; deployed HEAD
+остался `fee40a4`.
+
 ## 2026-09-14 — Amendment 60 / Step REL-02E.2: публичный блок читает только `content_relations`
 
 **Статус записи: шаг завершён (`COMPLETED`).** Запись открыта до правки кода со статусом

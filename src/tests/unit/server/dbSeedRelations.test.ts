@@ -466,6 +466,30 @@ describe("seedArticles: транзакция, идентификаторы и с
     ]);
   });
 
+  it("canonical URL статьи не мешает seed и не создаёт article-связь из Markdown", () => {
+    addProduct("product-uuid-x", "sbor-zayavok");
+    const markdown = [
+      "**Материалы по теме:**",
+      "- [Статья](https://allqbit.ru/blog/c)",
+      "- [Продукт](/products/sbor-zayavok)",
+    ].join("\n");
+
+    seedArticles(db, [
+      { ...seedArticle("id-a", "a"), bodyMarkdown: markdown },
+      seedArticle("id-c", "c"),
+    ]);
+
+    expect(allArticleSourceRelations()).toEqual([
+      {
+        source_id: "id-a",
+        target_type: "product",
+        target_id: "product-uuid-x",
+        relation_role: "related",
+        sort_order: 0,
+      },
+    ]);
+  });
+
   it("не пишет product-связи для статьи, которая уже была в базе", () => {
     addProduct("product-uuid-x", "sbor-zayavok");
     seedArticles(db, [seedArticle("id-a", "a"), seedArticle("id-c", "c")]);

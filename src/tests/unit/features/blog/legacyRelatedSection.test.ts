@@ -73,6 +73,18 @@ describe("extractLegacyRelatedSection: распознавание", () => {
     expect(result.lines).toEqual({ first: 6, last: 9 });
   });
 
+  it("canonical URL статьи https://allqbit.ru/blog/<slug> — article target, href исходный", () => {
+    const href = "https://allqbit.ru/blog/test-article";
+    const result = extractOk(body([item(href, "Статья"), item("/products/a")]));
+    expect(result.targets[0]).toEqual({
+      type: "article",
+      slug: "test-article",
+      href,
+      label: "Статья",
+      line: 7,
+    });
+  });
+
   it("заголовок без двоеточия допустим", () => {
     expect(extractOk(body([item("/products/a")], "**Материалы по теме**")).targets).toHaveLength(1);
   });
@@ -145,6 +157,21 @@ describe("extractLegacyRelatedSection: отказы", () => {
   it.each([
     ["абсолютный URL", "https://allqbit.ru/products/a", "absolute_url"],
     ["протокол-относительный URL", "//allqbit.ru/products/a", "absolute_url"],
+    ["http вместо https", "http://allqbit.ru/blog/test", "absolute_url"],
+    ["www-хост", "https://www.allqbit.ru/blog/test", "absolute_url"],
+    ["другой домен", "https://example.com/blog/test", "absolute_url"],
+    ["протокол-относительный /blog", "//allqbit.ru/blog/test", "absolute_url"],
+    ["canonical + query", "https://allqbit.ru/blog/test?x=1", "absolute_url"],
+    ["canonical + hash", "https://allqbit.ru/blog/test#x", "absolute_url"],
+    ["canonical + trailing slash", "https://allqbit.ru/blog/test/", "absolute_url"],
+    ["canonical index /blog", "https://allqbit.ru/blog", "absolute_url"],
+    ["абсолютный продукт", "https://allqbit.ru/products/test", "absolute_url"],
+    ["абсолютный кейс", "https://allqbit.ru/cases/test", "absolute_url"],
+    ["canonical с портом", "https://allqbit.ru:443/blog/test", "absolute_url"],
+    ["canonical с userinfo", "https://user@allqbit.ru/blog/test", "absolute_url"],
+    ["canonical с лишним сегментом", "https://allqbit.ru/blog/a/b", "absolute_url"],
+    ["canonical в верхнем регистре", "HTTPS://ALLQBIT.RU/blog/test", "absolute_url"],
+    ["canonical со slug в верхнем регистре", "https://allqbit.ru/blog/Test", "absolute_url"],
     ["query", "/products/a?utm=1", "query_url"],
     ["hash", "/blog/a#razdel", "hash_url"],
     ["trailing slash", "/cases/a/", "trailing_slash"],

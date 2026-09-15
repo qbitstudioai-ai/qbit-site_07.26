@@ -23,8 +23,22 @@
 
 ### Step REL-02F.1 — импорт product/case из legacy Markdown-секции в `content_relations`
 
-- Status: `COMPLETED` (skeptic: раунды 1–2 `PASS`; повторно открыт по Amendment 61.1; раунд 3
-  `PASS`, неблокирующие закрыты — см. `WORKLOG.md`).
+- Status: `COMPLETED` (commit `9667709` — skeptic раунды 1–3 `PASS`; повторно открыт по Amendment 61.2;
+  раунд 4 `PASS`, неблокирующие закрыты; перед production apply — повторный dry-run, см. `WORKLOG.md`).
+- Amendment 61.2 — canonical URL статьи в legacy-секции (руководитель, 2026-09-15).
+  - Reason: production dry-run 2026-09-15 на deployed HEAD `fee40a4` (скрипт из `9667709`):
+    `state=blocked`, `unknownUrls=7` — все семь — абсолютные внутренние article URL
+    `https://allqbit.ru/blog/<slug>` в двух production-статьях (`pochemu-ii-ne-rabotaet-v-biznes` — 3,
+    `kak-ponyat-chto-avtomatizirovat-v-biznes` — 4). Остальные blockers — 0, planned product 6.
+  - Old scope: любой абсолютный URL — `absolute_url` (blocker).
+  - New scope: ТОЛЬКО точная форма `https://allqbit.ru/blog/<valid-slug>` → article target (эквивалент
+    `/blog/<slug>`), `href` в target — исходный абсолютный. По-прежнему `absolute_url`: `http://`,
+    `www.`, другие домены, `//allqbit.ru/…`, абсолютные `/products/` и `/cases/`, userinfo, порт,
+    верхний регистр. Query, hash, trailing slash, index `/blog`, лишние сегменты — отказ.
+    `body_markdown`, статьи и БД не меняются.
+  - Impact: `classifyHref` extractor; тесты extractor, импорта, seed; мутации. Публичный код не
+    затрагивается.
+  - Approval: руководитель, 2026-09-15.
 - Amendment 61.1 — уточнение D1 (руководитель, 2026-09-15; ответ на находку 2 skeptic).
   - Reason: article-ссылки Markdown не импортируются, поэтому их дефекты не должны останавливать
     импорт product/case.
@@ -71,7 +85,8 @@
     product/case связи после article-связей; article-ссылки Markdown не пишутся; та же транзакция.
 - Acceptance criteria:
   1. Extractor распознаёт ровно одну строку `**Материалы по теме**` / `**Материалы по теме:**` с
-     маркированным списком и отвергает: абсолютные URL, query, hash, trailing slash, index URL,
+     маркированным списком и отвергает: абсолютные URL (кроме точного canonical статьи
+     `https://allqbit.ru/blog/<slug>` — Amendment 61.2), query, hash, trailing slash, index URL,
      `/products/<id>`, неизвестный тип, повтор секции, неоднозначный заголовок (`##`, без жирного,
      с текстом в строке), не-списочные строки, пункт без ссылки или с несколькими ссылками, дубль
      product/case (повтор article-ссылки — не отказ, диагностика импорта; Amendment 61.1).
