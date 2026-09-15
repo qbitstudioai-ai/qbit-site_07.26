@@ -132,9 +132,13 @@
 
 ### Step REL-02F.2 — единый публичный блок «Материалы по теме»
 
-- Status: `COMPLETED` (2026-09-15; skeptic `PASS`, блокирующих нет; проверки — `WORKLOG.md`).
-  База `dab3e4b`. Commit, push, deploy не выполнялись; production gate — отдельно. Основание: read-only pre-flight аудит (`PASS`) и
-  решения руководителя D4–D7 того же дня. REL-02F.1 production completed (25 связей).
+- Status: `COMPLETED` — **PRODUCTION COMPLETED / VERIFIED** (2026-09-15): production commit
+  `e0813b74bfe5db1b0e7be310cef77fb805ba85a3`; public SSR acceptance PASS; ручная браузерная приёмка
+  PASS; БД шагом не изменена (связи 25 / 19 / 6 / 0, `integrity_check=ok`); homepage lastmod без
+  изменений; IndexNow для этого deploy не отправлялся. Доказательства — `WORKLOG.md`, «Production
+  closure REL-02F.2». (Skeptic `PASS`, блокирующих нет; база реализации `dab3e4b`.)
+- Основание: read-only pre-flight аудит (`PASS`) и решения руководителя D4–D7 того же дня. REL-02F.1
+  production completed (25 связей).
 - Решения руководителя (2026-09-15):
   - D4: название цели — `articles.title`, `products.full_title`, `cases.short_title`.
   - D5: extractor `invalid` → секция НЕ скрывается, остаётся видимой, server-side warn; lossy-скрытие

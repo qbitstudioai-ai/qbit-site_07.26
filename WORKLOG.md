@@ -118,6 +118,37 @@ department отсекается `COALESCE`, порядок как `listRelations
 
 **Статус:** `COMPLETED`. Commit/push/deploy не выполнялись; production не трогался.
 
+### Production closure REL-02F.2 (2026-09-15)
+
+**Данные руководителя; у меня доступа к production нет.** Код не менялся. Commit шага —
+`e0813b74bfe5db1b0e7be310cef77fb805ba85a3` (push в `origin/master`).
+
+1. Pre-deploy gate: deployed HEAD до deploy `fee40a4d7ca067b89b6e1f3a8c48ac36f989b285`; target
+   `e0813b74bfe5db1b0e7be310cef77fb805ba85a3`; tracked production tree clean; container healthy;
+   различий `deploy.sh` нет; различий схемы и миграций нет.
+2. F.1 consistency dry-run: `state=already-applied`, `articles=8`, `articlesWithSection=8`,
+   `plannedProductRelations=0`, `plannedCaseRelations=0`, `alreadyExisting=6`, все blockers — 0,
+   `changed=0`.
+3. Homepage pre-deploy dry-run: `changed=0`; lastmod без изменений — `2026-09-05T18:05:10.178Z`.
+4. БД до deploy: `content_relations` total 25 — article→article 19, article→product 6, article→case 0;
+   `invalidPublicTargets=[]`; `integrity_check=ok`.
+5. Production backup: `/opt/allqbit-data/backups/content-rel02f2-20260915T094425Z.db`, pages 159,
+   integrity `ok`, SHA256 `49d0309d170d6aa1f043da7217574ab66cc4fde8ec04cf09a549a609ad3811eb`.
+6. Deploy: HEAD переключён на `e0813b74…`; build PASS; image
+   `sha256:54008dbbea819aab3d27ec48f1079a7ec0d5dda0feb66e528af3d0d5d21840e0`; схема БД уже актуальна;
+   homepage apply `changed=0`, lastmod без изменений; container пересоздан; сайт ответил со 2-й попытки.
+7. Post-deploy: HEAD `e0813b74bfe5db1b0e7be310cef77fb805ba85a3`; health=healthy; связи по-прежнему
+   25 / 19 / 6 / 0; `integrity_check=ok`.
+8. Public SSR acceptance, `https://allqbit.ru/blog/analiz-zvonkov-otdela-prodazh`: `relatedHeading=1`,
+   `oldHeading=0`, `legacyInToc=0`, `callAnalysisProductHref=1` — PUBLIC SSR REL-02F.2: PASS.
+9. Ручная браузерная приёмка (Pavel): PASS — один блок «Материалы по теме»; видны материалы-статьи и
+   продукт; клиентский переход по статье меняет URL и статью; материалы обновляются для целевой статьи;
+   «Назад» в браузере работает; ссылка на продукт открывает `/products/...`.
+
+БД шагом F.2 не изменена; IndexNow для этого deploy не отправлялся.
+
+**Статус: PRODUCTION COMPLETED / VERIFIED.** REL-02F.3 — `PROPOSED`, не начат.
+
 ## 2026-09-15 — Amendment 61 / Step REL-02F.1: импорт product/case из legacy Markdown-секции
 
 **Статус записи: `IN_PROGRESS`.** Запись открыта до правки кода. HEAD = `origin/master` =
