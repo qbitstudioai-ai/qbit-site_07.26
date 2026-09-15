@@ -18,6 +18,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { extractLegacyRelatedSection } from "../src/features/blog/legacyRelatedSection.mjs";
+import {
+  MAX_RELATIONS_PER_SOURCE,
+  resolveLegacyTarget,
+} from "./backfill-legacy-material-relations.mjs";
 import {
   applyMigrations,
   nowIso,
@@ -126,6 +131,12 @@ export function seedArticles(db, articles, timestamp = nowIso()) {
         created_at, updated_at)
      VALUES ('article', ?, 'article', ?, ?, ?, ?, ?)`,
   );
+  const insertMaterialRelation = db.prepare(
+    `INSERT INTO content_relations
+       (source_type, source_id, target_type, target_id, relation_role, sort_order,
+        created_at, updated_at)
+     VALUES ('article', ?, ?, ?, ?, ?, ?, ?)`,
+  );
 
   const inserted = [];
 
@@ -197,6 +208,51 @@ export function seedArticles(db, articles, timestamp = nowIso()) {
         // Порядок — позиция в массиве, как у backfill и у формы админ-панели.
         insertRelation.run(article.id, targetId, SEED_RELATION_ROLE, index, timestamp, timestamp);
       });
+    }
+
+    // Продукты и кейсы из legacy-секции «Материалы по теме» (Amendment 61 / REL-02F.1) — тем же
+    // разбором, что ручной импорт. Article-ссылки текста не пишутся: связи статей задаёт
+    // `relatedSlugs` выше (D1). Продукты и кейсы встают после article-связей в порядке текста.
+    for (const article of inserted) {
+      const extraction = extractLegacyRelatedSection(article.bodyMarkdown ?? "");
+      if (extraction.state === "no_section") continue;
+      if (extraction.state === "invalid") {
+        const codes = extraction.errors.map((error) => `${error.code}@${error.line}`).join(", ");
+        throw new Error(
+          `Seed-статья «${article.slug}»: секция «Материалы по теме» не распознана (${codes})`,
+        );
+      }
+
+      let sortOrder = (article.relatedSlugs ?? []).length;
+      for (const target of extraction.targets) {
+        // Article-ссылки текста — только диагностика импорта (D1, уточнение 2026-09-15): seed их не
+        // пишет и не проверяет, как и импорт не блокируется ими ни в каком состоянии.
+        if (target.type === "article") continue;
+
+        const resolved = resolveLegacyTarget(db, target);
+        if (!resolved.found) {
+          throw new Error(`Seed-статья «${article.slug}»: цель «${target.href}» не найдена`);
+        }
+        if (!resolved.published) {
+          throw new Error(`Seed-статья «${article.slug}»: цель «${target.href}» не опубликована`);
+        }
+        if (sortOrder >= MAX_RELATIONS_PER_SOURCE) {
+          throw new Error(
+            `Seed-статья «${article.slug}»: больше ${MAX_RELATIONS_PER_SOURCE} связей`,
+          );
+        }
+
+        insertMaterialRelation.run(
+          article.id,
+          target.type,
+          resolved.id,
+          SEED_RELATION_ROLE,
+          sortOrder,
+          timestamp,
+          timestamp,
+        );
+        sortOrder += 1;
+      }
     }
 
     db.exec("COMMIT");

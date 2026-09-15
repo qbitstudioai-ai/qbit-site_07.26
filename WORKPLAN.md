@@ -1,5 +1,125 @@
 # WORKPLAN
 
+## Amendment 61 — единый блок «Материалы по теме» из `content_relations` (2026-09-15)
+
+- Status: `APPROVED` — read-only аудит REL-02F на HEAD `7b3d0ff` принят руководителем (`PASS`)
+  2026-09-15; разбиение и решения D1–D3 заданы руководителем в том же сообщении.
+- Причина: статья показывает два блока перелинковки — legacy Markdown-секцию «Материалы по теме»
+  (product + article) и структурный блок «Связанные статьи» (article из `content_relations`). Блоки
+  дублируют и противоречат друг другу (3 из 6 seed-статей: другой порядок или состав). Product/case
+  ссылки существуют только в Markdown.
+- Решение D1 (руководитель): после REL-02E structured article relations авторитетны. Article-ссылки
+  Markdown НЕ мигрируются, только анализируются и попадают в отчёт `legacyArticleDrift`; расхождение
+  не является конфликтом и не блокирует; существующие structured article relations нельзя удалять,
+  добавлять или переставлять.
+- Решение D2 (руководитель): будущий единый блок использует названия сущностей; пояснения и ручные
+  anchor-тексты Markdown не сохраняются.
+- Решение D3 (руководитель): в REL-02F.3 `articles.updated_at` / sitemap `lastmod` не двигаются;
+  IndexNow за уборку уже скрытой секции не отправляется.
+- Разбиение: три шага, каждый проходит skeptic отдельно и имеет свой production gate —
+  REL-02F.1 (импорт product/case) → REL-02F.2 (единый публичный блок) → REL-02F.3 (физическое
+  удаление Markdown-секции). Сейчас в работе только REL-02F.1; F.2 и F.3 — `PROPOSED`, их scope
+  уточняется перед стартом.
+
+### Step REL-02F.1 — импорт product/case из legacy Markdown-секции в `content_relations`
+
+- Status: `COMPLETED` (skeptic: раунды 1–2 `PASS`; повторно открыт по Amendment 61.1; раунд 3
+  `PASS`, неблокирующие закрыты — см. `WORKLOG.md`).
+- Amendment 61.1 — уточнение D1 (руководитель, 2026-09-15; ответ на находку 2 skeptic).
+  - Reason: article-ссылки Markdown не импортируются, поэтому их дефекты не должны останавливать
+    импорт product/case.
+  - Old scope: ненайденная статья и ссылка на себя — blockers; повтор любой цели — отказ extractor.
+  - New scope: для синтаксически валидного `/blog/<slug>` состояния «не существует», «черновик»,
+    «другой раздел», «ссылка на себя», «повтор» попадают в `legacyArticleDrift` полями
+    `unresolvedArticle`, `unpublishedArticle`, `placementMismatch`, `selfLink`, `duplicateArticle` и
+    НЕ дают `blocked`. Malformed URL и неоднозначная секция — по-прежнему blockers. Для product/case
+    fail-closed без изменений (missing, unpublished/hidden, duplicate, structural anomaly). Правило
+    «target не существует → BLOCKED» относится только к product/case. Seed article-ссылки текста не
+    пишет и не проверяет.
+  - Impact: реализация и тесты импорта, extractor (повтор article-ссылки не отказ), seed, мутации;
+    публичный код не затрагивается.
+  - Approval: руководитель, 2026-09-15.
+- Objective: без изменения публичного рендера добавить в `content_relations` связи article→product и
+  article→case, которые сейчас есть только в Markdown-секции «Материалы по теме». Article targets
+  уже мигрированы (REL-02C/E) и не трогаются.
+- In scope: общий чистый extractor `src/features/blog/legacyRelatedSection.mjs` (новый); ручной скрипт
+  `scripts/backfill-legacy-material-relations.mjs` (новый); `scripts/db-seed.mjs`; новые тесты
+  `src/tests/unit/features/blog/legacyRelatedSection.test.ts`,
+  `src/tests/unit/server/backfillLegacyMaterialRelations.test.ts`, дополнение
+  `src/tests/unit/server/dbSeedRelations.test.ts`; журналы.
+- Out of scope: `BlogExperience.tsx`, `posts.ts`, `server/content/articles.ts`, публичный запрос
+  REL-02E в `contentRelations.ts`, `app/blog/[[...slug]]/page.tsx`, sitemap, metadata, схема и
+  миграции, write path REL-02D, `var/content.db`, production DB; commit, push, deploy.
+- Архитектура:
+  - Extractor работает по СЫРОМУ `body_markdown`, не через `parseBlogMarkdown`, в БД не пишет.
+    Возвращает `no_section` | `invalid` (коды ошибок) | `ok`: точный raw range (символы и строки),
+    упорядоченные targets `{type, slug, href, label}`.
+  - Скрипт: dry-run по умолчанию (дескриптор read-only), `--apply` явно. Источники — опубликованные
+    статьи фактической БД. Article targets разрешаются и сравниваются со structured article subset →
+    `legacyArticleDrift` (`missingInStructured`, `extraInStructured`, `orderDiff`, а также
+    `unresolvedArticle`, `unpublishedArticle`, `placementMismatch`, `selfLink`, `duplicateArticle` —
+    Amendment 61.1), не пишутся и не блокируют.
+    Product: slug → `products.id`, `is_published = 1`. Case: slug → `cases.id`,
+    `cases.status = 'published'` прямым SQL. Department не импортируется никогда; inferred relations нет.
+  - Merge: существующие связи неприкосновенны (нет DELETE/UPDATE). Новые product/case — после
+    `max(sort_order)` источника, между собой в порядке Markdown, роль `related`, stable IDs. Цель уже
+    есть ровно одной строкой → noop; одна цель несколькими строками (разные роли) → структурная
+    аномалия, BLOCKED. Лимит 24 связи на источник после merge.
+  - Apply — одна транзакция на прогон, план пересобирается внутри транзакции; расхождение с планом до
+    транзакции или любой blocker → ROLLBACK всего прогона.
+  - Seed: после article→article связей статей, вставленных этим запуском, тем же extractor —
+    product/case связи после article-связей; article-ссылки Markdown не пишутся; та же транзакция.
+- Acceptance criteria:
+  1. Extractor распознаёт ровно одну строку `**Материалы по теме**` / `**Материалы по теме:**` с
+     маркированным списком и отвергает: абсолютные URL, query, hash, trailing slash, index URL,
+     `/products/<id>`, неизвестный тип, повтор секции, неоднозначный заголовок (`##`, без жирного,
+     с текстом в строке), не-списочные строки, пункт без ссылки или с несколькими ссылками, дубль
+     product/case (повтор article-ссылки — не отказ, диагностика импорта; Amendment 61.1).
+     Отсутствие секции — `no_section`. CRLF и секция в середине тела поддерживаются; raw range точен.
+  2. Blockers скрипта: malformed/ambiguous section, unknown URL, product/case не существует, скрытый
+     продукт, кейс со `status ≠ 'published'`, дубль product/case в Markdown, структурная аномалия,
+     > 24 связей после merge, изменение БД между планом и перепроверкой в транзакции (Amendment 61.1).
+  3. Article drift не blocker и попадает в отчёт; article relations не создаются, не удаляются и не
+     переставляются. Для валидного `/blog/<slug>` несуществующая статья, черновик, другой раздел,
+     ссылка на себя и повтор — поля `unresolvedArticle`, `unpublishedArticle`, `placementMismatch`,
+     `selfLink`, `duplicateArticle` в `legacyArticleDrift`, импорт product/case не блокируют
+     (Amendment 61.1).
+  4. Существующие связи (любых типов) побайтно неизменны после apply; новые product/case идут после
+     `max(sort_order)` в порядке Markdown; `source_id`/`target_id` — stable IDs (фикстуры id ≠ slug).
+  5. Таблица `articles` до/после apply идентична (включая `body_markdown`, `related_slugs`,
+     `updated_at`); `content_revisions` и `activity_log` не пополняются.
+  6. Отчёт JSON содержит поля `mode, state, articles, articlesWithSection, noSection,
+     plannedProductRelations, plannedCaseRelations, alreadyExisting, legacyArticleDrift,
+     ambiguousSections, unknownUrls, missingTargets, unpublishedProducts, unpublishedCases, duplicates,
+     structuralAnomalies, limitViolations, changed`; states `ready | applied | already-applied |
+     blocked`; ненулевой код возврата только у `blocked`. Повторный apply → `already-applied`,
+     `changed = 0`.
+  7. Свежий seed: article relations в порядке `relatedSlugs`, после них product/case из Markdown;
+     backfill REL-02E даёт `already-applied`; новый скрипт на seed-базе — `already-applied`; повторный
+     seed ничего не меняет.
+  8. Мутации роняют тесты: импорт article-ссылок Markdown; смена порядка существующих article
+     relations; снятие фильтра `is_published`; снятие фильтра статуса кейса; slug вместо target_id;
+     разрешение query URL; снятие транзакции; запись `articles.updated_at`/`body_markdown`.
+- Verification: vitest по новым тестам и смежным `backfillArticleRelations`, `dbSeedRelations`,
+  `contentRelations`; `npx tsc --noEmit`; `npx eslint .`; `npx prettier --check` по файлам шага;
+  `git diff --check`; полный `npx vitest run`; `npm run build`; мутационные проверки; skeptic.
+- Risks: (а) extractor расходится с `parseBlogMarkdown` — extractor строже парсера, неоднозначное
+  отвергается, а не угадывается; (б) неизвестная структура двух production-статей с UUID — fail closed
+  и отчёт, данные правит человек; (в) seed падает, если владелец скрыл seed-продукт до вставки статьи
+  — fail closed, осознанно; (г) публичный вывод не меняется, поэтому связи до F.2 невидимы.
+- Rollback: код — удалить два новых файла и тесты, `git checkout -- scripts/db-seed.mjs`. Данные
+  после apply — удалить вставленные строки по списку из отчёта (`source_id`, `target_type`,
+  `target_id`); таблица `articles` не затронута. Перед production apply — `backup.sh`.
+
+### Step REL-02F.2 — единый публичный блок «Материалы по теме»
+
+- Status: `PROPOSED`. Зависит от REL-02F.1 и его production apply. Scope уточняется перед стартом.
+
+### Step REL-02F.3 — физическое удаление legacy Markdown-секции
+
+- Status: `PROPOSED`. Зависит от production-приёмки REL-02F.2; `updated_at` не двигается, IndexNow не
+  отправляется (D3). Scope уточняется перед стартом.
+
 ## Amendment 60 — публичный блок «Связанные статьи» читает `content_relations` (2026-09-14)
 
 - Status: `APPROVED` — текст подготовлен по решениям руководителя R1/R2 от 2026-09-14; утверждена

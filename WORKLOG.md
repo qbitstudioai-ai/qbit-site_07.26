@@ -1,5 +1,181 @@
 # WORKLOG
 
+## 2026-09-15 — Amendment 61 / Step REL-02F.1: импорт product/case из legacy Markdown-секции
+
+**Статус записи: `IN_PROGRESS`.** Запись открыта до правки кода. HEAD = `origin/master` =
+`7b3d0ff`. Основание: read-only аудит REL-02F (`PASS`, принят руководителем 2026-09-15), решения
+D1–D3 — в `WORKPLAN.md`, Amendment 61. Scope: `src/features/blog/legacyRelatedSection.mjs` (новый),
+`scripts/backfill-legacy-material-relations.mjs` (новый), `scripts/db-seed.mjs`, новые тесты,
+`dbSeedRelations.test.ts`, журналы. Не меняются: публичный рендер и чтение, sitemap, metadata, схема,
+write path REL-02D, `var/content.db`, production DB. Commit/push/deploy запрещены.
+
+**Исходные факты аудита.** Секция «Материалы по теме» — последний раздел всех 6 seed-статей, 3 пункта
+(1 product + 2 article); все 18 внутренних ссылок тел находятся в ней; case-ссылок в seed нет.
+Article-ссылки Markdown расходятся со structured у 3 из 6 статей (порядок у одной, состав у двух) — по
+D1 это drift, а не конфликт. `toCase()` жёстко возвращает `status: "published"`, поэтому статус кейса
+проверяется только SQL по строке `cases`.
+
+**Изменено.**
+
+- `src/features/blog/legacyRelatedSection.mjs` (новый, чистый, без БД): `extractLegacyRelatedSection(markdown)`
+  → `no_section` | `invalid{errors[code,line,detail]}` | `ok{heading, range{start,end}, lines{first,last},
+  targets[{type,slug,href,label,line}]}`. Разбор сырого текста по строкам со смещениями в исходной
+  строке (CRLF). Заголовок — только `**Материалы по теме**` / `**Материалы по теме:**`; строки,
+  похожие на заголовок (`##`, без жирного, с текстом, курсив), — `ambiguous_heading`; повтор —
+  `duplicate_section`; строки внутри блока кода не считаются. Секция длится до следующей строки-
+  заголовка парсера статьи или конца тела; внутри только `- ` пункты и пустые строки
+  (`malformed_section`), ровно одна ссылка в пункте (`malformed_item`). URL: `absolute_url`,
+  `query_url`, `hash_url`, `trailing_slash`, `index_url`, `product_id_url` (`/products/product-N`),
+  `unknown_url`; повтор цели — `duplicate_target`. Все причины возвращаются сразу.
+- `scripts/backfill-legacy-material-relations.mjs` (новый): `resolveLegacyTarget` (slug → id прямым
+  SQL по `articles`/`products`/`cases`; публикация `status`/`is_published`/`cases.status` по строке;
+  `isProductId` для адреса-идентификатора), `buildPlan`, `runBackfillLegacyMaterialRelations`,
+  `exitCodeFor`, `MAX_RELATIONS_PER_SOURCE = 24`. Источники — опубликованные статьи. Article targets —
+  только `legacyArticleDrift` (`missingInStructured`, `extraInStructured`, `orderDiff`,
+  `unavailableInMarkdown`), в план не попадают. Product/case: существующая цель одной строкой —
+  noop (`alreadyExisting`); цель несколькими строками — `structuralAnomalies`; новые — после
+  `max(sort_order)` источника, в порядке текста, роль `related`. Статья с любым дефектом в план не
+  попадает. Только `INSERT`; одна транзакция; план внутри транзакции пересобирается и сверяется по
+  отпечатку, расхождение или дефект → исключение и ROLLBACK. CLI: `readOnly: !apply`, код 1 только у
+  `blocked`.
+- `scripts/db-seed.mjs`: после article→article связей вставленных статей — product/case из секции тем
+  же extractor и `resolveLegacyTarget`; `sort_order` с `relatedSlugs.length`; article-ссылки текста
+  пропускаются; нераспознанная секция, ненайденная или скрытая цель, превышение 24 → исключение,
+  откат всего блока статей (та же транзакция).
+- `src/tests/unit/features/blog/legacyRelatedSection.test.ts` (новый, 34 теста);
+  `src/tests/unit/server/backfillLegacyMaterialRelations.test.ts` (новый, 24 теста: план/dry-run,
+  drift, apply побайтно, порядок разных типов, повтор, noop/primary, откат через триггер, перепроверка
+  через обёртку `exec("BEGIN")`, все blockers, лимит 22+2/23+2, CLI read-only на временном файле);
+  `src/tests/unit/server/dbSeedRelations.test.ts`: +тест свежей базы (product после article по id,
+  article-связи = `relatedSlugs`, backfill REL-02E и новый импорт — `already-applied`), +3 теста
+  `seedArticles` (порядок и игнор article-ссылок, откат при скрытом/несуществующем продукте и битой
+  секции, существующая статья). В тесте `--reset` отбор сверки изменён на `source_type <> 'article'`:
+  seed теперь законно создаёт article→product.
+- Не изменены (`git status`): публичный рендер и чтение, `contentRelations.ts`, `server/content`,
+  `app/`, sitemap, metadata, схема, write path REL-02D, `var/`.
+
+**Команды и результат.**
+
+- `npx prettier --write` по 6 файлам шага (4 переформатированы), затем `--check` — чисто.
+- Targeted vitest (новые 2 + `dbSeedRelations`, `backfillArticleRelations`, `contentRelations`) —
+  5 файлов, 133 теста, exit 0.
+- `npx tsc --noEmit` — сначала exit 2 (TS7006, неявный `any` в тесте), после аннотации — exit 0.
+- `npx eslint .` — exit 0. `git diff --check` — exit 0.
+- Полный `npx vitest run` — 79 файлов, 936 тестов, exit 0.
+- `npm run build` — exit 0, `/blog/[[...slug]]` динамический.
+- Счётчики файлов (`npx vitest run <file>`): extractor 34, импорт 24, `dbSeedRelations` 17 — все passed.
+
+**Мутационные проверки** (раннер в scratchpad: точная замена, ровно одно вхождение, прогон vitest по
+указанным файлам, восстановление в `finally`, сверка sha256 после — `restored: true`; `git status`
+после — только файлы шага). Все 14 — `KILLED`:
+M1 импорт article-ссылок Markdown (импорт: 9 failed); M2 сдвиг `sort_order` существующих article
+relations при apply (2); M3 снят `is_published` (импорт + seed: 3); M4 снят статус кейса (1); M5a slug
+вместо `target_id` в импорте (4); M5b то же в seed (2); M6 разрешён query URL (extractor + импорт: 2);
+M7 снята транзакция (7); M8a запись `articles.updated_at` (1); M8b запись `body_markdown` (1); M9 seed
+пишет article-ссылки Markdown (5); M10 seed ставит product/case с 0 (2); M11 extractor принимает `##`
+(7); M12 drift становится blocker (11).
+
+**Skeptic, раунд 1 — `PASS`. Блокирующих находок нет.** Ревьюер сам запустил targeted vitest
+(133), `tsc`, `eslint`, `prettier`, `git diff --check`, полный vitest (первый прогон параллельно с его
+probe — 1 файл не собрался, два следующих подряд — 79/936, exit 0; не воспроизвелось); build не
+перепроверял. Probe на `:memory:` подтвердил D1, merge, перепроверку по отпечатку, исключение
+черновиков, parity seed ↔ импорт. Неблокирующие находки и что с ними сделано:
+
+1. NBSP в заголовке (`по теме`) давал `no_section` (fail-open) — исправлено: `HEADING_LIKE`
+   принимает `\s+` между словами → `ambiguous_heading`; тест.
+2. Ссылка на отсутствующую статью (`/blog/<старый slug>`) блокирует весь импорт product/case, а
+   неопубликованная статья — только drift. Поведение соответствует AC 2 («target не существует»);
+   **не менялось, вынесено на решение руководителя** до production dry-run.
+3. Гонка между планом и записью бросала исключение без JSON-отчёта — исправлено: ROLLBACK и отчёт
+   `state=blocked`, `concurrentChange=true` (поле есть во всех отчётах); исключение остаётся только
+   для сбоя самой записи (тоже после ROLLBACK). Тесты обновлены, +тест `concurrentChange=false`.
+4. Тест `--reset` перестал проверять article→product после сброса — исправлено: общий хелпер
+   `expectMaterialRelations` вызывается и в тесте свежей базы, и после `--reset`.
+5. Seed не проверял article-ссылки Markdown, импорт их проверяет — исправлено: seed разрешает их
+   (не пишет) и падает на ненайденной статье и ссылке на себя; +2 теста.
+6. `- ![x](/products/a)` принималась как ссылка — исправлено: картинка → `malformed_item`; тест.
+7. Нестабильность полного прогона под параллельной нагрузкой — не воспроизводится, записано.
+8. Build не перепроверен ревьюером — пересобран после исправлений (ниже).
+
+**Команды после исправлений.** `prettier --write` (4 файла) → `--check` чисто; `tsc` exit 0;
+`eslint .` exit 0; `git diff --check` exit 0; targeted по файлам: extractor 36, импорт 25,
+`dbSeedRelations` 19, `backfillArticleRelations` 31, `contentRelations` 27 — все passed; полный
+`npx vitest run` — 79 файлов, 941 тест, exit 0; `npm run build` — exit 0, `/blog/[[...slug]]`
+динамический. `git status` — только файлы шага.
+- Мутации, раунд 2 (тот же раннер; M9 переписан под новый код seed; добавлены M13 NBSP → обычный
+  пробел, M14 гонка снова бросает исключение, M15 seed не проверяет ссылку на себя, M16 картинка
+  принимается): все 18 — `KILLED`, `restored: true`.
+
+**Skeptic, раунд 2 (подтверждение исправлений) — `PASS`.** Ревьюер сам: targeted 5 файлов / 138
+тестов, `tsc`, `eslint`, `prettier`, `git diff --check` — чисто; полный vitest 79/941 exit 0; scope —
+те же 9 путей. Probe: NBSP и картинка → отказ, ложных отказов нет; ветка гонки — один ROLLBACK,
+`isTransaction=false`, соединение пригодно; сбой записи — один ROLLBACK в `catch`. Неблокирующее:
+теоретический сбой самого ROLLBACK в ветке гонки маскировался бы вторым ROLLBACK — оставлено как
+известное свойство; build ревьюером не перезапускался (изменения не входят в бандл).
+
+**Открыто для руководителя до production dry-run/apply:** находка 2 — ссылка Markdown на
+несуществующую статью блокирует импорт product/case всего прогона.
+
+**Статус (до уточнения):** `COMPLETED`. Commit/push/deploy не выполнялись; production DB и
+`var/content.db` не открывались.
+
+### Amendment 61.1 — уточнение D1: article-ссылки Markdown только диагностика (2026-09-15)
+
+**Статус: `IN_PROGRESS`.** Решение руководителя по находке 2: дефекты article-ссылок Markdown не
+блокируют импорт product/case. Шаг переоткрыт; scope прежний.
+
+**Изменено.**
+
+- `scripts/backfill-legacy-material-relations.mjs`: article-цели обрабатываются до product/case и
+  только диагностируются: повтор → `duplicateArticle`, не найдена → `unresolvedArticle`, ссылка на
+  себя → `selfLink`, черновик → `unpublishedArticle`, другой `placement` (сравнение с источником;
+  источники читаются с `placement`, `resolveLegacyTarget` для статьи возвращает `placement`) →
+  `placementMismatch`; иначе — сравнение со структурными (`missingInStructured`,
+  `extraInStructured`, `orderDiff`). Все пять списков — поля каждой записи `legacyArticleDrift`;
+  `unavailableInMarkdown` удалено; `problems.selfLinks` и поле отчёта `selfLinks` удалены. Product/case:
+  missing, unpublished/hidden, duplicate, structural anomaly — blockers без изменений.
+- `src/features/blog/legacyRelatedSection.mjs`: `duplicate_target` только для product/case; повтор
+  article-ссылки возвращается в `targets` для диагностики. Malformed URL и неоднозначная секция —
+  отказ без изменений.
+- `scripts/db-seed.mjs`: проверка article-ссылок Markdown (добавленная по находке 5) снята — seed их не
+  пишет и не проверяет, как и импорт не блокируется ими.
+- Тесты импорта: новый describe (5 случаев: несуществующая, черновик, другой раздел, ссылка на себя,
+  повтор) — dry-run `ready`, product в плане, поле drift содержит slug, apply `applied`, `changed=1`,
+  только product-связь, `articles` неизменна; тест blockers «ссылка статьи на себя» удалён; «несуществующий
+  продукт» и новый «несуществующий кейс» — `blocked`; drift-тесты переведены на новые поля; фикстура
+  `addArticle` получила `placement`. Extractor: +тест повтора article-ссылки. Seed: две строки «откат при
+  article-ссылке» заменены тестом «дефектные article-ссылки не мешают seed и не пишутся».
+
+**Команды и результат.** `prettier --write` (2 файла) → `--check` чисто; `tsc` exit 0; `eslint .`
+exit 0; `git diff --check` exit 0; targeted по файлам: extractor 37, импорт 30, `dbSeedRelations` 18,
+`backfillArticleRelations` 31, `contentRelations` 27 — все passed; полный `npx vitest run` — 79 файлов,
+946 тестов, exit 0. `git status` — только файлы шага. `npm run build` в этом раунде не запускался
+(изменения не входят в бандл приложения; в списке проверок уточнения его нет).
+
+**Мутации, раунд 3** (тот же раннер: M1 и M9 переписаны под новый код, M15 удалена — проверки в seed
+больше нет; добавлены M17 unresolved article → blocker, M18 self-link → blocker, M19 draft → blocker,
+M20 wrong placement → blocker, M21 duplicate article → blocker, M22 extractor снова отвергает повтор
+article-ссылки): все 23 — `KILLED`, `restored: true`; `git status` после — только файлы шага.
+
+**Skeptic, раунд 3 — `PASS`. Блокирующих находок нет.** Ревьюер сам: targeted 5 файлов / 143 теста,
+`tsc`, `eslint .`, `prettier`, `git diff --check` — чисто; полный vitest 79/946 exit 0; scope — те же
+9 путей. Probe: статья с пятью article-дефектами и валидным продуктом → `applied`, `changed=1`, только
+product, `articles` неизменна; только article-дефекты → `already-applied`; malformed article URL
+(`?`, `#`, `/` в конце, `/blog`, абсолютный, верхний регистр) → `blocked`; отсутствующий
+продукт/кейс и дубль продукта → `blocked`. Неблокирующие:
+
+1. AC 1 и раздел «Архитектура» в `WORKPLAN.md` не отражали 61.1 — исправлено (дубль только
+   product/case; все поля drift).
+2. Структурная связь на черновик или статью другого раздела, указанная и в тексте, называется в drift
+   дважды (`unpublishedArticle`/`placementMismatch` и `extraInStructured`) — на state не влияет;
+   записано как известное свойство отчёта.
+3. Комментарий у `resolveLegacyTarget` про seed — уточнён (seed зовёт только product/case-ветку).
+4. Build после раундов 2–3 не запускался — запущен: `npm run build` exit 0, `/blog/[[...slug]]`
+   динамический; `prettier --check` скрипта и `git diff --check` — чисто.
+
+**Статус:** `COMPLETED`. Commit/push/deploy не выполнялись; production DB и `var/content.db` не
+открывались. Перед production `--apply`: `backup.sh`, dry-run, сверка `articlesWithSection`.
+
 ## 2026-09-14 — Amendment 60 / Step REL-02E.2: публичный блок читает только `content_relations`
 
 **Статус записи: шаг завершён (`COMPLETED`).** Запись открыта до правки кода со статусом
