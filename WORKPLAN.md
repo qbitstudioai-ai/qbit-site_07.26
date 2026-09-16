@@ -2,8 +2,10 @@
 
 ## Amendment 61 — единый блок «Материалы по теме» из `content_relations` (2026-09-15)
 
-- Status: `APPROVED` — read-only аудит REL-02F на HEAD `7b3d0ff` принят руководителем (`PASS`)
-  2026-09-15; разбиение и решения D1–D3 заданы руководителем в том же сообщении.
+- Status: `COMPLETED` (2026-09-16) — все три шага (REL-02F.1, REL-02F.2, REL-02F.3) завершены и
+  проверены на production. Утверждена как `APPROVED` 2026-09-15: read-only аудит REL-02F на HEAD
+  `7b3d0ff` принят руководителем (`PASS`); разбиение и решения D1–D3 заданы руководителем в том же
+  сообщении.
 - Причина: статья показывает два блока перелинковки — legacy Markdown-секцию «Материалы по теме»
   (product + article) и структурный блок «Связанные статьи» (article из `content_relations`). Блоки
   дублируют и противоречат друг другу (3 из 6 seed-статей: другой порядок или состав). Product/case
@@ -18,8 +20,8 @@
   IndexNow за уборку уже скрытой секции не отправляется.
 - Разбиение: три шага, каждый проходит skeptic отдельно и имеет свой production gate —
   REL-02F.1 (импорт product/case) → REL-02F.2 (единый публичный блок) → REL-02F.3 (физическое
-  удаление Markdown-секции). REL-02F.1 завершён на production; F.2 и F.3 — `PROPOSED`, их scope
-  уточняется перед стартом.
+  удаление Markdown-секции). Все три завершены на production: F.1 — 2026-09-15, F.2 — 2026-09-15,
+  F.3 — 2026-09-16.
 
 ### Step REL-02F.1 — импорт product/case из legacy Markdown-секции в `content_relations`
 
@@ -200,8 +202,11 @@
 
 ### Step REL-02F.3 — физическое удаление legacy Markdown-секции
 
-- Status: `IN_PROGRESS` (2026-09-15). База `4be10e0`. Основание: read-only pre-flight аудит REL-02F.3
-  (`PASS`), решения руководителя D8–D12 того же дня. REL-02F.2 production completed / verified.
+- Status: `COMPLETED` — **PRODUCTION COMPLETED / VERIFIED** (2026-09-16). База старта `4be10e0`,
+  итоговый commit `8e0c0f0d29428e0e7fa7015f6545bc28b8c5f24b`. Основание старта: read-only pre-flight
+  аудит REL-02F.3 (`PASS`), решения руководителя D8–D12 от 2026-09-15; REL-02F.2 production
+  completed / verified. Доказательства production — `WORKLOG.md`, «Step REL-02F.3c: production
+  cleanup legacy-секции».
 - Цель: только уборка хранения. Публичный HTML по смыслу не меняется; `content_relations`,
   `articles.updated_at`, `published_at`, sitemap lastmod не меняются; IndexNow и revalidate не нужны;
   связи из Markdown не пересчитываются. Strip, save-guard, POST/PUT guard и защита «Копии» остаются
@@ -219,15 +224,45 @@
 - Подшаги:
   - REL-02F.3a — structured seed independence: `COMPLETED` (skeptic `PASS`; Amendment 61.3 `COMPLETED`;
     commit `96ed71a`).
-  - REL-02F.3b — ручной cleanup-скрипт production DB: `COMPLETED` (IMPLEMENTATION ONLY, production not
-    touched; skeptic раунд 2 `PASS`; не закоммичено).
-  - REL-02F.3c — production dry-run/backup/apply и docs closure: `PROPOSED` / NOT STARTED.
+  - REL-02F.3b — ручной cleanup-скрипт production DB: `COMPLETED` (skeptic раунд 2 `PASS`; commit
+    `8e0c0f0`; на момент skeptic production не трогался — apply выполнен отдельно в F.3c).
+  - REL-02F.3c — production dry-run/backup/apply и docs closure: `COMPLETED` — PRODUCTION
+    COMPLETED / VERIFIED (2026-09-16).
+
+#### Step REL-02F.3c — production dry-run, backup, apply и закрытие REL-02F.3
+
+- Status: `COMPLETED` — **PRODUCTION COMPLETED / VERIFIED** (2026-09-16). В репозитории шаг
+  docs-only: код не менялся, deploy не выполнялся. Полные доказательства — `WORKLOG.md`, запись
+  2026-09-16.
+- Objective: применить cleanup-инструмент F.3b к production DB и закрыть REL-02F.3. Уборка хранения,
+  не правка контента: публичный HTML по смыслу не меняется.
+- Как выполнено: production source checkout НЕ переключался и остался на `e0813b7` (deployed HEAD
+  REL-02F.2); `scripts/remove-legacy-material-sections.mjs` взят из target commit `8e0c0f0` через
+  `git archive` — без deploy и без пересборки образа.
+- Результат: pre-flight 8 статей (published 8, draft 0), `withLegacySection=8`, `invalid=0`,
+  `blockers=0`; hard-link на production FS `PASS` (закрывает N9 из F.3b); backup
+  `content-rel02f3c-20260916T035032Z.db` (`integrity_check=ok`, `pages=159`); dry-run `state=ready`,
+  `plannedChanges=8`; apply `state=applied`, `changed=8`, `concurrentChange=false`,
+  `afterState=committed`; повторный dry-run `already-applied`, `withLegacySection=0`, `noSection=8`.
+- Инварианты подтверждены на production: отпечатки `articlesMeta`, `relations`, `contentRevisions`,
+  `activityLog` BEFORE == AFTER, то есть `updated_at`, `published_at`, `status`,
+  `content_relations`, `content_revisions`, `activity_log` не изменены; sitemap SHA256 до и после
+  одинаков (lastmod не двигался, решение D3); IndexNow не отправлялся; revalidate не выполнялся;
+  container `healthy`.
+- Приёмка: public SSR `/blog/analiz-zvonkov-otdela-prodazh` — `relatedHeading=1`, `oldHeading=0`,
+  `legacyInToc=0`, `productHref=1` (PASS); ручная браузерная приёмка руководителя — PASS.
+- Характер изменения: storage-only cleanup. Изменена только колонка `articles.body_markdown`;
+  публичный контент и SEO `lastmod` не менялись.
+- Не отключено этим шагом: strip публичного тела, save-guard, POST/PUT guard и вырезание секции в
+  «Копии» остаются как fail-safe; их удаление — отдельный будущий шаг.
+- Rollback: восстановление `body_markdown` из `exactRemovedText` в apply-manifest (D12) или из
+  backup `content-rel02f3c-20260916T035032Z.db`.
 
 #### Step REL-02F.3b — ручной cleanup-скрипт legacy-секции (implementation only)
 
-- Status: `COMPLETED` — IMPLEMENTATION ONLY, production not touched (2026-09-15; skeptic раунд 1 `FAIL`
-  по B1 → исправлено → раунд 2 `PASS`). База HEAD = origin/master = `96ed71a`. Production, production DB,
-  deploy, commit, push — не выполняются; production apply — только F.3c.
+- Status: `COMPLETED` (2026-09-15 реализация; skeptic раунд 1 `FAIL` по B1 → исправлено → раунд 2
+  `PASS`; commit `8e0c0f0` 2026-09-16). База реализации HEAD = origin/master = `96ed71a`. На момент
+  шага production, production DB и deploy не трогались; production apply выполнен в F.3c.
 - Objective: `scripts/remove-legacy-material-sections.mjs` физически удаляет legacy-секцию из
   `articles.body_markdown`. Это уборка хранения, не правка контента: не schema migration, не deploy hook,
   не вызывается из `deploy.sh`.

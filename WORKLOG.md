@@ -1,5 +1,86 @@
 # WORKLOG
 
+## 2026-09-16 — Amendment 61 / Step REL-02F.3c: production cleanup legacy-секции
+
+**Статус записи: `COMPLETED` — PRODUCTION COMPLETED / VERIFIED.** В репозитории шаг docs-only:
+код не менялся, deploy не выполнялся. База репозитория HEAD = `origin/master` =
+`8e0c0f0d29428e0e7fa7015f6545bc28b8c5f24b`. Production-данные ниже — от руководителя; доступа к
+production у меня нет. Решения D3/D9/D10/D12 и инварианты — WORKPLAN, Step REL-02F.3 / F.3b.
+
+**Как запускался инструмент.**
+
+1. Production source checkout НЕ переключался и остался на
+   `e0813b74bfe5db1b0e7be310cef77fb805ba85a3` (deployed HEAD REL-02F.2).
+2. `scripts/remove-legacy-material-sections.mjs` взят из target commit
+   `8e0c0f0d29428e0e7fa7015f6545bc28b8c5f24b` через `git archive` — без deploy, без пересборки
+   образа, без смены запущенного кода приложения.
+
+**Pre-flight (production DB).**
+
+3. `articles=8`; `published=8`; `draft=0`; `withLegacySection=8`; `plannedChanges=8`; `invalid=0`;
+   `blockers=0`; `changed=0`. D10 выполнен: черновиков нет, невалидных секций нет.
+4. Hard-link на production FS (закрывает неблокирующую N9 из skeptic F.3b): `PASS` —
+   `sameInode=true`, `links=2`, `leftovers=0`. Каталог manifest поддерживает `linkSync`,
+   атомарная запись применима.
+
+**Backup.**
+
+5. `content-rel02f3c-20260916T035032Z.db`;
+   SHA256 `49d0309d170d6aa1f043da7217574ab66cc4fde8ec04cf09a549a609ad3811eb`;
+   `integrity_check=ok`; `pages=159`. SHA256 и `pages` совпадают с backup REL-02F.2
+   (`content-rel02f2-20260915T094425Z.db`) — подтверждает, что между F.2 и F.3c production DB не
+   изменялась, то есть apply шёл ровно от проверенного состояния.
+
+**Dry-run.**
+
+6. Manifest `rel02f3c-dryrun-20260916T035300Z.json`;
+   SHA256 `bde5f106a05ea2359e28a85a43a74b5bdcace86045a2065b7b04d03e165a52be`.
+   Результат: `state=ready`, `plannedChanges=8`, `changed=0`, `blockers=0`.
+
+**Apply.**
+
+7. Manifest `rel02f3c-apply-20260916T035358Z.json`;
+   SHA256 `e7c4a8f259ecd262788b4c9a1d3f34dcb170af136d8377bc354400b724801f04`.
+   Результат: `state=applied`, `changed=8`, `concurrentChange=false`, `afterState=committed`.
+   Manifest содержит `exactRemovedText` для всех 8 статей (D12) — источник для ручного отката.
+
+**Отпечатки BEFORE == AFTER** (пост-проверки внутри транзакции, до COMMIT):
+
+8. `articlesMeta` — `7b1ddc7c9e35bb50edb653d3a0d3272af0dd9013abc86bb7eb4f2102529a24cc`;
+   `relations` — `b37b783d0d0954e7e9bc716f2895e6f81da4c71d8efbae888622507bd0eea819`;
+   `contentRevisions` — `385d8230d01fad4ae1a03cc104ebb5fa0f5764fa975580233608df5c5bcdce09`;
+   `activityLog` — `540dd0e0349f9a6fc0cf1394cb51b37e99095051742d50a86f9e83696dfff925`.
+   Следствие: `articles.updated_at` не изменён; `published_at` и `status` не изменены;
+   `content_relations` не изменены; `content_revisions` не изменены; `activity_log` не изменён;
+   IndexNow не отправлялся; revalidate не выполнялся. Решение D3 соблюдено.
+
+**Post-apply проверки.**
+
+9. Повторный dry-run: `state=already-applied`, `withLegacySection=0`, `noSection=8`,
+   `plannedChanges=0`, `changed=0`, `blockers=0` — идемпотентность подтверждена на production.
+10. Container: `healthy`.
+11. Sitemap SHA256 ДО и ПОСЛЕ одинаков —
+    `ef1babb5058a7ec75802ebf4f2384433497f9b73d6b4c914ef0eaceb80621743`: sitemap и `lastmod` не
+    изменились.
+12. Public SSR, `https://allqbit.ru/blog/analiz-zvonkov-otdela-prodazh`: `relatedHeading=1`,
+    `oldHeading=0`, `legacyInToc=0`, `productHref=1` — PASS.
+13. Ручная браузерная приёмка (Pavel): PASS — один блок «Материалы по теме»; переход между
+    связанными статьями работает; «Назад» в браузере работает; ссылка на продукт открывает продукт;
+    статья визуально целая (точный диапазон D9 вырезан без повреждения соседнего текста).
+
+**Характер изменения.** Cleanup был storage-only: изменена только колонка `articles.body_markdown` в
+production DB. Публичный контент и SEO `lastmod` не менялись — публичная страница уже не рендерила
+legacy-секцию с REL-02F.2, поэтому уборка хранения публично не наблюдаема.
+
+**Остаётся в силе после F.3.** Strip публичного тела, save-guard, POST/PUT guard и вырезание секции
+в «Копии» сохранены как fail-safe и НЕ отключаются этим шагом; их удаление — отдельный будущий шаг.
+Неблокирующие из F.2/F.3b, не относящиеся к production-cleanup, остаются открытыми: extractor
+признаёт `invalid` абзац, начинающийся словами «Материалы по теме …»; `console.warn` при `invalid`;
+`MarkdownPreview` без уведомления при `invalid`; ошибки сертификатов Яндекс Метрики в e2e (внешние).
+
+**Статусы:** REL-02F.3a `COMPLETED`; REL-02F.3b `COMPLETED`; REL-02F.3c `COMPLETED`;
+REL-02F.3 `COMPLETED` (PRODUCTION COMPLETED / VERIFIED). Amendment 61 закрыт целиком.
+
 ## 2026-09-15 — Amendment 61 / Step REL-02F.3b: ручной cleanup-скрипт legacy-секции
 
 **Статус записи: `COMPLETED`** (IMPLEMENTATION ONLY, production not touched; skeptic раунд 2 `PASS`). База HEAD = origin/master =
