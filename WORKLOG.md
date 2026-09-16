@@ -28,8 +28,8 @@ production у меня нет. Решения D3/D9/D10/D12 и инвариан�
 5. `content-rel02f3c-20260916T035032Z.db`;
    SHA256 `49d0309d170d6aa1f043da7217574ab66cc4fde8ec04cf09a549a609ad3811eb`;
    `integrity_check=ok`; `pages=159`. SHA256 и `pages` совпадают с backup REL-02F.2
-   (`content-rel02f2-20260915T094425Z.db`) — подтверждает, что между F.2 и F.3c production DB не
-   изменялась, то есть apply шёл ровно от проверенного состояния.
+   (`content-rel02f2-20260915T094425Z.db`) — подтверждает, что состояние файла production DB на
+   моменты обоих backup было побайтно идентичным.
 
 **Dry-run.**
 
