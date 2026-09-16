@@ -218,9 +218,52 @@
   - D12: manifest вырезанного текста в F.3b обязателен.
 - Подшаги:
   - REL-02F.3a — structured seed independence: `COMPLETED` (skeptic `PASS`; Amendment 61.3 `COMPLETED`;
-    не закоммичено).
-  - REL-02F.3b — ручной cleanup-скрипт production DB: `PROPOSED` / NOT STARTED.
+    commit `96ed71a`).
+  - REL-02F.3b — ручной cleanup-скрипт production DB: `COMPLETED` (IMPLEMENTATION ONLY, production not
+    touched; skeptic раунд 2 `PASS`; не закоммичено).
   - REL-02F.3c — production dry-run/backup/apply и docs closure: `PROPOSED` / NOT STARTED.
+
+#### Step REL-02F.3b — ручной cleanup-скрипт legacy-секции (implementation only)
+
+- Status: `COMPLETED` — IMPLEMENTATION ONLY, production not touched (2026-09-15; skeptic раунд 1 `FAIL`
+  по B1 → исправлено → раунд 2 `PASS`). База HEAD = origin/master = `96ed71a`. Production, production DB,
+  deploy, commit, push — не выполняются; production apply — только F.3c.
+- Objective: `scripts/remove-legacy-material-sections.mjs` физически удаляет legacy-секцию из
+  `articles.body_markdown`. Это уборка хранения, не правка контента: не schema migration, не deploy hook,
+  не вызывается из `deploy.sh`.
+- Решения: D9 — удаляется только точный диапазон `extractLegacyRelatedSection` (без trim/нормализации
+  CRLF/форматирования); D10 — все статьи (published + draft), `invalid` или неизвестное состояние в любой —
+  `blocked`; D12 — `--apply` без `--manifest` запрещён, manifest содержит `exactRemovedText` и хэши,
+  пишется атомарно (tmp → link для первой записи запуска, rename для следующих): `planned` до транзакции,
+  `applied` + after-отпечатки после COMMIT. Manifest пишется только по НОВОМУ пути: существующий файл
+  (dry-run, apply, `applyCleanupPlan`, CLI — до открытия БД) — отказ, чтобы повторный запуск не затёр
+  `exactRemovedText` (skeptic раунд 1, B1). Сбой записи `applied` после COMMIT — явная ошибка, `planned`
+  с вырезанным текстом остаётся.
+- Инварианты: SQL меняет только `body_markdown`; `updated_at`, `published_at`, `status`, прочие колонки
+  статей (отпечаток `articlesMeta`), `content_relations`, `content_revisions`, `activity_log` неизменны;
+  sitemap lastmod не двигается; IndexNow и revalidate не вызываются; публичная проекция статьи совпадает.
+- Архитектура: `buildCleanupPlan(db)` (чистое чтение) → `runRemoveLegacyMaterialSections(db, options)`:
+  initial plan → manifest `planned` → `BEGIN IMMEDIATE` → rebuild и точное сравнение (кандидаты + отпечатки)
+  → `UPDATE … WHERE id AND body_markdown AND updated_at`, `changes === 1` → post-checks (отпечатки, повторный
+  план пуст, тела = план) → COMMIT → manifest `applied`. Любое расхождение — ROLLBACK целиком.
+  Состояния: `ready`, `already-applied`, `blocked`, `applied`; `exitCodeFor`: `blocked` → 1.
+  CLI: default dry-run (`readOnly`), проверка аргументов и существования файла БД до открытия,
+  `PRAGMA busy_timeout = 5000`.
+- In scope: NEW `scripts/remove-legacy-material-sections.mjs`,
+  `src/tests/unit/server/removeLegacyMaterialSections.test.ts`; журналы.
+- Out of scope: extractor, `articleBody.ts`, strip/public body, guard'ы, BlogEditor, MarkdownPreview,
+  BlogExperience, reader связей, оба backfill, `db-seed.mjs`, seed, `seo-geo-minimal-migration.mjs`,
+  схема/миграции, `deploy.sh`, sitemap, IndexNow, `src/content/blog/*.md`, `articles.generated.ts`.
+- Acceptance criteria: 35 тестовых сценариев из ТЗ руководителя (точный диапазон в конце/середине,
+  CRLF, no_section, mixed, draft, invalid published/draft, unexpected state, empty body, residual, одна
+  транзакция, rollback, concurrent body/updated_at/range, инварианты дат/связей/ревизий/журнала,
+  идемпотентность, read-only dry-run, manifest, CLI-guards, публичная эквивалентность, `getPublishedArticles`);
+  мутанты M01–M19 убиты или доказанно эквивалентны (фактически прогнаны M01–M26 с M18a–c: 28 KILLED,
+  0 SURVIVED).
+- Verification: targeted vitest (новый + articleBody, legacyRelatedSection, publicArticleRelations,
+  posts); полный `npx vitest run`; `tsc`; `eslint`; `prettier --check`; `git diff --check`;
+  `npm run build`; e2e `blog-experience` на свежей seed-базе; мутации; skeptic.
+- Rollback: удалить два новых файла и раздел журналов; данные не затрагиваются.
 
 #### Step REL-02F.3a — structured seed independence
 

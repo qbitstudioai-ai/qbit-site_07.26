@@ -1,5 +1,101 @@
 # WORKLOG
 
+## 2026-09-15 — Amendment 61 / Step REL-02F.3b: ручной cleanup-скрипт legacy-секции
+
+**Статус записи: `COMPLETED`** (IMPLEMENTATION ONLY, production not touched; skeptic раунд 2 `PASS`). База HEAD = origin/master =
+`96ed71aaeb985d45759d45dd984d4155c1aa48bf`. Production, production DB, deploy, commit, push — не
+выполнялись; F.3c не начинался. Решения D9/D10/D12 и инварианты — WORKPLAN, Step REL-02F.3b.
+
+**Сделано.**
+
+- NEW `scripts/remove-legacy-material-sections.mjs`. Импортирует только `node:*`,
+  `extractLegacyRelatedSection` и `resolveDbPath`; репозиториев, ревизий, журнала, revalidate, IndexNow нет.
+  - `readFingerprints(db)`: sha256 `articlesMeta` (`SELECT *` без `body_markdown`, ORDER BY id),
+    `relations` (вся таблица, полный ORDER BY), `contentRevisions`, `activityLog`.
+  - `buildCleanupPlan(db)`: все статьи (`ORDER BY sort_order, id`, без фильтра статуса); `no_section` —
+    пропуск; `invalid` → `invalidSections`; неизвестное состояние или недопустимый диапазон →
+    `unexpectedStates`; `newBody = old.slice(0,start) + old.slice(end)`; пустое → `emptyBodies`; extractor
+    по новому телу ≠ `no_section` → `residualSections`. Кандидат: id, slug, status, updatedAt, publishedAt,
+    range, old/new/removed sha256, removedLength (+ exactRemovedText только в manifest).
+  - `applyCleanupPlan(db, plan, {manifestPath})`: без manifest или с существующим manifest — исключение; manifest `planned`
+    (новый путь, tmp → link)
+    → `BEGIN IMMEDIATE` → rebuild; расхождение кандидатов (id, хэши, updatedAt, publishedAt, status, range),
+    блокеров или отпечатков → ROLLBACK, `blocked`, `concurrentChange: true` → `UPDATE articles SET
+    body_markdown = ? WHERE id = ? AND body_markdown = ? AND updated_at = ?`, `changes !== 1` → ROLLBACK +
+    исключение → пост-проверки (отпечатки = before, повторный план пуст и без блокеров, тела = план) →
+    иначе ROLLBACK, `blocked` → COMMIT → manifest `applied` + after.
+  - `runRemoveLegacyMaterialSections`: `blocked` / `already-applied` / `ready` / apply; `exitCodeFor`:
+    blocked → 1. `parseCliArgs`: `--apply`, `--manifest <path>`, прочее — отказ; `--apply` без manifest —
+    отказ. CLI: проверка аргументов и существования файла БД до `DatabaseSync`, dry-run `readOnly`,
+    `PRAGMA busy_timeout = 5000`, исключение → exit 2.
+- NEW `src/tests/unit/server/removeLegacyMaterialSections.test.ts` — 41 тест: реальная схема
+  (`migrations`), in-memory и временные файлы; ожидаемые тела из частей фикстуры, не extractor'ом.
+  Покрыты сценарии ТЗ 1–35 (+17a — связь/статья без секции изменились между планом и транзакцией;
+  пост-проверки отпечатков через триггеры; CLI-поток dry-run → apply → повтор и exit-коды).
+  Сбой и конкурентная запись внутри транзакции моделируются триггерами SQLite (`RAISE(IGNORE)`,
+  AFTER UPDATE), неизвестное состояние/остаток — подменой extractor через `vi.mock` с делегированием.
+  34–35 — `getPublishedArticles()` на временной БД (`getDatabase`) до и после apply.
+
+**Команды и результат.**
+
+- Новый тест — 41 passed. Targeted (новый + articleBody, legacyRelatedSection, publicArticleRelations,
+  posts) — 5 files / 133 tests, exit 0. Полный `npx vitest run` — 84 files / 1104 tests, exit 0.
+- `npx tsc --noEmit` — exit 0 (первый прогон: TS2353 — тип опций из JS-деструктуризации без
+  `manifestPath` и тип `env` в тесте; исправлено JSDoc `@param` и `Record<string,string>`).
+  `npx eslint .` — exit 0. `npx prettier --check` (2 новых файла + журналы) — exit 0. `git diff --check` —
+  exit 0; новые (untracked) файлы проверены grep: хвостовые пробелы только в строковом литерале фикстуры
+  Markdown, CR нет.
+- `npm run build` — exit 0.
+- Свежий `db-seed --reset` (scratchpad `rel02f3b-data`): CLI dry-run — `already-applied`, 6 статей
+  (published 6), `withLegacySection=0`, `plannedChanges=0`, `changed=0`, exit 0; после исправления B1:
+  dry-run с новым `--manifest` — `already-applied`, manifest записан; повтор с тем же путём — «Manifest уже
+  существует», exit 2; sha256 файла БД до/после всех прогонов совпал.
+- e2e `blog-experience.spec.ts` (standalone 127.0.0.1:3300, та же база): 9 passed, 1 failed — неизменённый
+  «keeps the index, article URL and browser history in sync», `consoleErrors` 2× `ERR_CERT_AUTHORITY_INVALID`.
+  Диагностика (Playwright, scratchpad): `https://hdrc.yandex.net`, `https://mdd.yandex.net` из iframe
+  `mc.yandex.ru/metrika/match.html` на `/blog`, статье и незатронутой `/contacts`. Тест отдельно — 1 passed,
+  exit 0. Публичный код шагом не менялся. Вывод: известная внешняя ошибка сертификатов Метрики (как в F.2),
+  не регрессия. Сервер остановлен.
+- Мутации (scratchpad `mutate-f3b.mjs`, baseline green, восстановление `sha256sum -c` OK): прогон 1 —
+  22 KILLED / 1 SURVIVED (M20 extra: снята сверка отпечатков под блокировкой — не эквивалентный: откат
+  был, но `concurrentChange=false`) → добавлен тест 17a. Финальный прогон (после исправления B1) —
+  28 KILLED / 0 SURVIVED / 0 SKIPPED / 0 UNRESTORED. Список: M01 UPDATE пишет updated_at; M02 без draft;
+  M03 invalid как no_section; M04 start+1; M05 end−1; M06 emptyBody; M07 residual; M08 BEGIN вместо
+  IMMEDIATE; M09 без rebuild; M10 без условия тела; M11 без условия updated_at; M12 без changes===1;
+  M13 ROLLBACK→COMMIT; M14/M15 без пост-проверки articlesMeta/relations; M16 trimEnd; M17 повтор входит в
+  запись; M18a/b/c apply без manifest (run, CLI args, applyCleanupPlan); M19 invalid draft игнорируется;
+  M20 extra — без сверки отпечатков под блокировкой; M21 extra — без проверки файла БД; M22/M23/M24 без
+  проверки существующего manifest в run / applyCleanupPlan / CLI; M25 `assertManifestAbsent` всегда
+  проходит (остаётся только `link` EEXIST — другое сообщение, позже чтения БД); M26 без пояснения сбоя
+  manifest после COMMIT.
+- `npm run build` после исправлений — exit 0. e2e не перезапускался: после прогона менялись только
+  скрипт (приложением не импортируется) и тест.
+
+**Skeptic раунд 1 — `FAIL`.** Блокирующая B1: `writeManifestAtomic` всегда заменял файл — проверочный
+dry-run или повтор с тем же `--manifest` затирал manifest `applied` с `exactRemovedText` (подтверждено
+probe skeptic). Исправлено в scope: `assertManifestAbsent` в run, `applyCleanupPlan` и CLI (до проверки и
+открытия БД); первая запись запуска — `fs.linkSync` (атомарно, без перезаписи), следующие — `rename`;
+тесты 23 и CLI-поток используют новый путь и проверяют неизменность прежнего manifest; новый тест 36.
+Неблокирующие: N1 — сбой manifest после COMMIT теперь явная ошибка («COMMIT выполнен… проверьте
+dry-run»), тест 37; N3 — `fingerprints.afterState` (`committed` / `rolled-back`), проверки в тесте 28 и
+пост-проверке; N2 — M08 убивается проверкой SQL-строки `BEGIN IMMEDIATE` (одно синхронное соединение,
+поведенческая проверка блокировки не делалась); N4 — ошибка сертификатов Метрики в e2e — внешняя,
+учесть в F.3c; N5 — manifest `blocked` конкурентного пути содержит кандидатов, найденных под
+блокировкой, а не исходный план.
+
+**Skeptic раунд 2 — `PASS`.** Блокирующих нет. Сам проверил: scope 4 файла; новый тест 41 passed;
+prettier/eslint/diff-check; probe на временных данных: повтор dry-run/apply с тем же путём — отказ,
+applied manifest побайтно тот же; отсутствующий каталог manifest — ENOENT до BEGIN; гонка (файл появился
+между проверкой и link) — EEXIST, чужой файл цел; конкурентный blocked; путь-каталог — отказ; tmp не
+остаётся. Неблокирующие (исправлены в журналах или записаны для F.3c):
+- N6 — сбой `rmSync(tmp)` после успешного `linkSync` бросает исключение при уже созданном manifest
+  (для `planned` — до BEGIN, безопасно; повтор с тем же путём будет отвергнут).
+- N7 — в журналах было «tmp → rename» для `planned` и «M01–M19» — исправлено.
+- N8 — тест 37 моделирует сбой через `now()`, а не реальную ошибку файловой системы.
+- N9 — на ФС без жёстких ссылок (FAT/exFAT, часть сетевых/overlay) `linkSync` откажет до записи в БД:
+  fail-safe, но проверить ФС каталога manifest на production-хосте в F.3c.
+- Мутации и build skeptic не перезапускал (мутации правят файл на месте); N2, N4, N5 остаются в силе.
+
 ## 2026-09-15 — Amendment 61 / Step REL-02F.3a: structured seed independence
 
 **Статус записи: `COMPLETED`** (было `BLOCKED` до утверждения Amendment 61.3; skeptic `PASS`). База HEAD = `origin/master` = `4be10e0b4985d3f08be25d34ac00be6e7e775271`.
