@@ -1,4 +1,5 @@
 import { cache } from "react";
+import type { DepartmentId } from "@/content/types";
 import { getContacts } from "../repositories/contacts";
 import { listAllDepartments } from "../repositories/departments";
 import { getPublishedDocuments } from "../repositories/documents";
@@ -92,6 +93,36 @@ export const productLastModifiedBySlug = cache((): ReadonlyMap<string, Date> => 
     if (!product.isPublished) continue;
     const date = latest(product.updatedAt);
     if (date) map.set(product.slug, date);
+  }
+
+  return map;
+});
+
+/**
+ * Дата каждого отдела по его идентификатору. Отдел снят с публикации — даты нет.
+ *
+ * Тот же приём, что у `productLastModifiedBySlug()` выше, и по той же причине: карте сайта нужна
+ * дата КАЖДОЙ страницы раздела, а не одна дата на весь раздел. Ключ — системный идентификатор
+ * отдела, а не сегмент адреса: сегмент выводится из `solutionPath` (`src/features/solutions/
+ * solutionsRoutes.ts`), и хранить здесь его вторую копию значило бы завести второй источник истины
+ * для адресов.
+ *
+ * Оговорка о точности из шапки этого файла действует и здесь в полной мере: `updated_at` отдела,
+ * который ни разу не правили через админ-панель, равен моменту `db:seed`. Это настоящая дата
+ * появления текста в системе, а не отметка времени сборки, и она перестаёт быть общей, как только
+ * отдел действительно отредактируют.
+ *
+ * Обратите внимание: `homepageLastModified()` выше УЖЕ учитывает даты тех же отделов. Это не
+ * дублирование, а факт — один и тот же текст показан на двух страницах, поэтому правка отдела
+ * честно двигает дату обеих.
+ */
+export const departmentLastModifiedById = cache((): ReadonlyMap<DepartmentId, Date> => {
+  const map = new Map<DepartmentId, Date>();
+
+  for (const department of safely(listAllDepartments)) {
+    if (!department.isPublished) continue;
+    const date = latest(department.updatedAt);
+    if (date) map.set(department.id, date);
   }
 
   return map;

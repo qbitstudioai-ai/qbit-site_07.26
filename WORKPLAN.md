@@ -1,5 +1,191 @@
 # WORKPLAN
 
+## Amendment 62 — собственные индексируемые страницы отделов `/solutions/<slug>` (2026-09-16)
+
+- Status: `IN_PROGRESS`. DEPT-SEO.1 (read-only аудит) — `COMPLETED / VERIFIED`; DEPT-SEO.2A —
+  `COMPLETED` локально (skeptic раунд 2 — `PASS`; baseline-доказательство отсутствия регрессий —
+  DEPT-SEO.2A-R, Gate 1 `PASS`); DEPT-SEO.2A-R — `COMPLETED`; DEPT-SEO.2B (crawl edge) —
+  `PROPOSED`, не начат. Production: **NOT DEPLOYED**.
+- Approval: руководитель, 2026-09-16 (прямое ТЗ «DEPT-SEO.2A — implement standalone SEO/GEO
+  solution pages», решения 1–11 ниже).
+- Запись сделана ПОСТФАКТУМ по находке skeptic (раунд 1, blocking B1): аудит и реализация 2A шли по
+  прямому заданию руководителя в переписке, но в журналы не попали. Тот же приём, что у
+  Amendment 52. Содержание решений ниже не переформулировано — оно перенесено из задания дословно
+  по смыслу.
+- Причина: содержимое пяти отделов — самый содержательный материал сайта — не индексируется как
+  отдельные документы. У `?department=<id>` общий с главной `<title>`, общее описание и canonical
+  `https://allqbit.ru`; собственного H1 нет (на главной заголовок отдела — `h2`). Ограничение было
+  записано в `SEO_GEO_CONTENT_LIMITATIONS.md` §1 и до сих пор не снято.
+- Находка аудита DEPT-SEO.1, уточняющая §1 того же файла: первый серверный HTML отдела **неполон**.
+  Измерено на production 2026-09-16 по `/?department=sales` (HTML со снятыми `<script>`):
+  `headline` ✓, `problem` ✓, все 5 `pain` ✓, но лишь **1 из 5** `gain`, **0 из 4**
+  `customerBenefits` и **ни одного** CTA. Остальной текст присутствует только внутри RSC-payload,
+  то есть внутри `<script>`. Причина — `CustomerBenefits` раскрывает блок через
+  `RESULT_DELAY_MS = 10_000`, а `PainGainPanel` показывает выгоду только выбранной боли.
+  Утверждение §1 «полный текст приходит в первом серверном HTML» неверно и подлежит правке.
+- Вторая правка к отчёту DEPT-SEO.1 (указание руководителя): формулировка «публичный
+  `content_relations` поддерживает только article→article» НЕВЕРНА. На `origin/master`
+  `PublishedRelatedMaterial` (`src/server/repositories/contentRelations.ts:212`) поддерживает
+  `article | product | case`; отдел исключён единственно потому, что у него нет публичного адреса.
+
+### Решения руководителя (заданы прямым ТЗ 2026-09-16, реализуются без пересмотра)
+
+1. Канонические адреса — `/solutions/{sales,support,management,hr,logistics}`; сегмент `management`
+   соответствует department id `executive`. Источник истины — СУЩЕСТВУЮЩИЙ `solutionPath`.
+   `/departments/*` не создаётся. Значения `solutionPath` не меняются.
+2. **OQ-B не пересматривается.** Главная, `?department=`, `history.replaceState`, `OfficeMachine` и
+   анимации сохраняют поведение без изменений.
+3. Маршрут `src/app/solutions/[slug]/page.tsx`, `force-dynamic`; неизвестный или неопубликованный
+   отдел → `notFound()`.
+4. Страница читает ТОТ ЖЕ `Department` из существующего публичного источника. Копирования текста
+   нет.
+5. Новый статический серверный документ. НЕ переиспользуются `DepartmentExperience`,
+   `PainGainPanel`, `CustomerBenefits`, `MobilePainGainAccordion` — они скрывают часть текста или
+   зависят от клиентского состояния. В первом серверном HTML обязаны быть: H1 = `department.name`,
+   `headline`, `problem`, все 5 `pain`, все 5 `gain`, каждый существующий `howItWorks`, все 4
+   `customerBenefits`, CTA сразу. Таймеров нет.
+6. Без нового маркетингового текста. H1 — `department.name`; `pain` — как H2; `gain`/`howItWorks` —
+   текст под своим H2; существующая строка «Результат для бизнеса» допустима как H2;
+   `customerBenefits` — обычный список; CTA — существующие `ctaLabel` + `contactHref`.
+7. SEO title — формула `${department.name}: автоматизация бизнес-процессов — QBit-Studio-Ai`
+   (НЕ `withBrand(name)`: одно название отдела не отвечает ни на один поисковый запрос).
+   Description — `department.problem` дословно. Canonical — `solutionPath` как абсолютный адрес.
+   Robots — `INDEXABLE_ROBOTS`. OG/Twitter — существующие общие builders, те же title/description/
+   canonical.
+8. JSON-LD — ровно `BreadcrumbList + WebPage + Organization`. Запрещены `Service`, `Offer`,
+   `FAQPage`, `HowTo`, `Review`, `AggregateRating`, `datePublished`, `dateModified`. Крошки:
+   «Главная» → `department.name`; фиктивная страница `/solutions` ради третьей ступени не
+   создаётся.
+9. Sitemap — только опубликованные отделы из существующего источника; адрес = `solutionPath`;
+   `lastModified` = настоящий `departments.updated_at`; `new Date()` и дата сборки запрещены;
+   безопасный helper в `lastModified.ts` по образцу продуктов.
+10. `content_relations` в 2A НЕ меняется — отдельный будущий шаг.
+11. `?department=<id>` не меняется: canonical остаётся `https://allqbit.ru`, без redirect и без
+    `noindex`.
+
+### Отложенный конфликт: индекс раздела `/solutions` (записано по находке skeptic, раунд 2)
+
+`docs/09-technical-architecture.md:92` перечисляет среди внутренних страниц не только пять адресов
+отделов, но и сам `/solutions` — индекс раздела. Шаг 2A его НЕ создаёт и закрепляет `/solutions`
+как 404 (e2e `solutions-pages.spec.ts`), а отсутствие третьей ступени в «хлебных крошках»
+обосновано ровно тем, что промежуточной страницы не существует.
+
+Сегодня это отсрочка, а не противоречие: индекса раздела нет ни в задании 2A, ни в его scope, а
+крошка с адресом несуществующей страницы была бы заявлением о несуществующем документе. Но конфликт
+записан здесь намеренно: **если индекс `/solutions` когда-нибудь появится, менять придётся сразу
+три вещи** — саму страницу, ступень крошек в `solutionsSeo.ts` и проверку «`/solutions` → 404» в
+e2e. Владельца у этого пункта пока нет.
+
+### Out of scope Amendment 62 (прямой запрет)
+
+Deploy и любые действия на production; изменение главной и `url-sync`; crawl-edge/преобразование
+хотспотов в ссылки (это DEPT-SEO.2B); изменение схемы БД и миграции; IndexNow; правка посторонних
+файлов; commit и push.
+
+### Step DEPT-SEO.1 — read-only аудит архитектуры страниц отделов
+
+- Status: `COMPLETED` — **VERIFIED** (2026-09-16). Отчёт сдан руководителю, правки к нему учтены
+  выше (неполнота SSR-HTML; корректировка про `PublishedRelatedMaterial`).
+- Objective: определить минимальную безопасную архитектуру отдельных индексируемых страниц отделов
+  без нового контента и без изменения утверждённого UX.
+- In scope: только чтение. Изменений в репозитории шаг не производил.
+- Verification: чтение исходников; два GET к production (`/` и `/?department=sales`) с разбором
+  HTML со снятыми `<script>`.
+- Результат: архитектура признана достижимой; конфликт адресного пространства (`docs/09`
+  `/solutions/*` против предложенного `/departments/*`) вынесен руководителю и разрешён в пользу
+  `/solutions/*` — решение 1 выше.
+
+### Step DEPT-SEO.2A — страницы `/solutions/<slug>`
+
+- Status: `COMPLETED` — локально, **production NOT DEPLOYED**. Skeptic раунд 2 — `PASS` (все девять
+  acceptance criteria подтверждены независимым измерением против свежей production-сборки).
+  Раунд 1 — `FAIL`: blocking B1 (шаг не записан в журналы) и B2 (оставшийся фоновый сервер держал
+  `.next`, из-за чего `npm run build` у skeptic упал с `EBUSY`). Обе находки процессные, правок
+  продуктового кода не потребовали; неблокирующие находки обоих раундов закрыты.
+- Objective: дать каждому из пяти отделов собственный индексируемый документ с полным текстом в
+  первом серверном HTML, не меняя главную.
+- Dependencies: DEPT-SEO.1.
+- In scope (новые файлы): `src/features/solutions/solutionsRoutes.ts`,
+  `src/features/solutions/solutionsSeo.ts`, `src/features/solutions/SolutionDocument.tsx` (+ CSS),
+  `src/app/solutions/[slug]/page.tsx`; тесты `src/tests/unit/features/solutions/*` (3 файла),
+  `src/tests/e2e/solutions-pages.spec.ts`.
+- In scope (изменяемые файлы): `src/app/sitemap.ts`, `src/server/content/lastModified.ts`,
+  `src/tests/unit/app/rendering-mode.test.ts`, `src/tests/unit/app/robots-and-sitemap.test.ts`.
+- Acceptance criteria:
+  1. Пять адресов `/solutions/<slug>` отвечают 200; `/solutions/executive`, `/solutions`,
+     неизвестный сегмент и любой `/departments/*` — 404 с `noindex`.
+  2. Весь текст отдела — в ПЕРВОМ серверном HTML: H1 = `department.name`, `headline`, `problem`,
+     5 `pain`, 5 `gain`, каждый существующий `howItWorks`, 4 `customerBenefits`, CTA. Проверяется
+     HTTP-ответом со снятыми `<script>`, а не через DOM.
+  3. Ровно один H1 на странице; `pain` — H2; «Результат для бизнеса» — H2.
+  4. `<title>` по формуле решения 7, уникален на всех пяти, бренд ровно один раз; description ≡
+     `department.problem` дословно; canonical = абсолютный `solutionPath` без строки запроса;
+     `?utm_*`/`?fbclid` его не меняют; `index, follow`.
+  5. JSON-LD ровно `BreadcrumbList + WebPage + Organization`; ни одного запрещённого типа; ни
+     `datePublished`, ни `dateModified`; крошки в две ступени; общие `@id` сайта и организации не
+     переопределены.
+  6. Sitemap содержит ровно пять адресов отделов, взятых из того же источника, что и страницы;
+     `lastmod` — из `departments.updated_at`; снятый с публикации отдел отсутствует; ни одного
+     `/departments/` и ни одного `?department=`.
+  7. Регрессия главной: canonical `/`, `/?department=sales`, `/?section=task` остаётся
+     `https://allqbit.ru`; вход в отдел по параметру работает; открытие/переключение/закрытие не
+     добавляют записей в историю (`replaceState`); зоны офиса остаются `<button>`.
+  8. Зелёные `format:check` (кроме pre-existing `src/tests/e2e/task-section.spec.ts`), `lint`,
+     `typecheck`, полный unit, `build`; scoped e2e раздела; полный e2e против production-сборки.
+  9. Никакого текста на странице, которого нет в данных отдела, кроме двух подписей, дословно
+     скопированных из уже работающих компонентов офиса («Как работает», «Результат для бизнеса»).
+- Verification: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`,
+  `npm run build`, `npx playwright test solutions-pages`, `npx playwright test browser-history
+  department-selection`, полный `npx playwright test`.
+- Risks: (а) страницы остаются орфанными до DEPT-SEO.2B — входящих ссылок нет, обнаружение только
+  через sitemap; (б) `homepageLastModified()` и даты отделов теперь двигаются вместе — поведение
+  верное (текст показан на обеих страницах), но это новая связанность сигнала; (в) локальный e2e на
+  этой машине требует обхода из-за дефекта `fs.cpSync` в Node v24.13.0 — см. `WORKLOG.md`,
+  оговорка A; (г) 9 падений полного e2e объявлены внешними по измеренным причинам, baseline на
+  чистом `origin/master` не снимался — см. `WORKLOG.md`, оговорка B.
+- Rollback: удалить `src/features/solutions/`, `src/app/solutions/`,
+  `src/tests/unit/features/solutions/`, `src/tests/e2e/solutions-pages.spec.ts`;
+  `git checkout -- src/app/sitemap.ts src/server/content/lastModified.ts
+  src/tests/unit/app/rendering-mode.test.ts src/tests/unit/app/robots-and-sitemap.test.ts`.
+  Схему БД шаг не трогает, миграций нет, данные не меняются.
+
+### Step DEPT-SEO.2A-R — baseline-доказательство и правка §1 SEO-документа
+
+- Status: `COMPLETED` — оба gate закрыты. Production по-прежнему **NOT DEPLOYED**.
+- Objective: (1) доказать измерением, а не рассуждением, что красные тесты полного e2e не вызваны
+  DEPT-SEO.2A; (2) исправить неверное утверждение в `SEO_GEO_CONTENT_LIMITATIONS.md` §1.
+- Gate 1 — **PASS**. Baseline `origin/master` = `d705518237dfa29e004e5471047b537c46c5e5f4` собран в
+  изолированном `git worktree` (`C:/Users/user/AppData/Local/Temp/qb-base`) с **той же** базой
+  данных (SHA256 `acbbc645d606115c88fee42185421c9cd573ffc65cafe7c7c953561687b1dc81`, сервер
+  запущен с `QBIT_DATA_DIR` на копию). Основное дерево не откатывалось: ни `reset`, ни `clean`, ни
+  `stash`. Результат: у `origin/master` падений БОЛЬШЕ (14 и 11 в двух полных прогонах против 9 и 9
+  у реализации); восемь красных тестов воспроизведены дословно по тексту ошибки; два теста,
+  падавшие только на реализации, показаны недетерминированными повторным прогоном. Ни одной
+  регрессии. Подробности и таблица сравнения — `WORKLOG.md`.
+- Gate 2 — выполнено. `SEO_GEO_CONTENT_LIMITATIONS.md` §1: убрано утверждение «полный текст отдела
+  приходит в первом серверном HTML», добавлена таблица измерения, оговорка про RSC flight payload и
+  явная фиксация, что на живом сайте ограничение НЕ снято, пока production не задеплоен. Другие
+  разделы документа не трогались (подтверждено `git diff -U0`).
+- In scope: `SEO_GEO_CONTENT_LIMITATIONS.md` (только §1), `WORKPLAN.md`, `WORKLOG.md`. Продуктовый
+  код и тесты DEPT-SEO.2A не менялись.
+- Rollback: `git checkout -- SEO_GEO_CONTENT_LIMITATIONS.md`. Worktree удалён
+  (`git worktree remove` + `prune`), временных файлов в основном дереве не осталось.
+
+### Step DEPT-SEO.2B — crawl edge с главной
+
+- Status: `PROPOSED` — не начат, к реализации в 2A не относится.
+- Objective: дать поисковому обходчику настоящее ребро `/` → `/solutions/<slug>`, сохранив
+  утверждённый UX офиса.
+- Предполагаемый приём: зоны офиса (`DepartmentHotspot`) становятся `<a href>` с
+  `preventDefault` в обработчике — ссылка существует в SSR/DOM, а клик по-прежнему открывает отдел
+  без перезагрузки. Прецедент того же приёма уже есть в `OfficeExperience.tsx` (возврат в hero).
+- Известная цена, измеренная в DEPT-SEO.1: смена роли `button` → `link` затрагивает селектор
+  `OVERVIEW_MAP_FIRST_CONTROL` (`focusTargets.ts`), unit-тест `department-hotspot.test.tsx` и
+  порядка 104 e2e-локаторов вида `nav.getByRole("button", …)` в 19 spec-файлах. Поэтому шаг
+  отделён от 2A и требует собственного раунда skeptic.
+
+---
+
 ## Amendment 61 — единый блок «Материалы по теме» из `content_relations` (2026-09-15)
 
 - Status: `COMPLETED` (2026-09-16) — все три шага (REL-02F.1, REL-02F.2, REL-02F.3) завершены и

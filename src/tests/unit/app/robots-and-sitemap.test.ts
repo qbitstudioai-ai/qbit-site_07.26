@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import seedDepartments from "../../../../data/departments.json";
+import type { Department } from "@/content/types";
 import { SITE_URL } from "@/lib/seo";
 import { CASE_SALES_CALL_ANALYSIS } from "@/tests/fixtures/firstCase";
 import { seedBlogPosts, seedProductLocations } from "@/tests/fixtures/seedContent";
@@ -28,6 +30,30 @@ vi.mock("@/server/content/cases", () => ({
 }));
 
 /**
+ * Отделы тоже читаются из базы. Источник подменяется исходным seed-содержимым, из которого ОДИН
+ * отдел убран намеренно.
+ *
+ * Это не упрощение фикстуры, а проверка требования: `getDepartments()` отдаёт только опубликованные
+ * отделы, поэтому отдел, снятый с публикации в админ-панели, обязан исчезать и из карты сайта —
+ * ровно так же, как исчезает его страница, начинающая отвечать 404. Отсутствие отдела в подменённом
+ * источнике и означает «снят с публикации».
+ */
+const UNPUBLISHED_DEPARTMENT_ID = "logistics";
+
+// `vi.hoisted`, а не обычная константа: `vi.mock` поднимается выше импортов, и фабрика не может
+// опираться на значение, объявленное ниже по файлу.
+const { sitemapDepartments } = vi.hoisted(() => ({ sitemapDepartments: [] as Department[] }));
+sitemapDepartments.push(
+  ...(seedDepartments as unknown as Department[]).filter(
+    (department) => department.id !== UNPUBLISHED_DEPARTMENT_ID,
+  ),
+);
+
+vi.mock("@/server/content/departments", () => ({
+  getDepartments: () => sitemapDepartments,
+}));
+
+/**
  * Даты изменения подменяются заведомо известными значениями.
  *
  * Так проверяется само требование: `lastmod` берётся из слоя данных, а не из часов в момент
@@ -44,6 +70,7 @@ const STUB_DATES = {
   contacts: new Date("2026-07-04T10:00:00.000Z"),
   blogPage: new Date("2026-07-05T10:00:00.000Z"),
   product: new Date("2026-07-06T10:00:00.000Z"),
+  department: new Date("2026-07-07T10:00:00.000Z"),
 };
 
 vi.mock("@/server/content/lastModified", async (importOriginal) => {
@@ -57,6 +84,10 @@ vi.mock("@/server/content/lastModified", async (importOriginal) => {
     blogIndexPageContentLastModified: () => STUB_DATES.blogPage,
     productLastModifiedBySlug: () =>
       new Map(seedProductLocations.map((product) => [product.slug, STUB_DATES.product])),
+    // Карта дат отделов подменяется тем же способом и с той же целью: проверяется, что `lastmod`
+    // страницы отдела берётся из слоя данных (`departments.updated_at`), а не из часов.
+    departmentLastModifiedById: () =>
+      new Map(sitemapDepartments.map((department) => [department.id, STUB_DATES.department])),
   };
 });
 
@@ -110,9 +141,12 @@ describe("sitemap.xml", () => {
     expect(new Set(urls).size).toBe(urls.length);
   });
 
-  it("сохраняет состав из 25 публичных URL", () => {
-    // Было 23; 2026-08-11 добавились раздел «Кейсы» и первый опубликованный кейс.
-    expect(urls).toHaveLength(25);
+  it("сохраняет состав из 29 публичных URL", () => {
+    // Было 23; 2026-08-11 добавились раздел «Кейсы» и первый опубликованный кейс (25).
+    // 2026-09-16 (DEPT-SEO.2A) добавились страницы отделов — здесь их четыре, потому что пятый
+    // отдел в подменённом источнике снят с публикации.
+    expect(urls).toHaveLength(25 + sitemapDepartments.length);
+    expect(sitemapDepartments).toHaveLength(4);
   });
 
   /**
@@ -136,6 +170,33 @@ describe("sitemap.xml", () => {
       "case-07",
     ]) {
       expect(urls, `${removed} попал в карту сайта`).not.toContain(`${SITE_URL}/cases/${removed}`);
+    }
+  });
+
+  /**
+   * Страницы отделов (DEPT-SEO.2A). Источник тот же, что у самих страниц и у главной, а адрес —
+   * собственный `solutionPath` отдела. Отсюда оба свойства: отдел, снятый с публикации, исчезает из
+   * карты сам, а адрес в карте не может разойтись с адресом страницы и её canonical.
+   */
+  it("включает ровно те страницы отделов, что отдаёт источник", () => {
+    for (const department of sitemapDepartments) {
+      expect(urls, department.id).toContain(`${SITE_URL}${department.solutionPath}`);
+    }
+  });
+
+  it("не включает отдел, снятый с публикации", () => {
+    expect(urls).not.toContain(`${SITE_URL}/solutions/${UNPUBLISHED_DEPARTMENT_ID}`);
+    // Отделы адресуются ТОЛЬКО через `/solutions/*`. Параллельного пространства `/departments/*`
+    // в проекте нет и не должно появиться молча — это был бы второй адрес того же документа.
+    for (const url of urls) {
+      expect(url).not.toContain("/departments/");
+    }
+  });
+
+  it("берёт lastModified отдела из его даты изменения, а не из часов", () => {
+    for (const department of sitemapDepartments) {
+      const entry = entries.find((item) => item.url === `${SITE_URL}${department.solutionPath}`);
+      expect(entry?.lastModified, department.id).toBe(STUB_DATES.department);
     }
   });
 

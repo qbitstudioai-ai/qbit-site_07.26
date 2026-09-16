@@ -5,11 +5,13 @@ import { CASES_URL } from "@/features/cases/casesSeo";
 import { CONTACTS_URL } from "@/features/contacts/contactsSeo";
 import { FAQ_PUBLISHED_AT, FAQ_URL } from "@/features/faq/faqSeo";
 import { productUrl } from "@/features/products/productSeo";
+import { solutionUrl } from "@/features/solutions/solutionsRoutes";
 import { SITE_URL } from "@/lib/seo";
 import { getPublishedArticles } from "@/server/content/articles";
 import {
   blogIndexPageContentLastModified,
   contactsLastModified,
+  departmentLastModifiedById,
   documentsLastModified,
   homepageLastModified,
   latestDate,
@@ -17,6 +19,7 @@ import {
   productsIndexLastModified,
 } from "@/server/content/lastModified";
 import { getPublishedCases } from "@/server/content/cases";
+import { getDepartments } from "@/server/content/departments";
 import { getProducts } from "@/server/content/products";
 
 /**
@@ -25,6 +28,10 @@ import { getProducts } from "@/server/content/products";
  * Чего здесь НЕТ и не должно появиться: `/admin`, `/login`, `/api/*`, прямых ссылок на файлы
  * документов (`/api/files/*`), адресов с параметрами запроса (`?department=…` — состояние главной,
  * а не отдельный документ) и неопубликованных материалов.
+ *
+ * Отдел при этом в карте ЕСТЬ — но своим настоящим адресом `/solutions/<slug>`, а не параметром
+ * главной. Это разные вещи: `?department=sales` показывает отдел на сцене офиса и канонизируется на
+ * главную, `/solutions/sales` — отдельный документ с собственными заголовком, описанием и canonical.
  *
  * `lastModified` проставляется ТОЛЬКО там, где есть настоящая дата изменения. Подставлять
  * `new Date()` всем строкам запрещено: это сообщало бы поисковой системе, что весь сайт
@@ -57,6 +64,17 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const cases = getPublishedCases();
 
   /**
+   * Отделы берутся ТЕМ ЖЕ источником, что и главная (`getDepartments`), а не перечисляются здесь
+   * строками. Следствие ровно то, ради которого так сделано: отдел, снятый с публикации в
+   * админ-панели, исчезает из карты сайта сам — как и его страница, которая начинает отвечать 404.
+   *
+   * Адрес — собственный `solutionPath` отдела, а не собранная здесь строка: он утверждён схемой
+   * контента и служит единственным источником истины для адресов раздела.
+   */
+  const departments = getDepartments();
+  const departmentDates = departmentLastModifiedById();
+
+  /**
    * Дата раздела «Блог» — позднейшая из даты самого текста раздела и дат всех опубликованных
    * статей. Прежнее `blogPosts[0]?.modifiedAt` брало первую строку списка, а список отсортирован
    * по `sort_order`, затем по дате публикации — то есть первой оказывалась не обязательно самая
@@ -74,6 +92,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 1,
     },
+    ...departments.map((department) => ({
+      url: solutionUrl(department),
+      // `undefined` означает строку без `lastmod` — корректное состояние. Выдуманная дата на её
+      // месте обесценила бы сигнал целиком (см. `src/server/content/lastModified.ts`).
+      lastModified: departmentDates.get(department.id),
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    })),
     {
       url: `${SITE_URL}/products`,
       lastModified: productsIndexLastModified(),

@@ -1,5 +1,224 @@
 # WORKLOG
 
+## 2026-09-16 — Amendment 62 / Step DEPT-SEO.2A-R: baseline-доказательство и правка §1 SEO-документа
+
+**Статус записи: оба gate закрыты.** Коммитов, push и deploy нет; production не трогался; схема БД
+и данные не менялись. Основное рабочее дерево не откатывалось и не чистилось.
+
+### Gate 2 — исправлен `SEO_GEO_CONTENT_LIMITATIONS.md` §1
+
+Правка затрагивает ТОЛЬКО §1 (подтверждено `git diff -U0`: три hunk'а, все внутри §1; разделы 2–8
+не тронуты). Убрано неверное утверждение «полный текст отдела приходит в первом серверном HTML» —
+вместо него таблица измерения DEPT-SEO.1/2A по `/?department=sales` (отрендеренный DOM, `<script>`
+сняты): `headline` есть, `problem` есть, все 5 `pain` есть, `gain` — **только выбранная, 1 из 5**,
+`customerBenefits` — **0 из 4**, CTA — **отсутствует**. Явно записано, что значения внутри RSC
+flight payload (`<script>`) индексируемым контентом документа НЕ считаются. Добавлены два абзаца:
+что `/solutions/<slug>` устраняет ограничение и что на живом сайте оно **НЕ снято**, потому что
+production `NOT DEPLOYED`.
+
+### Gate 1 — baseline `origin/master` = `d705518237dfa29e004e5471047b537c46c5e5f4`
+
+**Изоляция.** `git worktree add --detach` в `C:/Users/user/AppData/Local/Temp/qb-base` (короткий
+путь выбран вынужденно: на длинном пути scratchpad Turbopack падает с `path length … exceeds max
+length of filesystem`). Основное дерево не трогалось: ни `git reset`, ни `git clean`, ни `stash`.
+Baseline-сборка подтверждена отсутствием маршрута: `/solutions/sales` → **404**, `/solutions` нет в
+`app-path-routes-manifest.json`.
+
+**База данных — ТА ЖЕ.** `var/content.db` скопирована в worktree, SHA256 совпадает побайтно:
+`acbbc645d606115c88fee42185421c9cd573ffc65cafe7c7c953561687b1dc81`. Состав: articles 6, products 10,
+cases 1, departments 5, `content_relations` 3, documents 8, contacts 4; `integrity_check = ok`.
+Сервер baseline запущен с `QBIT_DATA_DIR` на КОПИЮ, поэтому тесты, пишущие в базу, не могли задеть
+основную. Production DB не затрагивалась ни на одном шаге.
+
+**Единственное отличие окружения, названное явно.** `.env.local` в baseline НЕ копировался —
+файл закрыт deny-правилом, и обходить его я не стал. Проверено, что на сравниваемые категории это
+не влияет: номер счётчика Метрики — захардкоженный литерал в коде
+(`src/components/analytics/YandexMetrika.tsx:16`, `YANDEX_METRIKA_ID = 109167375`), а не env, и в
+baseline-падении `contacts` он присутствует дословно (`tag.js?id=109167375`); единственная
+`NEXT_PUBLIC_*`-переменная в коде — `NEXT_PUBLIC_SITE_URL`, и baseline отдаёт тот же canonical
+`https://allqbit.ru`, то есть действует то же значение.
+
+**Объём измерений.** Baseline: scoped-прогон пяти spec-файлов (**8 failed / 101 passed**), два
+повторных scoped-прогона `blog-experience` + `scene-transition`, и **два полных прогона**
+(#1 — 14 failed / 485 passed, #2 — 11 failed / 488 passed). Implementation: **два полных прогона**,
+оба **9 failed / 533 passed**. Разница в общем числе тестов (545 против 502) — ровно 43 теста
+`solutions-pages`, которых на `origin/master` не существует.
+
+**Главный итог сравнения: baseline ХУЖЕ.** Объединение падений по двум полным прогонам — 13 у
+`origin/master` против 10 у DEPT-SEO.2A. Шесть тестов падают ТОЛЬКО на baseline
+(`documents-experience:117`, `documents-experience:209`, `homepage-one-screen:317`,
+`mobile-audit-regressions:305`, `pain-gain-layout:370`) и ни разу — на реализации.
+
+**Результат сравнения по тестам.** Причины падений совпадают с implementation-прогоном дословно по
+тексту ошибок:
+
+| spec/test | origin/master | DEPT-SEO.2A | причина | verdict |
+| --- | --- | --- | --- | --- |
+| `blog-experience:11` | FAIL | FAIL | нет связей в БД: `>Материалы по теме<` — 0 вхождений | не связано с 2A |
+| `blog-experience:117` | FAIL | FAIL | в БД нет связи на `ai-assistent-po-baze-znaniy` | не связано с 2A |
+| `blog-experience:163` | FAIL | FAIL | заголовок «Материалы по теме» — count 0 | не связано с 2A |
+| `blog-experience:274` | FAIL | FAIL | `article:modified_time` 2026-09-14 вместо 2026-07-25 | не связано с 2A |
+| `blog-experience:66` | FAIL (run 3) | FAIL | `ERR_CERT_AUTHORITY_INVALID` (Метрика) | не связано с 2A |
+| `cases-experience:629` | FAIL | FAIL | `ERR_CERT_AUTHORITY_INVALID` (Метрика) | не связано с 2A |
+| `contacts-experience:341` | FAIL | FAIL | запросы на `mc.yandex.ru/...id=109167375` | не связано с 2A |
+| `products-experience:244` | FAIL | FAIL | `ERR_CERT_AUTHORITY_INVALID` (Метрика) | не связано с 2A |
+| `cases-experience:765` | **FAIL** | PASS | тайминг: `402 < 380` не выполнено | флак, только на baseline |
+| `documents-experience:117`, `:209` | **FAIL** | PASS | — | флак, только на baseline |
+| `homepage-one-screen:317` (4 ширины) | **FAIL** | PASS | — | флак, только на baseline |
+| `mobile-audit-regressions:305` | **FAIL** | PASS | — | флак, только на baseline |
+| `pain-gain-layout:370` | **FAIL** | PASS | — | флак, только на baseline |
+| `scene-transition:281` | PASS (5 прогонов) | FAIL 1 из 2 полных | `page.goto` timeout под полной параллельностью | флак, см. ниже |
+| `contacts-experience:367` | PASS | FAIL 1 из 2 полных | `page.goto … waitUntil: "networkidle"` timeout — networkidle не наступает из-за запросов Метрики | флак той же природы, что `:341` |
+| `solutions-pages` (43 теста) | маршрута нет | **PASS** в обоих полных прогонах | — | новое, регрессий нет |
+
+Три категории:
+
+1. **Состояние БД** (`blog` ×4) — воспроизводится на `origin/master` идентично, тексты ошибок
+   совпадают. Причина: локальная база отстала от эталона (6 статей и 3 связи против 8 и 25 в
+   production по записям REL-02F.1/F.3).
+2. **Внешние ресурсы Яндекс Метрики** (`blog:66`, `cases:629`, `contacts:341`, `products:244`) —
+   воспроизводится на `origin/master`. `blog:66` в первом baseline-прогоне прошёл, но в третьем
+   упал с ТОЙ ЖЕ cert-ошибкой — то есть категория подтверждена измерением, а не рассуждением.
+3. **Тайминговая/сетевая нестабильность** — есть у ОБЕИХ версий, и ни один такой тест не падает
+   детерминированно. Два теста падали только на реализации, и оба закрыты прямым измерением:
+   - `scene-transition:281` — упал в первом полном прогоне 2A и **не упал во втором**; на baseline
+     прошёл во всех пяти прогонах (3 scoped + 2 полных); изолированно на 2A — 15/15 passed. То есть
+     это разовый `page.goto` timeout под полной параллельностью, а не свойство версии;
+   - `contacts-experience:367` — упал во втором полном прогоне 2A и не падал в первом. Причина —
+     `page.goto … waitUntil: "networkidle"` не дожидается сетевой тишины, потому что запросы
+     Метрики продолжают идти и отваливаться по сертификату. Это та же категория 2, что и
+     воспроизведённый на baseline `contacts:341`.
+
+   Обратная сторона симметрична и весомее: на baseline падают шесть тестов, которые на реализации не
+   упали ни разу, включая четыре ширины `homepage-one-screen:317` — то есть флак на `origin/master`
+   выражен сильнее.
+
+**Вывод Gate 1: PASS. Регрессий от DEPT-SEO.2A не найдено.** Все красные тесты
+implementation-прогона либо воспроизведены на чистом `origin/master` с той же БД и дословно тем же
+текстом ошибки, либо показаны недетерминированными прямым повторным измерением на обеих версиях.
+`solutions-pages` (43 теста) прошли в обоих полных прогонах реализации. Baseline при этом даёт
+больше падений, чем реализация (14 и 11 против 9 и 9).
+
+## 2026-09-16 — Amendment 62 / Step DEPT-SEO.2A: страницы отделов `/solutions/<slug>`
+
+**Статус записи: локально завершено, production NOT DEPLOYED.** База = `origin/master` =
+`d705518237dfa29e004e5471047b537c46c5e5f4`. Коммитов и push нет, deploy не выполнялся, production
+не трогался. Схема БД, данные и `content_relations` не менялись. IndexNow не добавлялся.
+
+**Созданные файлы.**
+
+1. `src/features/solutions/solutionsRoutes.ts` — отображение «идентификатор отдела ↔ сегмент
+   адреса», выведенное из `SOLUTION_PATH_BY_DEPARTMENT_ID`; `solutionPath()`/`solutionUrl()`.
+2. `src/features/solutions/solutionsSeo.ts` — `solutionSeoTitle`, `solutionSeoDescription`,
+   `solutionStructuredData`, `NOT_FOUND_ROBOTS`, `SOLUTION_TITLE_SUBJECT`.
+3. `src/features/solutions/SolutionDocument.tsx` + `.module.css` — статический серверный документ.
+4. `src/app/solutions/[slug]/page.tsx` — маршрут, `force-dynamic`.
+5. `src/tests/unit/features/solutions/solutionsRoutes.test.ts`, `solutionsSeo.test.ts`,
+   `solutionDocument.test.tsx`.
+6. `src/tests/e2e/solutions-pages.spec.ts`.
+
+**Изменённые файлы.** `src/app/sitemap.ts` (+5 адресов из `getDepartments()`),
+`src/server/content/lastModified.ts` (`departmentLastModifiedById()` по образцу продуктов),
+`src/tests/unit/app/rendering-mode.test.ts` (+`solutions/[slug]/page.tsx` в `MUST_BE_DYNAMIC`),
+`src/tests/unit/app/robots-and-sitemap.test.ts` (моки отделов и дат, +проверки состава карты).
+
+**Измерение, ради которого делался шаг.** Production `/?department=sales`, HTML со снятыми
+`<script>`: `headline` есть, `problem` есть, 5 `pain` есть, **1 из 5** `gain`, **0 из 4**
+`customerBenefits`, **0** CTA. Остальное — только внутри RSC-payload. На `/solutions/sales` после
+шага в том же измерении присутствует весь текст: 5 `pain`, 5 `gain`, все `howItWorks`, 4
+`customerBenefits`, CTA; `h1=1`, `h2=6`.
+
+**Команды и результат.**
+
+- `npm run format:check` — 1 предупреждение: `src/tests/e2e/task-section.spec.ts`. Файл шагом не
+  тронут (нет в `git diff`) и неотформатирован НА САМОМ `origin/master` — проверено
+  `git show origin/master:… | prettier --check`. Pre-existing.
+- `npm run lint` — exit 0. `npm run typecheck` — exit 0.
+- `npm test` — 87 файлов / 1137 тестов, все прошли.
+- `npm run build` — exit 0; `/solutions/[slug]` помечен `ƒ (Dynamic)`.
+- `npx playwright test solutions-pages` — 43/43 passed (раунд до правок; состав проверок с тех пор
+  расширен, итоги финального прогона — ниже).
+- `npx playwright test browser-history department-selection` — 13/13 passed. Регрессия главной не
+  обнаружена.
+
+**Skeptic, раунд 1 — `FAIL`.** Две блокирующие находки, обе процессные, правок продуктового кода не
+потребовали:
+
+- B1 — шаг не был записан ни в `WORKPLAN.md`, ни в `WORKLOG.md`, ни в `DECISIONS.md`. Устранено:
+  Amendment 62 и обе записи шагов внесены постфактум (приём Amendment 52), эта запись журнала
+  создана.
+- B2 — оставшийся после прогона фоновый `node .next/standalone/server.js` держал `.next/standalone`,
+  из-за чего `npm run build` у skeptic упал с `EBUSY` и очистил `.next`. Устранено: процесс
+  остановлен, `npm run build` выполнен заново (exit 0), сервер поднят повторно.
+
+Неблокирующие находки того же раунда закрыты инлайн: убран противоречивший коду комментарий и
+мёртвые экспорты `SOLUTIONS_PATH_PREFIX`/`SOLUTION_SLUGS`; убран неиспользуемый атрибут
+`data-solution-document`; ключи React переведены с текста `pain`/`benefit` на позицию (уникальность
+этих строк схемой не гарантирована); проверка `noindex` на 404 перенесена с константы на
+фактический ответ сервера; проверка карты сайта усилена до сравнения МНОЖЕСТВ адресов, чтобы
+расхождение базы раннера с базой сервера не проходило молча.
+
+**Оговорка A — обход дефекта окружения при e2e.** На этой машине `fs.cpSync` в Node v24.13.0
+падает (`STATUS_STACK_BUFFER_OVERRUN`, `0xC0000409`) даже на директории из одного файла — проверено
+отдельным минимальным скриптом; skeptic воспроизвёл независимо и уточнил, что падение проявляется
+на кириллическом пути проекта и не проявляется в scratchpad. Следствие:
+`scripts/start-standalone.mjs` умирает до запуска сервера, и штатный `webServer` Playwright
+(`npm run build && npm run start:e2e`) подняться не может. Обход: `npm run build`, затем
+`cp -r .next/static .next/standalone/.next/static` и `cp -r public/. .next/standalone/public/`,
+затем вручную `node .next/standalone/server.js` на том же порту 3200, и прогон Playwright с
+ВРЕМЕННЫМ конфигом `playwright.local-reuse.config.ts` (`{...baseConfig, webServer: undefined}`),
+который удаляется сразу после прогона. Проверялась та же production-сборка текущего дерева.
+Известное ограничение: обход снимает защиту `reuseExistingServer: false`, введённую против
+ложно-зелёного гейта на dev-сервере (`playwright.config.ts`), поэтому он допустим только вручную и
+только с явной проверкой, что на 3200 стоит свежая production-сборка. `playwright.config.ts` не
+изменён.
+
+**Прогоны ПОСЛЕ правок по skeptic (раунд 2).** `format:check` — то же единственное pre-existing
+предупреждение; `lint` — exit 0; `typecheck` — exit 0; `npm test` — 87 файлов / 1137 тестов, все
+прошли; `npm run build` — exit 0, `/solutions/[slug]` = `ƒ (Dynamic)`. Полный e2e против
+production-сборки: **533 passed, 3 skipped, 9 failed**, из них в `solutions-pages` — НИ ОДНОГО.
+Финальный scoped-прогон `solutions-pages` + `browser-history` + `department-selection` —
+**56/56 passed**.
+
+**Оговорка B — падения полного e2e.** Полный прогон: 533 passed, 3 skipped, 9 failed.
+Причины измерены и к шагу отношения не имеют:
+
+- 4 падения `blog-experience` — локальная `var/content.db` разошлась с эталоном: в ней 6 статей и
+  3 строки `content_relations`, тогда как в production (записи REL-02F.1/F.3 выше) 8 статей и 25
+  связей; у статьи `kak-avtomatizirovat-obrabotku-zayavok` `updated_at = 2026-09-14`, а тест ждёт
+  `article:modified_time = 2026-07-25`. Блок «Материалы по теме» строится из `content_relations`.
+- падения `cases-experience`, `contacts-experience`, `products-experience` — внешние ресурсы
+  Яндекс Метрики в браузере теста: `ERR_CERT_AUTHORITY_INVALID` и сами запросы на `mc.yandex.ru`.
+- 1 падение `scene-transition.spec.ts:281` — `page.goto: Test timeout of 30000ms exceeded` на
+  сценарии с искусственной задержкой сети. Это известная перемежающаяся нестабильность полного
+  прогона под полной параллельностью, названная в `playwright.config.ts` («до 4 падений из 196 в
+  первом прогоне против холодного сервера») и в журналах REL-02B/REL-02C. Проверено ИЗМЕРЕНИЕМ, а
+  не рассуждением: изолированный прогон `npx playwright test scene-transition` — **15/15 passed**.
+  В первом полном прогоне эта спека проходила, зато падала шестая проверка `blog-experience` —
+  состав девятки между прогонами плавает, что и есть признак флакости, а не регрессии.
+- Проверено отдельно: ни одна e2e-спека не утверждает ОБЩЕЕ число адресов в карте сайта — только
+  `toContain` конкретных, и все такие проверки прошли. То есть +5 строк карты чужих спек не задели.
+- **Baseline на чистом `origin/master` НЕ снимался.** «Pre-existing» здесь — вывод из измеренных
+  причин, а не результат базового прогона. Записано явно, чтобы не выдавать вывод за измерение.
+
+**Оговорка C — правка собственных e2e-утверждений.** Первый прогон новой спеки дал 6 падений из-за
+моих же слишком строгих проверок; обе исправлены, смысл проверок не ослаблен:
+
+- `expect(html).not.toContain("utm_source")` — адрес запроса вместе со строкой запроса попадает в
+  RSC-payload; это устройство Next.js, а не ссылка на странице. Заменено на проверку САМОГО
+  `<link rel="canonical">`: значение точно равно ожидаемому и не содержит `?`.
+- на главной `expect(html).not.toContain("/solutions/")` — `solutionPath` каждого отдела лежит в
+  RSC-payload как обычное поле `Department` и лежал там ДО шага. Измерено на сохранённом
+  production-HTML `origin/master`: 5 вхождений внутри `<script>`, 0 в разметке. Заменено на
+  проверку разметки без `<script>`.
+
+**Правки к отчёту DEPT-SEO.1.** (1) Утверждение `SEO_GEO_CONTENT_LIMITATIONS.md` §1 «полный текст
+отдела приходит в первом серверном HTML» неверно — см. измерение выше. (2) Утверждение отчёта, что
+публичный `content_relations` поддерживает только `article→article`, неверно: на `origin/master`
+`PublishedRelatedMaterial` поддерживает `article | product | case`
+(`src/server/repositories/contentRelations.ts:212`), а отдел исключён единственно из-за отсутствия
+публичного адреса. Оба файла документации в этом шаге не правились — правка вынесена отдельно.
+
 ## 2026-09-16 — Amendment 61 / Step REL-02F.3c: production cleanup legacy-секции
 
 **Статус записи: `COMPLETED` — PRODUCTION COMPLETED / VERIFIED.** В репозитории шаг docs-only:
