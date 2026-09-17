@@ -132,11 +132,11 @@ const HOMEPAGE_STATES: {
       { label: "возврат в hero", locator: page.locator("[data-overview-controls] a").first() },
       {
         label: "первая зона отдела",
-        locator: page.getByRole("navigation", { name: OVERVIEW_NAV }).getByRole("button").first(),
+        locator: page.getByRole("navigation", { name: OVERVIEW_NAV }).getByRole("link").first(),
       },
       {
         label: "последняя зона отдела",
-        locator: page.getByRole("navigation", { name: OVERVIEW_NAV }).getByRole("button").last(),
+        locator: page.getByRole("navigation", { name: OVERVIEW_NAV }).getByRole("link").last(),
       },
     ],
   },
@@ -622,7 +622,7 @@ for (const size of [
       const open = await sampleDuringTransition(page, async () => {
         await page
           .getByRole("navigation", { name: OVERVIEW_NAV })
-          .getByRole("button")
+          .getByRole("link")
           .first()
           .click();
         await expect(page.locator('[data-office-mode="section"]')).toBeVisible();

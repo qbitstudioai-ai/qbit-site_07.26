@@ -43,15 +43,15 @@ test.describe("mobile touch flow (direct office selection)", () => {
     const departments = sortedDepartments();
     const map = officeMap(page);
     await expect(map).toBeVisible();
-    await expect(map.getByRole("button")).toHaveCount(5);
+    await expect(map.getByRole("link")).toHaveCount(5);
     for (const department of departments) {
-      await expect(map.getByRole("button", { name: department.overviewLabel })).toBeVisible();
+      await expect(map.getByRole("link", { name: department.overviewLabel })).toBeVisible();
     }
 
     await expect(page.getByRole("navigation", { name: "Карусель отделов" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Назад|Далее/ })).toHaveCount(0);
 
-    await map.getByRole("button", { name: departments[3].overviewLabel }).tap();
+    await map.getByRole("link", { name: departments[3].overviewLabel }).tap();
     await expect(
       page.getByRole("heading", { level: 2, name: departments[3].headline }),
     ).toBeVisible();
@@ -115,7 +115,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await activateCta(page);
 
     for (const department of sortedDepartments()) {
-      await officeMap(page).getByRole("button", { name: department.overviewLabel }).tap();
+      await officeMap(page).getByRole("link", { name: department.overviewLabel }).tap();
       await expect(
         page.getByRole("heading", { level: 2, name: department.headline }),
       ).toBeVisible();
@@ -135,7 +135,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     });
 
     const departments = sortedDepartments();
-    await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
+    await officeMap(page).getByRole("link", { name: departments[0].overviewLabel }).tap();
     await expect(
       page.getByRole("heading", { level: 2, name: departments[0].headline }),
     ).toBeVisible();
@@ -174,7 +174,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await activateCta(page);
     const departments = sortedDepartments();
 
-    await officeMap(page).getByRole("button", { name: departments[2].overviewLabel }).tap();
+    await officeMap(page).getByRole("link", { name: departments[2].overviewLabel }).tap();
     await expect(
       page.getByRole("heading", { level: 2, name: departments[2].headline }),
     ).toBeVisible();
@@ -194,7 +194,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await activateCta(page);
     const departments = sortedDepartments();
 
-    await officeMap(page).getByRole("button", { name: departments[2].overviewLabel }).tap();
+    await officeMap(page).getByRole("link", { name: departments[2].overviewLabel }).tap();
     await page.keyboard.press("Escape");
 
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
@@ -232,14 +232,14 @@ test.describe("mobile touch flow (direct office selection)", () => {
     expect(returnBox!.height).toBeGreaterThanOrEqual(44);
     expect(overviewCtaBox!.height).toBeGreaterThanOrEqual(44);
 
-    for (const button of await officeMap(page).getByRole("button").all()) {
+    for (const button of await officeMap(page).getByRole("link").all()) {
       const box = await button.boundingBox();
       expect(box).not.toBeNull();
       expect(box!.width).toBeGreaterThanOrEqual(44);
       expect(box!.height).toBeGreaterThanOrEqual(44);
     }
 
-    await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
+    await officeMap(page).getByRole("link", { name: departments[0].overviewLabel }).tap();
 
     const closeBox = await page.getByRole("button", { name: "Назад к офису" }).boundingBox();
     const ctaBox = await page.getByRole("link", { name: departments[0].ctaLabel }).boundingBox();
@@ -265,7 +265,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await expectNoDocumentOverflow(page);
     await activateCta(page);
     await expectNoDocumentOverflow(page);
-    await officeMap(page).getByRole("button").first().tap();
+    await officeMap(page).getByRole("link").first().tap();
     await expectNoDocumentOverflow(page);
   });
 
@@ -275,7 +275,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await activateCta(page);
     const departments = sortedDepartments();
 
-    await officeMap(page).getByRole("button", { name: departments[1].overviewLabel }).tap();
+    await officeMap(page).getByRole("link", { name: departments[1].overviewLabel }).tap();
     await expect(
       page.getByRole("heading", { level: 2, name: departments[1].headline }),
     ).toBeVisible();
@@ -293,7 +293,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    const firstZone = officeMap(page).getByRole("button", { name: departments[0].overviewLabel });
+    const firstZone = officeMap(page).getByRole("link", { name: departments[0].overviewLabel });
 
     await firstZone.focus();
     await expect(firstZone).toBeFocused();
@@ -311,7 +311,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
+    await officeMap(page).getByRole("link", { name: departments[0].overviewLabel }).tap();
 
     await expect(
       page.getByRole("heading", { level: 2, name: departments[0].headline }),
@@ -337,7 +337,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
+    await officeMap(page).getByRole("link", { name: departments[0].overviewLabel }).tap();
 
     const accordion = page.getByTestId("mobile-pain-gain-accordion");
     await expect(accordion.getByText(departments[0].painPoints[0].gain)).toBeVisible();
@@ -356,7 +356,7 @@ test.describe("mobile touch flow (direct office selection)", () => {
     await page.goto("/");
     await activateCta(page);
     const departments = sortedDepartments();
-    await officeMap(page).getByRole("button", { name: departments[1].overviewLabel }).tap();
+    await officeMap(page).getByRole("link", { name: departments[1].overviewLabel }).tap();
     await page.getByRole("button", { name: /Следующий отдел/ }).tap();
     await page.keyboard.press("Escape");
     await page.goto("/?department=sales");
@@ -405,7 +405,7 @@ test.describe("mobile CTA reachability and no-horizontal-scroll at multiple widt
       await page.goto("/");
       await activateCta(page);
       const departments = sortedDepartments();
-      await officeMap(page).getByRole("button", { name: departments[0].overviewLabel }).tap();
+      await officeMap(page).getByRole("link", { name: departments[0].overviewLabel }).tap();
 
       const ctaButton = page.getByRole("link", { name: departments[0].ctaLabel });
       await ctaButton.scrollIntoViewIfNeeded();

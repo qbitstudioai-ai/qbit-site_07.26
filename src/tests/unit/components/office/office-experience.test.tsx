@@ -405,7 +405,7 @@ describe("OfficeExperience", () => {
       );
     });
 
-    it("keeps all 5 department buttons usable when the overview scene fails to load (Step 8 fallback)", () => {
+    it("keeps all 5 department links usable when the overview scene fails to load (Step 8 fallback)", () => {
       const { container } = renderOverview();
       fireEvent.error(container.querySelector("img")!);
 
@@ -414,7 +414,7 @@ describe("OfficeExperience", () => {
 
       // Коммерческий путь overview не зависит от фотослоя вовсе.
       const nav = screen.getByRole("navigation", { name: "Отделы компании" });
-      expect(within(nav).getAllByRole("button")).toHaveLength(5);
+      expect(within(nav).getAllByRole("link")).toHaveLength(5);
     });
 
     it("keeps the overview master scene behind «Ваша задача» — it is not a department", () => {

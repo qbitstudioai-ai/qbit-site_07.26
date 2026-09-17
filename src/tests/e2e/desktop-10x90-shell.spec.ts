@@ -29,7 +29,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
 
     const railBox = await page.getByRole("navigation", { name: "Панель отделов" }).boundingBox();
     // Со Step 13 (Amendment 8) меряется ИМЕННО КОЛОНКА СЕТКИ (.mainArea — родитель панели отдела), а
@@ -57,7 +57,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
 
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
@@ -74,7 +74,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     // Заголовок получает программный focus сразу после открытия (docs/05 department-opening).
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeFocused();
 
@@ -102,7 +102,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
 
     const panel = page.getByTestId("pain-gain-panel");
     // Amendment 12: пояснение состоит из двух слоёв (видимые глифы + доступная копия), поэтому
@@ -125,7 +125,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
 
     const panel = page.getByTestId("pain-gain-panel");
     // Видимый слой пояснения (Amendment 12) — см. пояснение в тесте выше.
@@ -146,7 +146,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
 
     const current = page.locator('[aria-current="true"]');
     await expect(current).toHaveCount(1);
@@ -160,7 +160,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
 
     const heading = page.getByRole("heading", { level: 2, name: sales.headline });
     const headingBox = await heading.boundingBox();
@@ -189,7 +189,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
 
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
@@ -224,7 +224,7 @@ test.describe("desktop 10/90 shell (Step 6)", () => {
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
     await page.getByRole("button", { name: "Назад к офису" }).click();

@@ -581,7 +581,7 @@ test.describe("Step 16 — переход между сценами", () => {
     await openOffice(page);
     await page
       .getByRole("navigation", { name: "Отделы компании" })
-      .getByRole("button", { name: sales.overviewLabel })
+      .getByRole("link", { name: sales.overviewLabel })
       .click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
     await page.keyboard.press("Escape");
@@ -620,7 +620,7 @@ test.describe("Step 18 — путь overview→отдел", () => {
 
       const map = page.getByRole("navigation", { name: "Отделы компании" });
       const coverage = await minSceneCoverageAnywhere(page, async () => {
-        await map.getByRole("button", { name: sales.overviewLabel }).click();
+        await map.getByRole("link", { name: sales.overviewLabel }).click();
       });
 
       // Отдел действительно открылся — иначе замер укрытости описывал бы неподвижную картинку.

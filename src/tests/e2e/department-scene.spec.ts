@@ -58,7 +58,7 @@ test.describe("Step 13 — each department gets its own scene", () => {
 
     // Первый отдел открывается с карты офиса, остальные — переключением через рельс: именно этот
     // путь пользователь проходит на самом деле, и именно он обязан менять сцену без перезагрузки.
-    await map.getByRole("button", { name: departments[0].overviewLabel }).click();
+    await map.getByRole("link", { name: departments[0].overviewLabel }).click();
 
     const seenFiles = new Set<string>();
     for (const [index, department] of departments.entries()) {
@@ -95,7 +95,7 @@ test.describe("Step 13 — each department gets its own scene", () => {
 
     await page
       .getByRole("navigation", { name: "Отделы компании" })
-      .getByRole("button", { name: sales.overviewLabel })
+      .getByRole("link", { name: sales.overviewLabel })
       .click();
     const before = await currentSceneFile(page);
     expect(before).toMatch(derivativeOf("sales"));
@@ -134,7 +134,7 @@ test.describe("Step 13 — each department gets its own scene", () => {
     const support = departments.find((d) => d.id === "support")!;
     await page
       .getByRole("navigation", { name: "Отделы компании" })
-      .getByRole("button", { name: support.overviewLabel })
+      .getByRole("link", { name: support.overviewLabel })
       .click();
     await expect(page.getByRole("heading", { level: 2, name: support.headline })).toBeVisible();
     await currentSceneFile(page);
@@ -178,7 +178,7 @@ test.describe("Step 13 — each department gets its own scene", () => {
     await openOffice(page);
     await page
       .getByRole("navigation", { name: "Отделы компании" })
-      .getByRole("button", { name: sales.overviewLabel })
+      .getByRole("link", { name: sales.overviewLabel })
       .click();
 
     // Сцена «Продаж» действительно упала и заменена плейсхолдером (контракт Step 8).
@@ -206,7 +206,7 @@ test.describe("Step 13 — each department gets its own scene", () => {
     const sales = departments.find((d) => d.id === "sales")!;
     await page
       .getByRole("navigation", { name: "Отделы компании" })
-      .getByRole("button", { name: sales.overviewLabel })
+      .getByRole("link", { name: sales.overviewLabel })
       .click();
 
     const panel = page.getByRole("region", { name: sales.overviewLabel });
@@ -253,7 +253,7 @@ test.describe("Step 13 — each department gets its own scene", () => {
     const hr = departments.find((d) => d.id === "hr")!;
     await page
       .getByRole("navigation", { name: "Отделы компании" })
-      .getByRole("button", { name: hr.overviewLabel })
+      .getByRole("link", { name: hr.overviewLabel })
       .click();
 
     const panel = page.getByRole("region", { name: hr.overviewLabel });

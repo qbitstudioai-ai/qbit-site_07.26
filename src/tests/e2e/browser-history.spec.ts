@@ -24,7 +24,7 @@ test.describe("Step 9 — browser history behaviour (deliberate replaceState des
 
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
     // URL синхронизирован — прямая перезагрузка/закладка сохранит именно этот отдел (положительная
     // цель replaceState: адрес всегда отражает состояние).

@@ -78,7 +78,7 @@ test.describe("Step 15 — кадрирование overview-сцены по б�
       const map = page.getByRole("navigation", { name: "Отделы компании" });
 
       for (const department of departments) {
-        const hotspot = map.getByRole("button", { name: department.overviewLabel });
+        const hotspot = map.getByRole("link", { name: department.overviewLabel });
         const box = await hotspot.boundingBox();
         expect(box, `${department.id} не отрисован`).not.toBeNull();
 

@@ -8,7 +8,7 @@ describe("OfficeSemanticMap", () => {
   const departments = getDepartments();
   const officeZones = getOfficeZones();
 
-  it("renders exactly 5 accessible department buttons, scoped to the map nav", () => {
+  it("renders exactly 5 accessible department links, scoped to the map nav", () => {
     render(
       <OfficeSemanticMap
         departments={departments}
@@ -17,13 +17,12 @@ describe("OfficeSemanticMap", () => {
       />,
     );
     const nav = screen.getByRole("navigation", { name: "Отделы компании" });
-    const buttons = within(nav).getAllByRole("button");
-    expect(buttons).toHaveLength(5);
+    const links = within(nav).getAllByRole("link");
+    expect(links).toHaveLength(5);
+    expect(within(nav).queryAllByRole("button")).toHaveLength(0);
 
     for (const department of departments) {
-      expect(
-        within(nav).getByRole("button", { name: department.overviewLabel }),
-      ).toBeInTheDocument();
+      expect(within(nav).getByRole("link", { name: department.overviewLabel })).toBeInTheDocument();
     }
   });
 
@@ -36,15 +35,15 @@ describe("OfficeSemanticMap", () => {
       />,
     );
     const nav = screen.getByRole("navigation", { name: "Отделы компании" });
-    const buttons = within(nav).getAllByRole("button");
+    const links = within(nav).getAllByRole("link");
 
     const expectedOrder = officeZones
       .slice()
       .sort((a, b) => a.y - b.y || a.x - b.x)
       .map((zone) => zone.departmentId);
 
-    const actualOrder = buttons.map((button) => {
-      const label = button.getAttribute("aria-label");
+    const actualOrder = links.map((link) => {
+      const label = link.getAttribute("aria-label");
       const department = departments.find((d) => d.overviewLabel === label);
       return department?.id;
     });
@@ -62,11 +61,11 @@ describe("OfficeSemanticMap", () => {
     );
     for (const zone of officeZones) {
       const department = departments.find((d) => d.id === zone.departmentId);
-      const button = screen.getByRole("button", { name: department?.overviewLabel });
-      expect(button.style.left).toBe(`${zone.x}%`);
-      expect(button.style.top).toBe(`${zone.y}%`);
-      expect(button.style.width).toBe(`${zone.width}%`);
-      expect(button.style.height).toBe(`${zone.height}%`);
+      const link = screen.getByRole("link", { name: department?.overviewLabel });
+      expect(link.style.left).toBe(`${zone.x}%`);
+      expect(link.style.top).toBe(`${zone.y}%`);
+      expect(link.style.width).toBe(`${zone.width}%`);
+      expect(link.style.height).toBe(`${zone.height}%`);
     }
   });
 
@@ -87,7 +86,7 @@ describe("OfficeSemanticMap", () => {
       />,
     );
     const salesDepartment = departments.find((d) => d.id === "sales")!;
-    fireEvent.click(screen.getByRole("button", { name: salesDepartment.overviewLabel }));
+    fireEvent.click(screen.getByRole("link", { name: salesDepartment.overviewLabel }));
     expect(onSelectDepartment).toHaveBeenCalledWith("sales");
   });
 });

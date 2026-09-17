@@ -31,8 +31,9 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .map:has(button:hover) button:not(:hover),
-  .map:has(button:focus-visible) button:not(:focus-visible) {
+  /* DEPT-SEO.2B: зоны стали ссылками <a href> — селектор следует за элементом, эффект прежний. */
+  .map:has(a:hover) a:not(:hover),
+  .map:has(a:focus-visible) a:not(:focus-visible) {
     background: rgba(30, 26, 22, 0.045);
     opacity: 0.96;
   }

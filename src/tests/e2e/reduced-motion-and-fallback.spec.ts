@@ -25,7 +25,7 @@ test.describe("Step 8 — reduced motion collapses transition timers (AC 1)", ()
     await activateCta(page);
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
     const startedAt = Date.now();
@@ -49,7 +49,7 @@ test.describe("Step 8 — reduced motion collapses transition timers (AC 1)", ()
     const startedAt = Date.now();
     await page
       .getByRole("navigation", { name: "Отделы компании" })
-      .getByRole("button", { name: sales.overviewLabel })
+      .getByRole("link", { name: sales.overviewLabel })
       .click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
@@ -74,7 +74,7 @@ test.describe("Step 8 — reduced motion collapses transition timers (AC 1)", ()
 
     await page
       .getByRole("navigation", { name: "Отделы компании" })
-      .getByRole("button", { name: sales.overviewLabel })
+      .getByRole("link", { name: sales.overviewLabel })
       .click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
@@ -106,9 +106,9 @@ test.describe("Step 8 — visual (photo) layer failure does not block content (A
 
     // Коммерческий путь overview — 5 HTML-кнопок (docs/05 "error-fallback") — фото не содержит вовсе.
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(nav.getByRole("button")).toHaveCount(5);
+    await expect(nav.getByRole("link")).toHaveCount(5);
 
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
     const panel = page.getByRole("region", { name: sales.overviewLabel });

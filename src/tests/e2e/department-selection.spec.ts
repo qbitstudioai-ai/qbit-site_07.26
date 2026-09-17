@@ -22,7 +22,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     });
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
 
     // Скоуп на сам панель отдела (aria-label=overviewLabel даёт ARIA-роль "region") — некоторые
     // outcomes текстуально совпадают с valuePoints hero (например, "Меньше ручной работы"), которые
@@ -51,7 +51,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await activateCta(page);
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(1);
 
     // Переключение на второй отдел — уже через DepartmentNavigationRail (Step 6), а не через карту
@@ -72,7 +72,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     });
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
 
@@ -90,7 +90,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
@@ -107,7 +107,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    const hotspot = nav.getByRole("button", { name: sales.overviewLabel });
+    const hotspot = nav.getByRole("link", { name: sales.overviewLabel });
     await hotspot.focus();
 
     await page.keyboard.press(" ");
@@ -121,7 +121,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeFocused();
   });
 
@@ -131,7 +131,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    const hotspot = nav.getByRole("button", { name: sales.overviewLabel });
+    const hotspot = nav.getByRole("link", { name: sales.overviewLabel });
     await hotspot.click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
@@ -148,7 +148,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    const hotspot = nav.getByRole("button", { name: sales.overviewLabel });
+    const hotspot = nav.getByRole("link", { name: sales.overviewLabel });
     await hotspot.click();
 
     await page.getByRole("button", { name: "Назад к офису" }).click();
@@ -177,7 +177,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
 
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
@@ -198,7 +198,7 @@ test.describe("department selection state machine (Step 5, switching UI upgraded
     await page.goto("/");
     await activateCta(page);
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button", { name: sales.overviewLabel }).click();
+    await nav.getByRole("link", { name: sales.overviewLabel }).click();
     const rail = page.getByRole("navigation", { name: "Панель отделов" });
     await rail.getByRole("button", { name: hr.overviewLabel }).click();
     await page.keyboard.press("Escape");

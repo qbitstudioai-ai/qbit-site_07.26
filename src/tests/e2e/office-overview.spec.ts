@@ -41,7 +41,7 @@ test.describe("office overview", () => {
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
     for (const department of getDepartments()) {
-      await expect(nav.getByRole("button", { name: department.overviewLabel })).toBeVisible();
+      await expect(nav.getByRole("link", { name: department.overviewLabel })).toBeVisible();
     }
   });
 
@@ -53,7 +53,7 @@ test.describe("office overview", () => {
     await page.getByRole("link", { name: copy.secondaryCta }).click();
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(nav.getByRole("button")).toHaveCount(5);
+    await expect(nav.getByRole("link")).toHaveCount(5);
     // Предотвращён нативный переход по фрагменту — hash не должен появиться в URL.
     expect(new URL(page.url()).hash).toBe("");
   });
@@ -99,7 +99,7 @@ test.describe("office overview", () => {
 
     await page.goto("/?department=does-not-exist");
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(nav.getByRole("button")).toHaveCount(5);
+    await expect(nav.getByRole("link")).toHaveCount(5);
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
     expect(consoleErrors).toEqual([]);
   });
@@ -118,7 +118,7 @@ test.describe("office overview", () => {
     // HTML (в отличие от Step 3, где query string вообще не влиял на разметку).
     await page.goto("/");
     const navWithoutQuery = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(navWithoutQuery.getByRole("button")).toHaveCount(5);
+    await expect(navWithoutQuery.getByRole("link")).toHaveCount(5);
     // Step 7.2: HeroCopy скрывается только `:global(.js)`-gated правилом — без JS оно не
     // срабатывает, hero и раскрытый офис по-прежнему рендерятся одновременно (docs/05 "## hero").
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -173,7 +173,7 @@ test.describe("office overview", () => {
       await expectNoDocumentScroll(page);
 
       const nav = page.getByRole("navigation", { name: "Отделы компании" });
-      await nav.getByRole("button").first().click();
+      await nav.getByRole("link").first().click();
       // department-active (Step 6 10/90 shell)
       await expectNoDocumentScroll(page);
     });
@@ -213,7 +213,7 @@ test.describe("office overview", () => {
     // Каждый хотспот, будучи прокручен в видимую область панели офиса, сохраняет читаемый
     // минимальный размер (не сжимается пропорционально нехватке высоты viewport).
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    const buttons = await nav.getByRole("button").all();
+    const buttons = await nav.getByRole("link").all();
     expect(buttons.length).toBe(5);
     for (const button of buttons) {
       await button.scrollIntoViewIfNeeded();
@@ -241,7 +241,7 @@ test.describe("office overview", () => {
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await nav.getByRole("button").first().click();
+    await nav.getByRole("link").first().click();
 
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
     await expect(
@@ -258,7 +258,7 @@ test.describe("office overview", () => {
     await activateCta(page);
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(nav.getByRole("button").first()).toBeFocused();
+    await expect(nav.getByRole("link").first()).toBeFocused();
   });
 
   test("Step 7.2: the office CTA hides the hero block from the a11y tree and moves focus to the first hotspot, without any Tab press (AC2/AC5)", async ({
@@ -277,7 +277,7 @@ test.describe("office overview", () => {
     await expect(page.getByText(copy.interactionHint)).toBeHidden();
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(nav.getByRole("button").first()).toBeFocused();
+    await expect(nav.getByRole("link").first()).toBeFocused();
   });
 
   test("the old generic tagline is absent and the header CTA uses the same contact as the hero CTA", async ({

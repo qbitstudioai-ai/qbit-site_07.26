@@ -173,7 +173,13 @@ Deploy и любые действия на production; изменение гла
 
 ### Step DEPT-SEO.2B — crawl edge с главной
 
-- Status: `PROPOSED` — не начат, к реализации в 2A не относится.
+- Status: `PASSED` — LOCAL IMPLEMENTATION VERIFIED / READY FOR COMMIT (2026-09-17): DEPT-SEO.2B.1
+  `PASS`; 2B.2 (зоны → `<a href>`) реализован; 2B.3 final skeptic gate `PASS`. НЕ закоммичен, НЕ
+  задеплоен, на production не проверен (`WORKLOG.md`, 2026-09-17).
+- Решения руководителя (2026-09-17): R1 — `<a>` наследует шрифт сайта, `font-family` не добавляется
+  (ширина подписей +≤2.9 px, геометрия зон неизменна); R2 — selector `button`→`a` в
+  `OfficeSemanticMap.module.css` обязателен и проверен замером.
+- Факт vs прогноз: изменено 76 e2e-локаторов карты в 15 spec (прогноз DEPT-SEO.1 — ~104 в 19).
 - Objective: дать поисковому обходчику настоящее ребро `/` → `/solutions/<slug>`, сохранив
   утверждённый UX офиса.
 - Предполагаемый приём: зоны офиса (`DepartmentHotspot`) становятся `<a href>` с

@@ -321,17 +321,6 @@ test.describe("главная не изменилась", () => {
     for (const path of ["/", "/?department=sales", "/?section=task"]) {
       const html = await (await request.get(path)).text();
       expect(html, path).toContain('<link rel="canonical" href="https://allqbit.ru"/>');
-
-      /**
-       * Главная не должна СССЫЛАТЬСЯ на новый раздел — это задача DEPT-SEO.2B, а не этого шага.
-       * Проверяется отрисованный документ, а не весь ответ: `solutionPath` каждого отдела
-       * приезжает в RSC-payload как обычное поле данных, и приезжал он там ЗАДОЛГО до этого шага
-       * — измерено на production origin/master 2026-09-16: 5 вхождений `/solutions/` внутри
-       * `<script>` и ноль в разметке. Требовать отсутствия подстроки во всём ответе значило бы
-       * проверять устройство payload, а не поведение страницы.
-       */
-      const rendered = renderedHtml(html);
-      expect(rendered, path).not.toContain("/solutions/");
     }
   });
 
@@ -355,7 +344,7 @@ test.describe("главная не изменилась", () => {
     await page.getByRole("link", { name: copy.secondaryCta }).click();
 
     const map = page.getByRole("navigation", { name: "Отделы компании" });
-    await map.getByRole("button", { name: sales.overviewLabel }).click();
+    await map.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
     expect(new URL(page.url()).searchParams.get("department")).toBe("sales");
 
@@ -372,14 +361,268 @@ test.describe("главная не изменилась", () => {
     expect(await page.evaluate(() => window.history.length)).toBe(initialLength);
   });
 
-  test("зоны офиса остались кнопками — преобразование в ссылки это DEPT-SEO.2B", async ({
+  test("зоны офиса — crawlable ссылки на страницы отделов (DEPT-SEO.2B), а не кнопки", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto("/?section=office");
 
     const map = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(map.getByRole("button")).toHaveCount(departments.length);
-    await expect(map.locator("a[href]")).toHaveCount(0);
+    await expect(map.getByRole("link")).toHaveCount(departments.length);
+    await expect(map.getByRole("button")).toHaveCount(0);
+    const hrefs = await map
+      .locator("a[href]")
+      .evaluateAll((nodes) => nodes.map((node) => node.getAttribute("href") ?? ""));
+    expect(hrefs.sort()).toEqual(departments.map((department) => department.solutionPath).sort());
   });
+});
+
+/**
+ * DEPT-SEO.2B — ребро обхода `/` → `/solutions/<slug>`.
+ *
+ * Зоны офиса стали настоящими `<a href>`: ссылка существует в первом HTML и работает без
+ * JavaScript. С JavaScript обычная активация (клик, Enter, Space) по-прежнему открывает отдел на
+ * сцене главной без перехода и без записи в историю, а клик с модификатором остаётся нативным.
+ */
+test.describe("DEPT-SEO.2B: зоны офиса — crawlable ссылки", () => {
+  const EXPECTED_PATHS: Record<string, string> = {
+    sales: "/solutions/sales",
+    support: "/solutions/support",
+    executive: "/solutions/management",
+    hr: "/solutions/hr",
+    logistics: "/solutions/logistics",
+  };
+
+  /** Все `<a href="/solutions/…">` отрисованной разметки (без RSC-payload в `<script>`). */
+  function solutionAnchors(html: string): { id: string | null; href: string }[] {
+    return [...renderedHtml(html).matchAll(/<a\b[^>]*>/g)]
+      .map((match) => ({
+        href: match[0].match(/\bhref="([^"]*)"/)?.[1] ?? "",
+        id: match[0].match(/\bid="([^"]*)"/)?.[1] ?? null,
+      }))
+      .filter((anchor) => anchor.href.startsWith("/solutions/"));
+  }
+
+  /**
+   * Записывает вызовы Метрики вместо реального счётчика. Запросы к mc.yandex.ru получают пустой
+   * ответ, а не обрыв: обрыв сам печатает в консоль `net::ERR_FAILED` и ломал бы проверку консоли.
+   */
+  async function recordMetrika(page: Page) {
+    await page.route(/mc\.yandex\.ru/, (route) =>
+      route.fulfill({ status: 204, contentType: "application/javascript", body: "" }),
+    );
+    await page.addInitScript(() => {
+      const calls: unknown[][] = [];
+      const target = window as unknown as {
+        __ymCalls: unknown[][];
+        ym: (...args: unknown[]) => void;
+      };
+      target.__ymCalls = calls;
+      target.ym = (...args) => {
+        calls.push(args);
+      };
+    });
+  }
+
+  function collectConsoleErrors(page: Page): string[] {
+    const errors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") errors.push(message.text());
+    });
+    page.on("pageerror", (error) => errors.push(error.message));
+    return errors;
+  }
+
+  test("источник: пять solutionPath, executive → /solutions/management", () => {
+    expect(
+      Object.fromEntries(departments.map((department) => [department.id, department.solutionPath])),
+    ).toEqual(EXPECTED_PATHS);
+  });
+
+  test("SSR главной содержит ровно 5 ссылок-зон на страницы отделов, canonical прежний", async ({
+    request,
+  }) => {
+    const html = await (await request.get("/")).text();
+    const anchors = solutionAnchors(html);
+    expect(anchors).toHaveLength(5);
+    expect(Object.fromEntries(anchors.map((anchor) => [anchor.id, anchor.href]))).toEqual(
+      Object.fromEntries(
+        Object.entries(EXPECTED_PATHS).map(([id, path]) => [`hotspot-${id}`, path]),
+      ),
+    );
+    expect(anchors.map((anchor) => anchor.href)).not.toContain("/solutions/executive");
+    expect(renderedHtml(html)).not.toContain("/departments/");
+    expect(html).toContain('<link rel="canonical" href="https://allqbit.ru"/>');
+  });
+
+  for (const department of departments) {
+    test(`обычный клик по «${department.overviewLabel}» открывает отдел на главной, без перехода`, async ({
+      page,
+    }) => {
+      const consoleErrors = collectConsoleErrors(page);
+      await recordMetrika(page);
+      const solutionRequests: string[] = [];
+      page.on("request", (request) => {
+        if (new URL(request.url()).pathname.startsWith("/solutions/")) {
+          solutionRequests.push(request.url());
+        }
+      });
+
+      await page.setViewportSize(DESKTOP);
+      await page.goto("/?section=office");
+      const map = page.getByRole("navigation", { name: "Отделы компании" });
+      await expect(map).toBeVisible();
+      const initialLength = await page.evaluate(() => window.history.length);
+
+      await map.getByRole("link", { name: department.overviewLabel }).click();
+
+      await expect(
+        page.getByRole("heading", { level: 2, name: department.headline }),
+      ).toBeVisible();
+      const url = new URL(page.url());
+      expect(url.pathname).toBe("/");
+      expect(url.searchParams.get("department")).toBe(department.id);
+      expect(await page.evaluate(() => window.history.length)).toBe(initialLength);
+      expect(solutionRequests).toEqual([]);
+
+      const ymCalls = await page.evaluate(
+        () => (window as unknown as { __ymCalls: unknown[][] }).__ymCalls,
+      );
+      // Запись действительно работает: счётчик главной уже вызвал init/hit через записывающий ym.
+      // Без этого пустой массив прошёл бы проверки ниже и при сломанной записи.
+      expect(ymCalls.length).toBeGreaterThan(0);
+      expect(ymCalls.filter((call) => call[1] === "reachGoal")).toEqual([]);
+      expect(ymCalls.filter((call) => JSON.stringify(call).includes("/solutions/"))).toEqual([]);
+      expect(consoleErrors).toEqual([]);
+    });
+  }
+
+  for (const key of ["Enter", "Space"] as const) {
+    test(`${key} на сфокусированной зоне открывает отдел ровно один раз, без перехода`, async ({
+      page,
+    }) => {
+      const consoleErrors = collectConsoleErrors(page);
+      await page.setViewportSize(DESKTOP);
+      await page.goto("/?section=office");
+      const sales = departments.find((department) => department.id === "sales")!;
+      const map = page.getByRole("navigation", { name: "Отделы компании" });
+      const initialLength = await page.evaluate(() => window.history.length);
+
+      await map.getByRole("link", { name: sales.overviewLabel }).focus();
+      await page.keyboard.press(key);
+
+      const heading = page.getByRole("heading", { level: 2, name: sales.headline });
+      await expect(heading).toBeVisible();
+      // Фокус переносится на заголовок открытого отдела — тот же контракт, что был у кнопки.
+      await expect(heading).toBeFocused();
+      const url = new URL(page.url());
+      expect(url.pathname).toBe("/");
+      expect(url.searchParams.get("department")).toBe("sales");
+      expect(await page.evaluate(() => window.history.length)).toBe(initialLength);
+      expect(consoleErrors).toEqual([]);
+    });
+  }
+
+  test("Ctrl/Cmd-клик остаётся нативным: новая вкладка на /solutions/<slug>, главная не меняется", async ({
+    page,
+    context,
+  }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto("/?section=office");
+    const executive = departments.find((department) => department.id === "executive")!;
+    const map = page.getByRole("navigation", { name: "Отделы компании" });
+
+    const [popup] = await Promise.all([
+      context.waitForEvent("page"),
+      map
+        .getByRole("link", { name: executive.overviewLabel })
+        .click({ modifiers: ["ControlOrMeta"] }),
+    ]);
+    await popup.waitForURL("**/solutions/management");
+    expect(new URL(popup.url()).pathname).toBe("/solutions/management");
+    await expect(popup.getByRole("heading", { level: 1 })).toHaveCount(1);
+    await popup.close();
+
+    expect(new URL(page.url()).searchParams.get("department")).toBeNull();
+    await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+    await expect(map).toBeVisible();
+  });
+
+  test("Back/Forward вокруг главной с выбранным через ссылку-зону отделом", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto("/blog");
+    await page.goto("/?section=office");
+    const map = page.getByRole("navigation", { name: "Отделы компании" });
+    const sales = departments.find((department) => department.id === "sales")!;
+    await map.getByRole("link", { name: sales.overviewLabel }).click();
+    await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
+
+    await page.goBack();
+    await page.waitForURL("**/blog");
+    await page.goForward();
+    await page.waitForURL((url) => url.pathname === "/");
+    expect(new URL(page.url()).searchParams.get("department")).toBe("sales");
+    await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
+  });
+
+  test("без JavaScript: 5 ссылок видимы и ведут на страницы отделов", async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false, viewport: DESKTOP });
+    const page = await context.newPage();
+    await page.goto("/");
+
+    const map = page.getByRole("navigation", { name: "Отделы компании" });
+    await expect(map.getByRole("link")).toHaveCount(5);
+    for (const department of departments) {
+      const link = map.getByRole("link", { name: department.overviewLabel });
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute("href", department.solutionPath);
+    }
+
+    for (const department of departments) {
+      await page.goto("/");
+      const response = page.waitForResponse(
+        (candidate) => new URL(candidate.url()).pathname === department.solutionPath,
+      );
+      await page
+        .getByRole("navigation", { name: "Отделы компании" })
+        .getByRole("link", { name: department.overviewLabel })
+        .click();
+      expect((await response).status()).toBe(200);
+      await page.waitForURL(`**${department.solutionPath}`);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
+    }
+
+    await context.close();
+  });
+
+  test("панель отделов и карусель остаются кнопками", async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto("/?department=sales");
+    const rail = page.getByRole("navigation", { name: "Панель отделов" });
+    await expect(rail.getByRole("button")).toHaveCount(departments.length);
+    await expect(rail.getByRole("link")).toHaveCount(0);
+
+    await page.setViewportSize(MOBILE);
+    await page.goto("/?department=sales");
+    const carouselControls = page.getByRole("button", { name: /^(Предыдущий|Следующий) отдел/ });
+    await expect(carouselControls.first()).toBeVisible();
+    await expect(page.getByRole("link", { name: /^(Предыдущий|Следующий) отдел/ })).toHaveCount(0);
+  });
+
+  for (const [label, viewport] of [
+    ["desktop", DESKTOP],
+    ["mobile", MOBILE],
+  ] as const) {
+    test(`${label}: overview со ссылками-зонами без serious/critical нарушений axe`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/?section=office");
+      await expect(
+        page.getByRole("navigation", { name: "Отделы компании" }).getByRole("link"),
+      ).toHaveCount(5);
+      const violations = await scanSeriousViolations(page);
+      expect(violations, summarize(violations)).toEqual([]);
+    });
+  }
 });

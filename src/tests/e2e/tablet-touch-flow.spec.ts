@@ -29,7 +29,7 @@ async function activateCta(page: import("@playwright/test").Page) {
 
 async function openSalesFromMap(page: import("@playwright/test").Page) {
   const map = page.getByRole("navigation", { name: "Отделы компании" });
-  await map.getByRole("button", { name: sales.overviewLabel }).tap();
+  await map.getByRole("link", { name: sales.overviewLabel }).tap();
   await expect(page.getByRole("heading", { level: 2, name: sales.headline })).toBeVisible();
 }
 
@@ -43,7 +43,7 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
     const map = page.getByRole("navigation", { name: "Отделы компании" });
     await expect(map).toBeVisible();
     for (const department of departments) {
-      await expect(map.getByRole("button", { name: department.overviewLabel })).toBeVisible();
+      await expect(map.getByRole("link", { name: department.overviewLabel })).toBeVisible();
     }
 
     // Карусель скрыта через display:none на ≥768px — реально убрана из дерева доступности.
@@ -62,7 +62,7 @@ test.describe("tablet touch flow (768–1279px, Step 7.5)", () => {
 
       const map = page.getByRole("navigation", { name: "Отделы компании" });
       for (const department of departments) {
-        const hotspot = map.getByRole("button", { name: department.overviewLabel });
+        const hotspot = map.getByRole("link", { name: department.overviewLabel });
         const problem = map.locator(`#department-problem-${department.id}`);
         await expect(problem).toContainText(department.hoverDescription);
         await expect(hotspot.locator("[data-corner-marker]")).toHaveCount(4);
@@ -333,7 +333,7 @@ test.describe("tablet tap targets and no-document-scroll at characteristic sizes
 
       const map = page.getByRole("navigation", { name: "Отделы компании" });
       for (const department of departments) {
-        const box = await map.getByRole("button", { name: department.overviewLabel }).boundingBox();
+        const box = await map.getByRole("link", { name: department.overviewLabel }).boundingBox();
         expect(box, `hotspot ${department.id}`).not.toBeNull();
         expect(box!.width, `hotspot ${department.id} width`).toBeGreaterThanOrEqual(44);
         expect(box!.height, `hotspot ${department.id} height`).toBeGreaterThanOrEqual(44);

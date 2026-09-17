@@ -27,7 +27,7 @@ test.describe("office overview redesign", () => {
     await expect(headerPhone).toHaveText(copy.headerPhone);
 
     const sales = getDepartments().find((department) => department.id === "sales")!;
-    await page.getByRole("button", { name: sales.overviewLabel }).click();
+    await page.getByRole("link", { name: sales.overviewLabel }).click();
     await expect(page.getByRole("heading", { name: sales.headline })).toBeVisible();
     await expect(mainNavigation).toBeVisible();
     await expect(headerPhone).toBeVisible();
@@ -370,7 +370,7 @@ test.describe("office overview redesign", () => {
     await openOverview(page);
 
     const sales = getDepartments().find((department) => department.id === "sales")!;
-    const hotspot = page.getByRole("button", { name: sales.overviewLabel });
+    const hotspot = page.getByRole("link", { name: sales.overviewLabel });
     await expect(hotspot.locator("[data-corner-marker]")).toHaveCount(4);
     expect(await hotspot.evaluate((element) => getComputedStyle(element).borderStyle)).toBe("none");
 

@@ -1,5 +1,37 @@
 # WORKLOG
 
+## 2026-09-17 — Step DEPT-SEO.2B.2/2B.3: зоны офиса → crawlable `<a href>` (локально, без commit/deploy)
+
+База `b6ec4da` (= origin/master). Статус: LOCAL IMPLEMENTATION VERIFIED / READY FOR COMMIT; skeptic `PASS`.
+
+- Код: `DepartmentHotspot.tsx` — `<button>` → `<a href={department.solutionPath}>`; обычный клик —
+  `preventDefault` + `onSelect`; meta/ctrl/shift/alt-клик не перехватывается; Space — `onKeyDown`
+  (`preventDefault` + `onSelect`); Enter — нативно через click. `focusTargets.ts`:
+  `OVERVIEW_MAP_FIRST_CONTROL` = `'[aria-label="Отделы компании"] a[href]'`.
+- CSS (доказанная необходимость): `OfficeSemanticMap.module.css` — `:has(button:hover) button…` →
+  `a`; без правки приглушение соседних зон пропало бы. Замер до/после (1440×900, hover «Продажи»):
+  opacity 0.96 / фон соседей идентичны.
+- Шрифт (решение R1 — принято): `<a>` наследует `--font-family-base`, у `<button>` был UA-шрифт
+  (headless Chromium/Windows: `Arial`). Подписи шире на 0–2.9 px, высоты/позиции зон без изменений.
+  CSS-правка selector — решение R2 (обязательна, проверена).
+- Тесты: unit `department-hotspot` (14), `office-semantic-map`, `office-experience`, `home-page` —
+  локаторы карты `button` → `link`; e2e — 76 локаторов карты в 15 spec построчно (rail/carousel/
+  pain-panel не тронуты; прогноз DEPT-SEO.1 был ~104/19); сторож `solutions-pages` перевёрнут; новый
+  блок «DEPT-SEO.2B» (+15 тестов; в проверке Метрики добавлено `ymCalls.length > 0`).
+- Прогоны: `typecheck` 0; `lint` 0; `format:check` — единственное pre-existing предупреждение
+  `task-section.spec.ts` (файл не изменён); `npm test` 87 файлов / 1145 тестов PASS; `build` 0.
+- 2B.3: `docs/05` — «пять HTML-кнопок»/«кнопка-хотспот» → зоны-ссылки `<a href>` (3 места).
+- Удержание Space (замер, prod-сборка, desktop/reduced/mobile): из 15 keydown только первый
+  (`repeat=false`) попал в ссылку, далее ссылки нет в DOM, фокус на заголовке; `replaceState` 2 раза —
+  столько же, сколько у click и Enter; `history.length` не растёт. Guard не нужен.
+- e2e финальные (обход «Оговорка A»: `server.js` на 3200 + временный reuse-конфиг, удалён): пакет 1
+  (11 spec, вкл. `solutions-pages`) 169/169; пакет 2 (11 spec) 179 passed / 2 failed —
+  `products-experience:244` `ERR_CERT_AUTHORITY_INVALID` (Метрика, pre-existing, см. 2A-R) и
+  `pain-gain-layout:370` (каскад, spec не в diff, без hotspot) — серийно `--repeat-each=3` 24/24;
+  после усиления проверки Метрики `solutions-pages` 58/58.
+- Skeptic (2B.3): `PASS`, блокеров нет; независимо: SSR 5 ссылок, 117 e2e passed, удержание Space/Enter
+  и middle-click подтверждены. Non-blocking закрыты: бухгалтерия, `ymCalls.length > 0`.
+
 ## 2026-09-16 — Amendment 62 / Step DEPT-SEO.2A-R: baseline-доказательство и правка §1 SEO-документа
 
 **Статус записи: оба gate закрыты.** Коммитов, push и deploy нет; production не трогался; схема БД

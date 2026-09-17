@@ -1,3 +1,4 @@
+import type { KeyboardEvent, MouseEvent } from "react";
 import type { Department, DepartmentId, OfficeZone } from "@/content/types";
 import styles from "./DepartmentHotspot.module.css";
 import { hotspotId } from "@/features/office-machine/focusTargets";
@@ -11,9 +12,26 @@ interface DepartmentHotspotProps {
 export function DepartmentHotspot({ zone, department, onSelect }: DepartmentHotspotProps) {
   const problemId = `department-problem-${department.id}`;
 
+  // DEPT-SEO.2B: зона — настоящая ссылка на страницу отдела, чтобы ребро `/` → `/solutions/<slug>`
+  // существовало в SSR-разметке. С JavaScript обычный клик остаётся выбором отдела на сцене офиса
+  // без перехода; клик с модификатором (новая вкладка/окно, скачивание) браузер обрабатывает сам.
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    onSelect(department.id);
+  };
+
+  // Space ссылку нативно не активирует (у кнопки активировал). Enter здесь не обрабатывается: он уже
+  // порождает click, и повторный onSelect дал бы двойное срабатывание.
+  const handleKeyDown = (event: KeyboardEvent<HTMLAnchorElement>) => {
+    if (event.key !== " ") return;
+    event.preventDefault();
+    onSelect(department.id);
+  };
+
   return (
-    <button
-      type="button"
+    <a
+      href={department.solutionPath}
       id={hotspotId(department.id)}
       className={styles.hotspot}
       style={{
@@ -24,7 +42,8 @@ export function DepartmentHotspot({ zone, department, onSelect }: DepartmentHots
       }}
       aria-label={department.overviewLabel}
       aria-describedby={problemId}
-      onClick={() => onSelect(department.id)}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       <span
         className={`${styles.corner} ${styles.cornerTopLeft}`}
@@ -60,6 +79,6 @@ export function DepartmentHotspot({ zone, department, onSelect }: DepartmentHots
           </span>
         </span>
       </span>
-    </button>
+    </a>
   );
 }

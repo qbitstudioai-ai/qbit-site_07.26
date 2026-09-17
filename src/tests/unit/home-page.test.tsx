@@ -90,7 +90,7 @@ describe("HomePage", () => {
     const departments = getDepartments();
     for (const department of departments) {
       expect(
-        within(officeMapNav).getByRole("button", { name: department.overviewLabel }),
+        within(officeMapNav).getByRole("link", { name: department.overviewLabel }),
       ).toBeInTheDocument();
     }
   });
@@ -119,7 +119,7 @@ describe("HomePage", () => {
       fireEvent.click(screen.getByRole("link", { name: copy.secondaryCta }));
 
       const officeMapNav = screen.getByRole("navigation", { name: "Отделы компании" });
-      const firstHotspot = within(officeMapNav).getAllByRole("button")[0];
+      const firstHotspot = within(officeMapNav).getAllByRole("link")[0];
       expect(document.activeElement).toBe(firstHotspot);
     } finally {
       if (offsetParentDescriptor) {

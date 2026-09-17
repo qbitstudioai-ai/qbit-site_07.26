@@ -35,7 +35,7 @@ test("hidden hotspots are not reachable by Tab before ACTIVATE_CTA; focus lands 
   await page.keyboard.press("Enter");
 
   const nav = page.getByRole("navigation", { name: "Отделы компании" });
-  const buttons = await nav.getByRole("button").all();
+  const buttons = await nav.getByRole("link").all();
   expect(buttons).toHaveLength(5);
 
   const expectedOrder = expectedTabOrderLabels();
@@ -72,7 +72,7 @@ test("Enter on a focused hotspot opens the department — honest inversion of th
   const departments = getDepartments();
   const firstZoneOverviewLabel = expectedTabOrderLabels()[0];
   const firstDepartment = departments.find((d) => d.overviewLabel === firstZoneOverviewLabel);
-  const firstButton = nav.getByRole("button", { name: firstDepartment?.overviewLabel });
+  const firstButton = nav.getByRole("link", { name: firstDepartment?.overviewLabel });
   await firstButton.focus();
 
   await page.keyboard.press("Enter");
@@ -93,9 +93,9 @@ test("prefers-reduced-motion: hero-to-overview reveal is still immediate/functio
   await activateCta(page);
 
   const nav = page.getByRole("navigation", { name: "Отделы компании" });
-  await expect(nav.getByRole("button")).toHaveCount(5);
+  await expect(nav.getByRole("link")).toHaveCount(5);
 
-  const button = nav.getByRole("button").first();
+  const button = nav.getByRole("link").first();
   const duration = await button.evaluate((el) => getComputedStyle(el).transitionDuration);
   for (const value of duration.split(",")) {
     expect(parseFloat(value)).toBeLessThanOrEqual(0.001);
@@ -110,7 +110,7 @@ test("works with JavaScript disabled (progressive enhancement) — all 5 hotspot
   await page.goto("/");
 
   const nav = page.getByRole("navigation", { name: "Отделы компании" });
-  await expect(nav.getByRole("button")).toHaveCount(5);
+  await expect(nav.getByRole("link")).toHaveCount(5);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 
   await context.close();

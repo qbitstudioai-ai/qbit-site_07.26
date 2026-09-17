@@ -21,14 +21,14 @@
 /** Заголовок открытого раздела — цель фокуса при открытии и переключении. */
 export const sectionHeadingId = (sectionId: string) => `department-heading-${sectionId}`;
 
-/** Кнопка-зона отдела на сцене overview — цель возврата фокуса после закрытия отдела. */
+/** Зона отдела (ссылка-хотспот) на сцене overview — цель возврата фокуса после закрытия отдела. */
 export const hotspotId = (departmentId: string) => `hotspot-${departmentId}`;
 
 /** Кнопка входа в раздел «Ваша задача» на overview — цель возврата фокуса после его закрытия. */
 export const TASK_ENTRY_BUTTON_ID = "task-entry-button";
 
 /** Первая интерактивная зона сцены overview. */
-export const OVERVIEW_MAP_FIRST_CONTROL = '[aria-label="Отделы компании"] button';
+export const OVERVIEW_MAP_FIRST_CONTROL = '[aria-label="Отделы компании"] a[href]';
 
 // Список кандидатов возврата фокуса переехал в ./sections.ts (Step 18). Раньше он жил здесь и
 // содержал СОБСТВЕННУЮ ветку «это раздел „Ваша задача“ или отдел?» — то есть четвёртое место, где

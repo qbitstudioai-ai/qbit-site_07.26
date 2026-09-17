@@ -89,7 +89,7 @@ test.describe("Step 12 — overview renders the master office scene", () => {
     await openOverview(page);
 
     const nav = page.getByRole("navigation", { name: "Отделы компании" });
-    await expect(nav.getByRole("button")).toHaveCount(5);
+    await expect(nav.getByRole("link")).toHaveCount(5);
 
     // Битой картинки не остаётся — на её месте детерминированный плейсхолдер (контракт Step 8).
     // Со Step 18 плейсхолдер ищется в СЛОЕ СЦЕНЫ, а не внутри nav: кадр держит общий сцен-слой,
@@ -100,7 +100,7 @@ test.describe("Step 12 — overview renders the master office scene", () => {
     await expect(page.locator("[data-scene-crossfade] [data-photo-fallback]")).toHaveCount(1);
 
     // Отдел по-прежнему открывается: коммерческий путь не зависит от фотослоя.
-    await nav.getByRole("button").first().click();
+    await nav.getByRole("link").first().click();
     await expect(page.getByRole("heading", { level: 2 })).toBeVisible();
 
     expect(pageErrors).toEqual([]);
