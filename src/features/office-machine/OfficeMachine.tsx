@@ -13,7 +13,7 @@ import styles from "./OfficeMachine.module.css";
 import { initOfficeMachineState, officeMachineReducer, type OfficeSectionId } from "./reducer";
 import { OVERVIEW_MAP_FIRST_CONTROL, sectionHeadingId } from "./focusTargets";
 import { buildOfficeSections, closeReturnCandidateIds } from "./sections";
-import { useDepartmentUrlSync } from "./url-sync";
+import { useOfficeBrowserHistory } from "./url-sync";
 
 // Ориентировочная длительность (docs/07-motion-system.md "Уровень Transition") — книгоучёт для
 // focus-management/CSS-классов, не строгий acceptance-критерий.
@@ -56,8 +56,6 @@ export function OfficeMachine({
     { initialRevealed, initialSectionId },
     initOfficeMachineState,
   );
-
-  useDepartmentUrlSync(state.activeSectionId);
 
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -104,6 +102,9 @@ export function OfficeMachine({
     () => buildOfficeSections(departments, copy.taskSection),
     [departments, copy.taskSection],
   );
+  const sectionIds = useMemo(() => sections.map((section) => section.id), [sections]);
+
+  useOfficeBrowserHistory(state, dispatch, sectionIds);
 
   const previousActiveIdRef = useRef<OfficeSectionId | null>(null);
   const lastNonNullActiveIdRef = useRef<OfficeSectionId | null>(null);

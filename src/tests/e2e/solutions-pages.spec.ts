@@ -308,8 +308,8 @@ test.describe("страницы отделов /solutions/<slug>", () => {
  *
  * Шаг не имеет права изменить главную. Здесь проверяется не «похоже, работает», а именно те три
  * свойства, которые новый раздел мог бы задеть: canonical главной, вход в отдел по параметру и
- * механика истории (`replaceState`, решение OQ-B — открытие, переключение и закрытие отдела не
- * добавляют записей в историю браузера).
+ * механика истории (DEPT-SEO.2D: вход в офис — одна запись, открытие, переключение и закрытие
+ * отдела внутри офиса новых записей не добавляют; полная модель — `browser-history.spec.ts`).
  */
 test.describe("главная не изменилась", () => {
   const sales = departments.find((department) => department.id === "sales")!;
@@ -334,14 +334,15 @@ test.describe("главная не изменилась", () => {
     expect(new URL(page.url()).searchParams.get("department")).toBe("sales");
   });
 
-  test("открытие, переключение и закрытие отдела не добавляют записей в историю", async ({
+  test("открытие, переключение и закрытие отдела внутри офиса не добавляют записей в историю", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto("/");
-    const initialLength = await page.evaluate(() => window.history.length);
-
     await page.getByRole("link", { name: copy.secondaryCta }).click();
+    await expect(page.getByRole("navigation", { name: "Отделы компании" })).toBeVisible();
+    // Вход в офис — единственная запись (DEPT-SEO.2D); замер ведётся уже внутри OFFICE.
+    const initialLength = await page.evaluate(() => window.history.length);
 
     const map = page.getByRole("navigation", { name: "Отделы компании" });
     await map.getByRole("link", { name: sales.overviewLabel }).click();
@@ -357,7 +358,7 @@ test.describe("главная не изменилась", () => {
     await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
     expect(new URL(page.url()).searchParams.get("department")).toBeNull();
 
-    // Тот же инвариант, что и в browser-history.spec.ts: `replaceState`, а не `pushState`.
+    // Тот же инвариант, что и в browser-history.spec.ts: внутри OFFICE — только `replaceState`.
     expect(await page.evaluate(() => window.history.length)).toBe(initialLength);
   });
 

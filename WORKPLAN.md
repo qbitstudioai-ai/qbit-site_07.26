@@ -6,6 +6,9 @@
   `COMPLETED` локально (skeptic раунд 2 — `PASS`; baseline-доказательство отсутствия регрессий —
   DEPT-SEO.2A-R, Gate 1 `PASS`); DEPT-SEO.2A-R — `COMPLETED`; DEPT-SEO.2B (crawl edge) —
   `PROPOSED`, не начат. Production: **NOT DEPLOYED**.
+- Обновление 2026-09-17: DEPT-SEO.2A/2B задеплоены на production (`5a1ca0c`) успешно; статус
+  PRODUCTION VERIFIED отложен до исправления истории браузера (Step DEPT-SEO.2D) и повторной
+  production-проверки.
 - Approval: руководитель, 2026-09-16 (прямое ТЗ «DEPT-SEO.2A — implement standalone SEO/GEO
   solution pages», решения 1–11 ниже).
 - Запись сделана ПОСТФАКТУМ по находке skeptic (раунд 1, blocking B1): аудит и реализация 2A шли по
@@ -189,6 +192,48 @@ Deploy и любые действия на production; изменение гла
   `OVERVIEW_MAP_FIRST_CONTROL` (`focusTargets.ts`), unit-тест `department-hotspot.test.tsx` и
   порядка 104 e2e-локаторов вида `nav.getByRole("button", …)` в 19 spec-файлах. Поэтому шаг
   отделён от 2A и требует собственного раунда skeptic.
+
+### Step DEPT-SEO.2D — история браузера главной после production-проверки
+
+- Status: `COMPLETED` (2026-09-17): skeptic раунд 1 `PASS`, раунд 2 (после non-blocking правок)
+  `PASS`, blocking нет. Commit/push в master; deploy НЕ выполнялся, повторная production-проверка
+  истории — отдельным шагом.
+- Контекст: DEPT-SEO задеплоен на production (`5a1ca0c`) успешно, но финальный статус
+  PRODUCTION VERIFIED **отложен**: production-проверка 17.09.2026 нашла UX-дефект — после входа в
+  офис и переключения отделов браузерный «назад» уводил посетителя с сайта. Причина:
+  `url-sync.ts` писал все состояния через `history.replaceState(null, …)` (решение OQ-B,
+  2026-07-15), и визит главной занимал одну запись истории. Модель пересмотрена руководителем
+  (DECISIONS.md 2026-09-17). Approval: прямое ТЗ руководителя «DEPT-SEO.2D», 2026-09-17.
+- Objective: не больше двух логических записей на главной — `внешняя → HERO → OFFICE`.
+- In scope: `src/features/office-machine/url-sync.ts` (хук `useOfficeBrowserHistory`),
+  `reducer.ts` (одно действие `RESTORE_FROM_HISTORY`), `OfficeMachine.tsx` (подключение хука),
+  комментарий `src/content/officeMapLink.ts`; тесты `url-sync.test.ts`, `reducer.test.ts`,
+  `browser-history.spec.ts` (переписан), сторож истории в `solutions-pages.spec.ts`, сброс истории
+  jsdom в `src/tests/unit/setup.ts`; журналы.
+- Out of scope (запрет ТЗ): `solutionPath`, `/solutions/*`, hotspot-ссылки и modifier-клики,
+  рельс и карусель, анимации, CSS, тексты (включая «Найти потери»), SEO metadata, sitemap,
+  canonical, аналитика; `next/navigation`; `playwright.config.ts`.
+- Acceptance criteria: сценарии A–J ТЗ — (A) HERO → OFFICE +1 запись; (B) пять переключений без
+  роста `history.length`; (C) Back → HERO на сайте; (D) Forward → последний отдел; (E) «Назад к
+  офису» заменяет запись на overview, Back → HERO, Forward → overview; (F) прямые
+  `/?department=sales` и `/?section=task` без синтетической HERO-записи; (G) reload сохраняет отдел и
+  HERO-запись за ним; (H) внутренний возврат в HERO — `history.back()` для записи из HERO, замена
+  записи для прямой ссылки (сайт не покидается); (I) невалидный отдел — прежний overview; (J) обычный
+  клик по зоне не уходит на `/solutions/*`. Плюс: чужие поля `history.state` и чужие query/hash
+  сохраняются; popstate не пишет в историю.
+- Verification: unit office-machine; e2e `browser-history`, `department-selection`,
+  `solutions-pages`, `office-overview-keyboard`, `mobile-touch-flow`, `desktop-10x90-shell`,
+  `accessibility-scan`, `reduced-motion-and-fallback`, `task-section`, `tablet-touch-flow`, полный
+  e2e; `npm test`, `typecheck`, `lint`, `build`, `git diff --check`.
+- Risks: (а) Next.js App Router перехватывает `pushState/replaceState` и перезагружает документ на
+  popstate без `__NA`; при `__NA` в переданном объекте он же НЕ обновляет свой адрес роутера — в
+  объект записи внутренние поля Next не кладутся (Next копирует их сам), e2e проверяет `__NA` в
+  записи и маркер «тот же документ» (находка skeptic, non-blocking);
+  (б) гонка `history.back()` из внутреннего возврата с немедленным повторным входом в офис —
+  обработана (popstate от своего back() догоняет историю sync'ом), e2e не покрыта; (в) при
+  клиентском возврате Next.js на главную props берутся из закэшированного дерева, а не из адреса
+  записи — при монтировании разметка записи важнее props (кроме свежей `navigate`-навигации).
+- Rollback: `git revert` коммита шага.
 
 ---
 

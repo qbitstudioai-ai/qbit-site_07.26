@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import { afterEach } from "vitest";
 
 // jsdom не реализует window.matchMedia вовсе (не «реализует с matches: false» — самой функции нет).
 // Со Step 8 её вызывает usePrefersReducedMotion при каждом рендере OfficeMachine, поэтому без этой
@@ -18,4 +19,14 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
     removeListener: () => {},
     dispatchEvent: () => false,
   })) as typeof window.matchMedia;
+}
+
+// DEPT-SEO.2D: главная размечает запись истории (`history.state`) и при монтировании доверяет этой
+// разметке больше, чем props (так браузер возвращает посетителя «назад»). jsdom держит одну историю
+// на весь файл тестов, и разметка, оставленная одним рендером, досталась бы следующему — рендеру с
+// другими props на том же адресе, чего в браузере не бывает. Каждый тест начинает с чистой записи.
+if (typeof window !== "undefined") {
+  afterEach(() => {
+    window.history.replaceState(null, "", "/");
+  });
 }

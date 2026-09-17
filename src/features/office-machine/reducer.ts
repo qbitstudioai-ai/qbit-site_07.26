@@ -25,6 +25,9 @@ export interface OfficeMachineState {
   activeSectionId: OfficeSectionId | null;
 }
 
+/** Логический слой записи истории браузера (DEPT-SEO.2D): главный экран или офис. */
+export type OfficeHistoryLayer = "hero" | "office";
+
 export type OfficeMachineAction =
   | { type: "ACTIVATE_CTA" }
   | { type: "SELECT_DEPARTMENT"; departmentId: OfficeSectionId }
@@ -34,7 +37,12 @@ export type OfficeMachineAction =
   | { type: "CLOSE_DEPARTMENT" }
   | { type: "CLOSE_COMPLETE" }
   | { type: "ESCAPE" }
-  | { type: "RETURN_TO_HERO" };
+  | { type: "RETURN_TO_HERO" }
+  | {
+      type: "RESTORE_FROM_HISTORY";
+      layer: OfficeHistoryLayer;
+      sectionId: OfficeSectionId | null;
+    };
 
 export interface OfficeMachineInit {
   initialRevealed: boolean;
@@ -94,6 +102,22 @@ export function officeMachineReducer(
     case "RETURN_TO_HERO":
       if (state.view === "hero") return state;
       return { view: "hero", activeSectionId: null };
+
+    // DEPT-SEO.2D: браузерные «назад»/«вперёд» переносят посетителя между записями HERO и OFFICE.
+    // Восстановление атомарное — одним действием, из любого вида, без opening/switching/closing:
+    // цепочка обычных действий дала бы промежуточные анимации и таймеры, которые могли бы
+    // сработать уже после следующего popstate.
+    case "RESTORE_FROM_HISTORY": {
+      const next: OfficeMachineState =
+        action.layer === "hero"
+          ? { view: "hero", activeSectionId: null }
+          : action.sectionId
+            ? { view: "department-active", activeSectionId: action.sectionId }
+            : { view: "overview", activeSectionId: null };
+      return next.view === state.view && next.activeSectionId === state.activeSectionId
+        ? state
+        : next;
+    }
 
     default:
       return state;

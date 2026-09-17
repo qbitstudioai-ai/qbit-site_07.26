@@ -197,6 +197,58 @@ describe("office-machine reducer", () => {
     });
   });
 
+  describe("RESTORE_FROM_HISTORY (DEPT-SEO.2D)", () => {
+    it.each([
+      "overview",
+      "department-opening",
+      "department-active",
+      "department-switching",
+      "department-closing",
+    ] as const)("restores 'hero' atomically from '%s'", (view) => {
+      expect(
+        officeMachineReducer(
+          { view, activeSectionId: view === "overview" ? null : "sales" },
+          { type: "RESTORE_FROM_HISTORY", layer: "hero", sectionId: null },
+        ),
+      ).toEqual({ view: "hero", activeSectionId: null });
+    });
+
+    it("restores an office section straight into 'department-active' without opening", () => {
+      expect(
+        officeMachineReducer(
+          { view: "hero", activeSectionId: null },
+          { type: "RESTORE_FROM_HISTORY", layer: "office", sectionId: "hr" },
+        ),
+      ).toEqual({ view: "department-active", activeSectionId: "hr" });
+      expect(
+        officeMachineReducer(
+          { view: "department-switching", activeSectionId: "sales" },
+          { type: "RESTORE_FROM_HISTORY", layer: "office", sectionId: "task" },
+        ),
+      ).toEqual({ view: "department-active", activeSectionId: "task" });
+    });
+
+    it("restores the office overview when the entry has no section", () => {
+      expect(
+        officeMachineReducer(
+          { view: "department-closing", activeSectionId: "sales" },
+          { type: "RESTORE_FROM_HISTORY", layer: "office", sectionId: null },
+        ),
+      ).toEqual({ view: "overview", activeSectionId: null });
+    });
+
+    it("returns the same state object when nothing changes", () => {
+      const state = { view: "department-active" as const, activeSectionId: "hr" as const };
+      expect(
+        officeMachineReducer(state, {
+          type: "RESTORE_FROM_HISTORY",
+          layer: "office",
+          sectionId: "hr",
+        }),
+      ).toBe(state);
+    });
+  });
+
   describe("invariant: at most one department is active at a time", () => {
     it("activeSectionId is always a single id or null, never a collection", () => {
       const afterSelect = officeMachineReducer(

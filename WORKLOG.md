@@ -1,5 +1,65 @@
 # WORKLOG
 
+## 2026-09-17 — Step DEPT-SEO.2D: история браузера главной (HERO → OFFICE)
+
+База `5a1ca0c` (= origin/master = production). Статус: `COMPLETED` (skeptic раунд 2 `PASS`); без deploy.
+
+- Причина дефекта: `url-sync.ts` писал все состояния `history.replaceState(null, …)` (OQ-B) — визит
+  главной занимал одну запись, Back из офиса уводил с сайта.
+- Код: `url-sync.ts` — хук `useOfficeBrowserHistory(state, dispatch, sectionIds)`: HERO → OFFICE —
+  `pushState`; раздел внутри OFFICE — `replaceState`; OFFICE → HERO изнутри — `history.back()`, если
+  запись создана из HERO (`pushedFromHero`), иначе `replaceState`; `popstate` → одно действие
+  `RESTORE_FROM_HISTORY` (подавление записи: слой записи выставляется до dispatch). Разметка
+  `history.state.__allqbitOfficeHistory = { layer, pushedFromHero }` поверх `{...history.state}`.
+  `reducer.ts` — `RESTORE_FROM_HISTORY` (атомарно, без opening/switching). `OfficeMachine.tsx` —
+  вызов хука после `sections`. `officeMapLink.ts` — имя хука в комментарии.
+- Найдено собственной проверкой (вне A–J), исправлено: OFFICE(hr) → клиентская ссылка «Блог» → Back —
+  Next.js восстанавливал закэшированное дерево `/` (props HERO), нормализация перезаписывала
+  OFFICE-запись в HERO → две HERO подряд. Правка: при монтировании разметка записи важнее props.
+  Цена правки, пойманная `mobile-touch-flow:80`: переход на тот же `/` (Chrome сохраняет
+  `history.state`) возвращал офис — разметке не доверяем при первом монтировании документа с
+  `PerformanceNavigationTiming.type === "navigate"` (замер: same-URL goto `navigate`, reload
+  `reload`, Back с внешнего сайта `back_forward`).
+- Тесты: unit `url-sync.test.ts` (переписан, 17), `reducer.test.ts` (+8 `RESTORE_FROM_HISTORY`);
+  e2e `browser-history.spec.ts` переписан (A–J + переход во время transition, чужие поля state,
+  чужие query, уход на `/blog` и Back, reload overview, Back с внешнего сайта, same-URL навигация —
+  19 тестов); `solutions-pages.spec.ts` — замер длины истории перенесён после входа в офис.
+- Acceptance trace (финальная prod-сборка `VMqZ8Q9peEAbKseE8e9o3`; len=2 у external — с начальным
+  about:blank): external len=2 → HERO len=3 → OFFICE len=4 → logistics/sales/support/executive/hr
+  len=4 → Back `/` HERO len=4 → Forward `/?department=hr` HR len=4 → тот же документ; Back, Back →
+  external. `__NA` в каждой записи.
+- Skeptic раунд 1: `PASS`, blocking нет. Non-blocking исправлены: (1) запись в `DECISIONS.md`
+  2026-09-17 (ссылка была без записи); (2) `withOfficeHistoryEntry` больше не передаёт `__NA`/
+  `__PRIVATE_NEXTJS_INTERNALS_TREE` — иначе патч Next пропускал `applyUrlFromHistoryPushReplace`
+  (`node_modules/next/dist/client/components/app-router.js`), и адрес роутера оставался `/`;
+  (3) StrictMode: повторный эффект со старыми props после восстановления по разметке вызывал
+  `history.back()` — guard `lastSynced`, unit-тест с `reactStrictMode` (без guard падает — проверено).
+  Цена (2), пойманная e2e (5 падений: `browser-history` A–D и state, `office-overview:299/384`,
+  `mobile-touch-flow:369`): перехват Next ставится в эффекте корня, эффекты идут от дочерних к
+  родительским — нормализация при монтировании выполнялась ДО перехвата и теряла `__NA`, Next на
+  popstate делал reload. Правка: поля Next убираются только при установленном перехвате
+  (`Object.prototype.hasOwnProperty.call(window.history, "pushState")`), иначе спред целиком.
+  (4) мелочи UX (кадр HERO до восстановления, фокус на BODY после повторного монтирования overview,
+  hash-запись, тип навигации восстановленной вкладки) — оставлены, в остаточных рисках.
+- Skeptic раунд 2: `PASS`, blocking нет; пробы Q1–Q7 7/7, e2e 172/172, `npm test` 1166/1166.
+  Non-blocking, оставлены рисками: (1) `nextJsHistoryPatchInstalled` — косвенный признак; чужая
+  подмена `pushState` до гидрации (расширение браузера) даст reload на Back, итоговое состояние
+  верное; (2) Next снова обрабатывает наши записи (`ACTION_RESTORE`) → prefetch видимых ссылок, как
+  в production до 2D; (3) шаг внутри Amendment 62 без собственного номера.
+- `src/tests/unit/setup.ts`: `afterEach` сбрасывает `history` jsdom — без него разметка записи из
+  одного теста `home-page.test.tsx` доставалась следующему рендеру с другими props (2 падения).
+- Прогоны (финальный код): `npm test` 87 файлов / 1166 PASS;
+  `typecheck` 0; `eslint src` 0; prettier по diff — чисто; `git diff --check` 0; `build` 0 (×5).
+- e2e финальной сборки (обход fs.cpSync: `server.js` :3200, BUILD_ID сверен, временный конфиг):
+  целевой набор (browser-history, department-selection, solutions-pages, office-overview-keyboard,
+  mobile-touch-flow, desktop-10x90-shell, accessibility-scan, reduced-motion-and-fallback,
+  task-section, tablet-touch-flow, office-overview, homepage-one-screen, departments-premium,
+  scene-transition) 241/242 — departments-premium:14 таймаут в параллели, серийно ×2 20/20. Полный:
+  560 passed / 12 failed / 3 skipped: blog ×5 (локальные данные «Материалы по теме»/даты, ERR_CERT),
+  cases:629, products:244 (`ERR_CERT_AUTHORITY_INVALID`), contacts:341 (запрос Метрики) — те же в
+  каждом из трёх полных прогонов; pain-gain-layout:370/514, documents:209, cases:765, blog:66 —
+  серийно 27/27. `url-sync` импортирует только `OfficeMachine` (главная).
+
 ## 2026-09-17 — Step DEPT-SEO.2B.2/2B.3: зоны офиса → crawlable `<a href>` (локально, без commit/deploy)
 
 База `b6ec4da` (= origin/master). Статус: LOCAL IMPLEMENTATION VERIFIED / READY FOR COMMIT; skeptic `PASS`.
