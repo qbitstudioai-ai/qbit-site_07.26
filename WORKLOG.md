@@ -1,5 +1,24 @@
 # WORKLOG
 
+## 2026-09-18 — Production deploy `82534d1` и приёмка DEPT-SEO (закрытие блока)
+
+Факты предоставлены руководителем по итогам выкатки и ручной проверки production. Изменений в коде
+этим шагом нет — только журналы.
+
+- Deploy: production HEAD `82534d168c542f8af6a84472037695f40d234b8e` (`82534d1`, DEPT-SEO.2D —
+  история браузера главной). Предыдущий production — `5a1ca0c` (DEPT-SEO.2A/2B, deploy 2026-09-17).
+- Контейнер: `healthy`.
+- HTTP smoke: `PASS` — `/`, `/blog`, `/products`, `/cases` → 200; все пять `/solutions/*` → 200.
+- Sitemap: 39 URL.
+- Ручной acceptance истории браузера (`PASS`): HERO → OFFICE → logistics → sales → support →
+  executive → hr → Browser Back → HERO, посетитель остаётся на allqbit.ru → Browser Forward → HR.
+  Поведение совпадает с утверждённой моделью `внешняя → HERO → OFFICE` (DECISIONS.md 2026-09-17).
+- Исходный production UX-дефект устранён: до `82534d1` браузерный «назад» из офиса уводил
+  посетителя с allqbit.ru на предыдущий внешний ресурс (проверка 17.09.2026).
+- Следствие для статусов: отложенный PRODUCTION VERIFIED всего блока DEPT-SEO зависел только от
+  истории браузера (Step DEPT-SEO.2D). Условие снято — Amendment 62 и шаги DEPT-SEO.1, 2A, 2A-R,
+  2B, 2D закрыты как PRODUCTION VERIFIED (`WORKPLAN.md`).
+
 ## 2026-09-17 — Step DEPT-SEO.2D: история браузера главной (HERO → OFFICE)
 
 База `5a1ca0c` (= origin/master = production). Статус: `COMPLETED` (skeptic раунд 2 `PASS`); без deploy.

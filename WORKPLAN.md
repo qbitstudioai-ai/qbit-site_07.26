@@ -2,13 +2,19 @@
 
 ## Amendment 62 — собственные индексируемые страницы отделов `/solutions/<slug>` (2026-09-16)
 
-- Status: `IN_PROGRESS`. DEPT-SEO.1 (read-only аудит) — `COMPLETED / VERIFIED`; DEPT-SEO.2A —
-  `COMPLETED` локально (skeptic раунд 2 — `PASS`; baseline-доказательство отсутствия регрессий —
-  DEPT-SEO.2A-R, Gate 1 `PASS`); DEPT-SEO.2A-R — `COMPLETED`; DEPT-SEO.2B (crawl edge) —
-  `PROPOSED`, не начат. Production: **NOT DEPLOYED**.
-- Обновление 2026-09-17: DEPT-SEO.2A/2B задеплоены на production (`5a1ca0c`) успешно; статус
-  PRODUCTION VERIFIED отложен до исправления истории браузера (Step DEPT-SEO.2D) и повторной
-  production-проверки.
+- Status: **PRODUCTION VERIFIED** (2026-09-18). Все шаги закрыты: DEPT-SEO.1 —
+  `COMPLETED / VERIFIED`; DEPT-SEO.2A и DEPT-SEO.2A-R — `COMPLETED`; DEPT-SEO.2B (crawl edge) —
+  `COMPLETED`; DEPT-SEO.2D (история браузера) — `COMPLETED`. Production HEAD `82534d1`.
+- Хронология статуса (историю не переписываем): до 2026-09-17 — `IN_PROGRESS`, production
+  **NOT DEPLOYED**; 2026-09-17 — DEPT-SEO.2A/2B задеплоены на `5a1ca0c` успешно, но PRODUCTION
+  VERIFIED **отложен**: production-проверка нашла UX-дефект истории браузера (owner — Step
+  DEPT-SEO.2D); 2026-09-18 — после deploy `82534d1` проверка пройдена, статус закрыт.
+- Production verification 2026-09-18 (факты руководителя): HEAD
+  `82534d168c542f8af6a84472037695f40d234b8e`; контейнер `healthy`; `/`, `/blog`, `/products`,
+  `/cases` и все пять `/solutions/*` → 200; sitemap 39 URL; ручной acceptance истории
+  HERO → OFFICE → logistics → sales → support → executive → hr → Back (HERO, посетитель остаётся на
+  allqbit.ru) → Forward (HR) — соответствует утверждённой модели. Подробности — `WORKLOG.md`
+  2026-09-18.
 - Approval: руководитель, 2026-09-16 (прямое ТЗ «DEPT-SEO.2A — implement standalone SEO/GEO
   solution pages», решения 1–11 ниже).
 - Запись сделана ПОСТФАКТУМ по находке skeptic (раунд 1, blocking B1): аудит и реализация 2A шли по
@@ -100,7 +106,8 @@ Deploy и любые действия на production; изменение гла
 
 ### Step DEPT-SEO.2A — страницы `/solutions/<slug>`
 
-- Status: `COMPLETED` — локально, **production NOT DEPLOYED**. Skeptic раунд 2 — `PASS` (все девять
+- Status: `COMPLETED` — **PRODUCTION VERIFIED** (2026-09-18; deploy `5a1ca0c` 2026-09-17, HEAD
+  production `82534d1`: пять `/solutions/*` → 200, sitemap 39 URL). Skeptic раунд 2 — `PASS` (все девять
   acceptance criteria подтверждены независимым измерением против свежей production-сборки).
   Раунд 1 — `FAIL`: blocking B1 (шаг не записан в журналы) и B2 (оставшийся фоновый сервер держал
   `.next`, из-за чего `npm run build` у skeptic упал с `EBUSY`). Обе находки процессные, правок
@@ -154,7 +161,8 @@ Deploy и любые действия на production; изменение гла
 
 ### Step DEPT-SEO.2A-R — baseline-доказательство и правка §1 SEO-документа
 
-- Status: `COMPLETED` — оба gate закрыты. Production по-прежнему **NOT DEPLOYED**.
+- Status: `COMPLETED` — оба gate закрыты. На момент шага production был **NOT DEPLOYED**; deploy
+  состоялся 2026-09-17 (`5a1ca0c`), проверен на production 2026-09-18 (HEAD `82534d1`).
 - Objective: (1) доказать измерением, а не рассуждением, что красные тесты полного e2e не вызваны
   DEPT-SEO.2A; (2) исправить неверное утверждение в `SEO_GEO_CONTENT_LIMITATIONS.md` §1.
 - Gate 1 — **PASS**. Baseline `origin/master` = `d705518237dfa29e004e5471047b537c46c5e5f4` собран в
@@ -176,9 +184,10 @@ Deploy и любые действия на production; изменение гла
 
 ### Step DEPT-SEO.2B — crawl edge с главной
 
-- Status: `PASSED` — LOCAL IMPLEMENTATION VERIFIED / READY FOR COMMIT (2026-09-17): DEPT-SEO.2B.1
-  `PASS`; 2B.2 (зоны → `<a href>`) реализован; 2B.3 final skeptic gate `PASS`. НЕ закоммичен, НЕ
-  задеплоен, на production не проверен (`WORKLOG.md`, 2026-09-17).
+- Status: `COMPLETED` — **PRODUCTION VERIFIED** (2026-09-18). Путь шага: DEPT-SEO.2B.1 `PASS`;
+  2B.2 (зоны → `<a href>`) реализован; 2B.3 final skeptic gate `PASS`; 2026-09-17 — коммит и deploy
+  на production (`5a1ca0c`); 2026-09-18 — проверка на production HEAD `82534d1`: главная и все пять
+  `/solutions/*` → 200, sitemap 39 URL (ручной acceptance истории — `WORKLOG.md` 2026-09-18).
 - Решения руководителя (2026-09-17): R1 — `<a>` наследует шрифт сайта, `font-family` не добавляется
   (ширина подписей +≤2.9 px, геометрия зон неизменна); R2 — selector `button`→`a` в
   `OfficeSemanticMap.module.css` обязателен и проверен замером.
@@ -195,9 +204,11 @@ Deploy и любые действия на production; изменение гла
 
 ### Step DEPT-SEO.2D — история браузера главной после production-проверки
 
-- Status: `COMPLETED` (2026-09-17): skeptic раунд 1 `PASS`, раунд 2 (после non-blocking правок)
-  `PASS`, blocking нет. Commit/push в master; deploy НЕ выполнялся, повторная production-проверка
-  истории — отдельным шагом.
+- Status: `COMPLETED` — **PRODUCTION VERIFIED** (2026-09-18). 2026-09-17: skeptic раунд 1 `PASS`,
+  раунд 2 (после non-blocking правок) `PASS`, blocking нет, commit/push `82534d1` в master, deploy
+  тогда НЕ выполнялся. 2026-09-18: deploy `82534d1` на production, контейнер `healthy`, ручной
+  acceptance HERO → OFFICE → logistics → sales → support → executive → hr → Back (HERO, остаёмся на
+  allqbit.ru) → Forward (HR) — `PASS`. Исходный production UX-дефект (Back уводил с сайта) устранён.
 - Контекст: DEPT-SEO задеплоен на production (`5a1ca0c`) успешно, но финальный статус
   PRODUCTION VERIFIED **отложен**: production-проверка 17.09.2026 нашла UX-дефект — после входа в
   офис и переключения отделов браузерный «назад» уводил посетителя с сайта. Причина:
