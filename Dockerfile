@@ -67,7 +67,11 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@img ./node_modules/
 COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nextjs:nodejs /app/src/server/db/schema.mjs ./src/server/db/schema.mjs
 COPY --from=builder --chown=nextjs:nodejs /app/src/server/indexnow/core.ts ./src/server/indexnow/core.ts
+COPY --from=builder --chown=nextjs:nodejs /app/src/server/indexnow/preflight.ts ./src/server/indexnow/preflight.ts
 COPY --from=builder --chown=nextjs:nodejs /app/src/lib/legacyRedirects.ts ./src/lib/legacyRedirects.ts
+# Таблица адресов отделов. Лежит отдельным модулем без зависимостей именно ради этой строки:
+# `src/content/schema.ts` тянет zod, которого в рабочем образе нет.
+COPY --from=builder --chown=nextjs:nodejs /app/src/content/solutionPaths.ts ./src/content/solutionPaths.ts
 COPY --from=builder --chown=nextjs:nodejs /app/data ./data
 
 # Кэш перерисованных страниц. Каталог создаётся заранее и с нужным владельцем: процесс работает не

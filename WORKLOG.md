@@ -1,5 +1,65 @@
 # WORKLOG
 
+## 2026-09-20 — INDEXNOW-02: семантический preflight пакетной отправки (Amendment 63)
+
+Реализация по принятому read-only аудиту INDEXNOW-01. Вариант руководителя — **B + C2 + floor по
+CMS-разделам**. Деплоя нет, реальной отправки в IndexNow нет, production не тронут.
+
+**Изменённые файлы.** Новые: `src/content/solutionPaths.ts`, `src/server/indexnow/preflight.ts`,
+`src/tests/unit/server/indexnowPreflight.test.ts`, `src/tests/unit/server/indexnowSubmitScript.test.ts`,
+`src/tests/fixtures/sitemapSnapshot.ts`, `src/tests/fixtures/indexnowFetchStub.mjs`. Изменены:
+`src/content/schema.ts` (реэкспорт таблицы), `scripts/indexnow-submit-current.mjs` (переписан),
+`Dockerfile` (+2 COPY), `DEPLOY.md`, `WORKPLAN.md`, `SEO_GEO_PRE_RELEASE_CHECKLIST.md`,
+`SEO_GEO_AUDIT.md`. НЕ изменены: `src/app/sitemap.ts`, `src/server/indexnow/core.ts`,
+`src/lib/legacyRedirects.ts`, `deploy.sh`, `WORKLOG.md` до этой записи.
+
+**Суть правки.** `EXPECTED_CANONICAL_URLS = 23` удалена из исполняемого кода. Вместо сравнения
+размера карты сайта проверяется её состав: структура каждого адреса, обязательные 8 код-роутов и 5
+`/solutions/*`, минимум по одному материалу в `/products/`, `/blog/`, `/cases/`, запреты
+(`/admin`, `/api`, `/login`, `/departments/*`, `/solutions`, `/solutions/executive`), запрет
+источника legacy-редиректа внутри карты, верхние границы карты и пакета. Дубликаты не отказ:
+удаляются и попадают в отчёт как `duplicatesDropped`. Добавлены проверка `content-type` карты,
+проверка https-endpoint и режим `--dry-run`.
+
+**Результаты команд.**
+
+- `git diff --check` — exit 0.
+- `npm run format:check` — единственное предупреждение `src/tests/e2e/task-section.spec.ts`
+  (пре-существующий дефект коммита `f2fa7d1`, файл не трогали).
+- `npm run lint` — exit 0.
+- `npm run typecheck` — exit 0.
+- `npm run test` — 89 файлов, 1242 теста, exit 0. Точечно по IndexNow — 3 файла, 92 теста.
+- `npm run build` — успешно; `/sitemap.xml` остался `ƒ (Dynamic)`.
+- Прямой импорт четырёх `.ts`-модулей обычным `node --no-warnings` (без Vite/Vitest) — работает.
+- Симуляция runner-образа: каталог только из файлов, перечисленных в `Dockerfile`, без
+  `node_modules` и без `src/content/types.ts` — `--dry-run` отработал, `ERR_MODULE_NOT_FOUND` нет.
+  `import type` в `solutionPaths.ts` стирается Node 24, поэтому `types.ts` в образе не нужен.
+
+**Доказательство fail-closed.** Тест запускает НАСТОЯЩИЙ скрипт отдельным процессом Node с
+подменённым `fetch` и считает обращения к endpoint. На десяти сценариях отказа (недоступный
+TXT-файл, чужой ключ, sitemap 500, sitemap как HTML, пустая карта, чужой host, служебный адрес,
+отсутствующий отдел, пустой раздел кейсов, сломанный legacy-редирект) — `endpointCalls === 0`. На
+успешном пути — 1. В `--dry-run` — 0. Ключ в выводе не появляется ни в одном сценарии.
+
+**Skeptic (раунд 1): PASS.** Блокирующих находок нет; ревьюер независимо перепрогнал весь гейт и
+собственную симуляцию runner-образа. Неблокирующие находки приняты к сведению без правок кода:
+
+- `MAX_SITEMAP_URLS = 1_000` — единственное оставшееся жёсткое число, но это потолок, а не
+  равенство;
+- `REQUIRED_CODE_PATHS` перечисляет адреса код-роутов литералами: переименование маршрута
+  потребует ручной правки списка (сторож fail-closed, молча не пропустит);
+- дедупликация идёт по `url.href`, а сопоставление обязательных адресов — по нормализованному
+  пути: `/blog` и `/blog/` попали бы в пакет оба. Next сегодня завершающий слэш не отдаёт;
+- `parseSitemapLocations` раскрывает только `&amp;`, `&lt;`, `&gt;` — как и прежний скрипт;
+- учётные данные в адресе (`https://user:pass@host/x`) не отвергаются; тот же пробел есть в
+  `core.ts`;
+- `npm run indexnow:submit-current --dry-run` БЕЗ `--` проглатывается npm и выполнит реальную
+  отправку. В `DEPLOY.md` указана верная форма с `--`.
+
+**Принятое следствие.** Снятие любого отдела с публикации в админ-панели теперь жёстко ломает
+пакетную отправку (`missing-required-url`). Это прямое решение руководителя; изменение контракта —
+отдельная задача.
+
 ## 2026-09-18 — Production deploy `82534d1` и приёмка DEPT-SEO (закрытие блока)
 
 Факты предоставлены руководителем по итогам выкатки и ручной проверки production. Изменений в коде

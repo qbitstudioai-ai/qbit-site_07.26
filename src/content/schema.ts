@@ -1,15 +1,14 @@
 import { z } from "zod";
-import type { DepartmentId } from "./types";
+import { SOLUTION_PATH_BY_DEPARTMENT_ID } from "./solutionPaths";
 
 export const DEPARTMENT_IDS = ["support", "sales", "logistics", "hr", "executive"] as const;
 
-export const SOLUTION_PATH_BY_DEPARTMENT_ID: Record<DepartmentId, string> = {
-  sales: "/solutions/sales",
-  support: "/solutions/support",
-  executive: "/solutions/management",
-  hr: "/solutions/hr",
-  logistics: "/solutions/logistics",
-};
+/**
+ * Таблица адресов раздела «Решения» живёт в `./solutionPaths` — модуле без зависимостей, который
+ * читает и обычный Node (скрипт пакетной отправки IndexNow). Здесь она только реэкспортируется,
+ * чтобы существующие импорты `@/content/schema` не менялись. Второго списка адресов не существует.
+ */
+export { SOLUTION_PATH_BY_DEPARTMENT_ID };
 
 const departmentIdSchema = z.enum(DEPARTMENT_IDS);
 
