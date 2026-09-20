@@ -2,9 +2,21 @@
 
 ## Amendment 63 — INDEXNOW-02: семантический preflight пакетной отправки (2026-09-20)
 
-- Status: **COMPLETED** — после вердикта skeptic `PASS` (раунд 1, блокирующих находок нет). Деплой
-  и реальная отправка в IndexNow НЕ выполнялись. Хронология статуса: `IN_PROGRESS` →
-  `AWAITING_SKEPTIC` → `PASSED` → `COMPLETED`; доказательства — `WORKLOG.md` 2026-09-20.
+- Status: **PRODUCTION VERIFIED** (2026-09-20). Деплой выполнен успешно, production HEAD
+  `e1559b472de71f553c9dcead796ffcf8e46519d0`, контейнер `healthy`; на production выполнен
+  `--dry-run`, затем ОДНА реальная отправка в IndexNow — `ok: true`, `submitted: true`,
+  `status: 200`, `attempts: 1`. Хронология статуса (историю не переписываем): `IN_PROGRESS` →
+  `AWAITING_SKEPTIC` → `PASSED` → `COMPLETED` (вердикт skeptic `PASS`, раунд 1, блокирующих
+  находок нет; на тот момент деплоя и реальной отправки ещё не было) →
+  `PRODUCTION VERIFIED`; доказательства — `WORKLOG.md` 2026-09-20.
+- Production verification 2026-09-20 (факты руководителя): новый контейнер `healthy`;
+  runtime-файлы `src/server/indexnow/preflight.ts` и `src/content/solutionPaths.ts` присутствуют
+  в рабочем образе (acceptance criterion 10 подтверждён на production); `/`, `/blog`,
+  `/products`, `/cases` и все пять `/solutions/*` → 200; sitemap 39 URL. Dry-run:
+  `canonicalCount: 39`, `duplicatesDropped: 0`, `legacyCount: 6`, `urlCount: 45`, `ok: true`,
+  `submitted: false` — acceptance criteria 4 и 8 подтверждены на живой карте. Реальная
+  отправка (mode `submit`, ровно одна): те же счётчики, `submitted: true`, `status: 200`,
+  `attempts: 1`. Подробности — `WORKLOG.md` 2026-09-20.
 - Approval: руководитель, 2026-09-20 — по результатам принятого read-only аудита INDEXNOW-01.
 - Принятый вариант: **B + C2 + floor по CMS-разделам**. Отвергнуты: новый hardcoded count (вариант
   A — воспроизводит корневую причину) и полный inventory из БД (вариант C1 — второй источник истины

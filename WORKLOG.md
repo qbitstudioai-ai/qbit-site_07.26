@@ -1,5 +1,29 @@
 # WORKLOG
 
+## 2026-09-20 — Production deploy `e1559b4` и реальная отправка IndexNow (закрытие INDEXNOW-02)
+
+Факты предоставлены руководителем по итогам выкатки и проверки production. Изменений в коде этим
+шагом нет — только журналы (`WORKPLAN.md`, `WORKLOG.md`).
+
+- Deploy: успешен. Production HEAD `e1559b472de71f553c9dcead796ffcf8e46519d0` (`e1559b4`,
+  INDEXNOW-02 / Amendment 63). Предыдущий production — `82534d1` (DEPT-SEO, 2026-09-18).
+- Контейнер: новый, `healthy`.
+- Runtime-файлы в рабочем образе: `src/server/indexnow/preflight.ts` и
+  `src/content/solutionPaths.ts` присутствуют. Симуляция runner-образа из записи ниже подтверждена
+  на настоящем контейнере (acceptance criterion 10).
+- HTTP smoke: `PASS` — `/`, `/blog`, `/products`, `/cases` → 200; `/solutions/sales`,
+  `/solutions/support`, `/solutions/management`, `/solutions/hr`, `/solutions/logistics` → 200.
+- Sitemap на production: 39 URL.
+- Dry-run (отправки нет): mode `dry-run`, `canonicalCount: 39`, `duplicatesDropped: 0`,
+  `legacyCount: 6`, `urlCount: 45`, `ok: true`, `submitted: false`. Семантический preflight прошёл
+  на живой карте из 39 адресов без единой правки кода — прямое снятие отказа
+  `unexpected-sitemap-size`, ради которого делался шаг.
+- Реальная отправка: выполнена ОДИН раз после dry-run. Mode `submit`, `canonicalCount: 39`,
+  `duplicatesDropped: 0`, `legacyCount: 6`, `urlCount: 45`, `ok: true`, `submitted: true`,
+  `status: 200`, `attempts: 1` (повторов не потребовалось).
+- Следствие для статусов: условие «деплоя и реальной отправки не было» снято — Amendment 63 /
+  INDEXNOW-02 закрыт как `PRODUCTION VERIFIED` (`WORKPLAN.md`).
+
 ## 2026-09-20 — INDEXNOW-02: семантический preflight пакетной отправки (Amendment 63)
 
 Реализация по принятому read-only аудиту INDEXNOW-01. Вариант руководителя — **B + C2 + floor по
