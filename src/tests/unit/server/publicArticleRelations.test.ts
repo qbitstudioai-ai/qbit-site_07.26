@@ -37,6 +37,14 @@ const HIDDEN_PRODUCT = { id: "uuid-product-hidden", slug: "skrytyj-produkt" };
 const CASE = { id: "uuid-case-0001", slug: "kejs-zayavki" };
 const DRAFT_CASE = { id: "uuid-case-draft", slug: "kejs-chernovik" };
 
+/**
+ * Отделы. Идентификаторы настоящие — они же первичные ключи таблицы `departments` и ключи таблицы
+ * адресов. `executive` взят намеренно: его сегмент адреса (`management`) не совпадает с
+ * идентификатором, и совпадения здесь быть не должно.
+ */
+const SALES = { id: "sales", name: "Продажи" };
+const EXECUTIVE = { id: "executive", name: "Дирекция" };
+
 let temporaryDirectory: string;
 
 beforeEach(() => {
@@ -125,6 +133,21 @@ function addCase(
   );
 }
 
+/**
+ * Отдел. `content` намеренно пустой: публичный блок берёт название из колонки `display_name`, а
+ * адрес — из таблицы `SOLUTION_PATH_BY_DEPARTMENT_ID`, и ни то, ни другое не лежит в JSON.
+ */
+function addDepartment(
+  db: DatabaseSync,
+  department: { id: string; name: string },
+  isPublished = true,
+): void {
+  db.prepare(
+    `INSERT INTO departments (id, display_name, content, is_published, created_at, updated_at)
+     VALUES (?, ?, '{}', ?, ?, ?)`,
+  ).run(department.id, department.name, isPublished ? 1 : 0, NOW, NOW);
+}
+
 function addRelation(
   db: DatabaseSync,
   relation: {
@@ -198,6 +221,7 @@ async function hrefsOf(slug: string, placement?: string): Promise<string[] | und
 const blog = (slug: string) => `/blog/${slug}`;
 const products = (slug: string) => `/products/${slug}`;
 const cases = (slug: string) => `/cases/${slug}`;
+const solutions = (slug: string) => `/solutions/${slug}`;
 
 async function materialsMap(placement = PLACEMENT): Promise<Map<string, PublicRelatedMaterial[]>> {
   const { listPublishedArticleRelatedMaterials } =
@@ -429,15 +453,75 @@ describe("публичные материалы по теме: источник 
     ]);
   });
 
-  it("связь на отдел не выводится никогда, даже при совпадении идентификатора со статьёй", async () => {
+  it("опубликованный отдел выводится ссылкой из своего solutionPath", async () => {
     const db = await seedFixture();
-    const { getDatabase } = await import("@/server/db/client");
-    getDatabase()
-      .prepare(
-        `INSERT INTO departments (id, display_name, content, created_at, updated_at)
-         VALUES (?, 'Отдел', '{}', ?, ?)`,
-      )
-      .run(TARGET_B.id, NOW, NOW);
+    addDepartment(db, SALES);
+    addDepartment(db, EXECUTIVE);
+
+    addRelation(db, {
+      sourceId: SOURCE.id,
+      targetType: "department",
+      targetId: SALES.id,
+      sortOrder: 0,
+    });
+    addRelation(db, {
+      sourceId: SOURCE.id,
+      targetType: "department",
+      targetId: EXECUTIVE.id,
+      sortOrder: 1,
+    });
+    addRelation(db, { sourceId: SOURCE.id, targetId: TARGET_A.id, sortOrder: 2 });
+
+    /**
+     * `executive` → `/solutions/management`: сегмент адреса и системный идентификатор — РАЗНЫЕ
+     * слова, и адрес обязан приходить из таблицы, а не собираться из идентификатора строкой.
+     * Название — из колонки `display_name`, то есть то же, что H1 страницы отдела.
+     */
+    expect(await materialsOf(SOURCE.slug)).toEqual([
+      {
+        type: "department",
+        id: SALES.id,
+        slug: "sales",
+        title: SALES.name,
+        href: solutions("sales"),
+      },
+      {
+        type: "department",
+        id: EXECUTIVE.id,
+        slug: "management",
+        title: EXECUTIVE.name,
+        href: solutions("management"),
+      },
+      {
+        type: "article",
+        id: TARGET_A.id,
+        slug: TARGET_A.slug,
+        title: `Статья ${TARGET_A.slug}`,
+        href: blog(TARGET_A.slug),
+      },
+    ]);
+  });
+
+  it("снятый с публикации отдел не выводится: его страница отвечает 404", async () => {
+    const db = await seedFixture();
+    addDepartment(db, SALES, false);
+
+    addRelation(db, {
+      sourceId: SOURCE.id,
+      targetType: "department",
+      targetId: SALES.id,
+      sortOrder: 0,
+    });
+    addRelation(db, { sourceId: SOURCE.id, targetId: TARGET_A.id, sortOrder: 1 });
+
+    expect(await hrefsOf(SOURCE.slug)).toEqual([blog(TARGET_A.slug)]);
+  });
+
+  it("отдел вне таблицы адресов не выводится, даже при совпадении идентификатора со статьёй", async () => {
+    const db = await seedFixture();
+    // Идентификатора `uuid-target-bbbb` нет в `SOLUTION_PATH_BY_DEPARTMENT_ID`: показать такую
+    // связь нечем, и строка обязана пропадать молча, а не давать ссылку в никуда.
+    addDepartment(db, { id: TARGET_B.id, name: "Отдел" });
 
     addRelation(db, {
       sourceId: SOURCE.id,

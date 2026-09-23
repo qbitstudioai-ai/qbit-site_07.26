@@ -43,6 +43,19 @@ const CASE: PublicRelatedMaterial = {
   href: "/cases/analiz-zvonkov-otdela-prodazh",
 };
 
+/**
+ * Отдел (Amendment 64). `slug` — сегмент АДРЕСА (`management`), а не идентификатор отдела
+ * (`executive`): именно эта пара и проверяет, что клиент берёт адрес готовым с сервера, а не
+ * собирает его из идентификатора.
+ */
+const DEPARTMENT: PublicRelatedMaterial = {
+  type: "department",
+  id: "executive",
+  slug: "management",
+  title: "Дирекция",
+  href: "/solutions/management",
+};
+
 /** Статья, которой нет в списке `posts` (например, другой раздел в старом кэше клиента). */
 const MISSING_ARTICLE: PublicRelatedMaterial = {
   type: "article",
@@ -81,7 +94,7 @@ function post(id: number, relatedMaterials: PublicRelatedMaterial[]): BlogPost {
 }
 
 const POSTS: BlogPost[] = [
-  post(1, [article(2), PRODUCT, CASE, MISSING_ARTICLE]),
+  post(1, [article(2), PRODUCT, CASE, DEPARTMENT, MISSING_ARTICLE]),
   post(2, [article(3), article(1)]),
   post(3, []),
 ];
@@ -146,6 +159,7 @@ describe("BlogExperience: единый блок «Материалы по тем
       "/blog/statya-2",
       "/products/leads-to-crm",
       "/cases/analiz-zvonkov-otdela-prodazh",
+      "/solutions/management",
       "/blog/statya-ne-v-spiske",
     ]);
 
@@ -156,7 +170,9 @@ describe("BlogExperience: единый блок «Материалы по тем
     expect(links[1]).toHaveTextContent("Продукт");
     expect(links[1]).toHaveTextContent("Единый сбор заявок в CRM");
     expect(links[2]).toHaveTextContent("Кейс");
-    expect(links[3]).toHaveTextContent("Статья");
+    expect(links[3]).toHaveTextContent("Решение");
+    expect(links[3]).toHaveTextContent("Дирекция");
+    expect(links[4]).toHaveTextContent("Статья");
   });
 
   /**
@@ -223,6 +239,7 @@ describe("BlogExperience: единый блок «Материалы по тем
   it.each([
     ["продукт", "Единый сбор заявок в CRM", "/products/leads-to-crm"],
     ["кейс", "AI-анализ звонков отдела продаж", "/cases/analiz-zvonkov-otdela-prodazh"],
+    ["отдел", "Дирекция", "/solutions/management"],
     ["статья не из списка", "Статья не из списка", "/blog/statya-ne-v-spiske"],
   ])("%s — обычная ссылка без перехода внутри блога", (_label, title, href) => {
     render(experience("statya-1"));

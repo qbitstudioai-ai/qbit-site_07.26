@@ -1,5 +1,84 @@
 # WORKPLAN
 
+## Amendment 64 — department как допустимая цель блока «Материалы по теме» (2026-09-22)
+
+- Status: **COMPLETED** (2026-09-23). Вердикт skeptic `PASS` в обоих раундах, блокирующих находок
+  нет: раунд 1 — по плану шага, раунд 2 — по отдельному чеклисту ТЗ руководителя от 2026-09-23
+  (13 пунктов, включая «ни одного второго списка solution URL», `executive → management`,
+  отсутствие автосозданных связей и crawlable SSR-ссылку). Хронология: `IN_PROGRESS` →
+  `AWAITING_SKEPTIC` → `PASSED` → `COMPLETED`. Деплой НЕ выполнялся: шаг закрыт на уровне кода и
+  локальных проверок, production-верификация — отдельно.
+- Approval: руководитель, 2026-09-22 — по результатам принятого read-only аудита SOLREL-01
+  (вариант A целиком; подпись типа в карточке — «Решение»).
+- Причина. Отдел исключён из публичного блока связей единственной посылкой «у отдела нет
+  собственного адреса» (`src/server/repositories/contentRelations.ts:220,245`). Amendment 62 эту
+  посылку снял: у каждого отдела есть индексируемая страница `/solutions/<slug>`, она в карте
+  сайта и отправлена в IndexNow. Пункт 10 ТЗ 2026-09-16 прямо откладывал этот шаг как отдельный.
+- Находка аудита SOLREL-01, определяющая порядок выката: связь `article → department` админ-панель
+  умеет сохранять СЕГОДНЯ — схема БД, репозиторий, схема API и форма связей принимают отдел без
+  единой правки. В локальной базе такая строка уже есть (`kak-avtomatizirovat-obrabotku-zayavok →
+  department:sales`), а seed её записать не мог. Публичный reader — единственное место, где отдел
+  отсечён.
+- **Production inventory до реализации (read-only, выполнен руководителем 2026-09-23):**
+  `{"count": 0, "rows": []}` — на production НЕТ ни одной связи `article → department`. Три
+  следствия, ради которых факт записан:
+  1. выкат этого шага сам по себе НЕ меняет ни одного байта публичного HTML;
+  2. риск «скрытые связи станут видимыми одномоментно», записанный в отчёте SOLREL-01 как
+     главный, на production не реализуется — он остаётся фактом только локальной базы разработки;
+  3. реальные ссылки появятся ТОЛЬКО после осознанного добавления связи редактором в Blog Admin.
+     Шаг ничего не создаёт: ни seed, ни backfill, ни автоподбор целей.
+- Принятый вариант: **A — только `article → department`**. Отвергнуты: B (все source types —
+  сегодня не отличается от A ни одной строкой публичного кода: запрос жёстко фильтрует
+  `source_type = 'article'`, других публичных читателей связей нет) и C (двусторонняя модель с
+  department как источником — требует новой поверхности записи в `DepartmentsEditor`, публичного
+  блока в `SolutionDocument` и отдельной приёмки; архитектурно уже возможна, отдельный шаг).
+
+### Step SOLREL-02 — публичный блок «Материалы по теме» выводит отдел
+
+- Objective: связь `article → department` выводится в блоке настоящей ссылкой
+  `<a href="/solutions/<slug>">` в ПЕРВОМ серверном HTML статьи.
+- Scope:
+  1. `src/server/repositories/contentRelations.ts` — `PublishedRelatedMaterial["type"]` += отдел;
+     адрес отдела берётся из существующей таблицы `SOLUTION_PATH_BY_DEPARTMENT_ID`
+     (`@/content/solutionPaths`, модуль без единого импорта значения), второго списка URL не
+     заводится; в SQL — `LEFT JOIN departments … AND department.is_published = 1`,
+     `display_name` в `COALESCE(title)`, `department.id` в `COALESCE(id) IS NOT NULL`,
+     `'department'` в `target_type IN (…)`; устаревшие комментарии переписываются.
+  2. `src/features/blog/posts.ts` — `PublicRelatedMaterialType` += `"department"`.
+  3. `src/features/blog/BlogExperience.tsx` — подпись типа «Решение» в `MATERIAL_TYPE_LABEL`.
+  4. `src/features/admin/RelationEditor.tsx` — `isSelectable` перестаёт пускать неопубликованный
+     отдел: связь, которую блок заведомо не покажет, — тихая пропажа, а не связь.
+  5. Комментарии: `src/app/admin/blog/page.tsx`, `scripts/db-seed.mjs`.
+  6. Тесты: `src/tests/unit/server/publicArticleRelations.test.ts` — прежний тест «связь на отдел
+     не выводится никогда» заменяется на проверку вывода с адресом из `solutionPath` и на
+     проверку отсечения неопубликованного отдела; `src/tests/unit/app/solution-relation-ssr.test.tsx`
+     (новый) — ссылка на отдел в ПЕРВОМ серверном HTML статьи, на временной базе;
+     `relation-editor.test.tsx` и `blog-experience-related.test.tsx` — новые ветки формы и карточки.
+- Dependencies: Amendment 62 (страницы `/solutions/*` существуют и отвечают 200).
+- Не входит в scope: миграции и любые изменения БД; `articles.related_slugs`; `/solutions` hub
+  (остаётся 404); sitemap; главная и `?department=`; реверс `department → *`; новые
+  маркетинговые тексты (кроме одной утверждённой подписи «Решение»).
+- Acceptance criteria:
+  1. Опубликованный отдел-цель даёт в блоке ссылку ровно из `solutionPath`; для `executive` —
+     `/solutions/management`, а не `/solutions/executive`.
+  2. Отдел, снятый с публикации, не выводится вовсе — как продукт с `is_published = 0`.
+  3. Существующие связи article/product/case дают ТОТ ЖЕ вывод: порядок, дедупликация и отбор по
+     `placement` источника не меняются.
+  4. Ссылка присутствует в первом серверном HTML статьи (SSR), без таймеров и раскрытия по клику.
+  5. Переход между статьями без перезагрузки не ломается: ветка `findBlogPost` остаётся под
+     проверкой `type === "article"`.
+  6. `articles.related_slugs` не затрагивается: department-цели в неё не выводятся.
+  7. Второго списка адресов отделов в коде не появляется.
+- Verification: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`,
+  `npm run build`, `npm run test:e2e`.
+- Risks: риск «скрытые связи на отделы станут публичными при выкате» СНЯТ измерением —
+  production inventory 2026-09-23 вернул `count: 0` (см. выше). Остаточный риск другой и
+  управляемый: сервер не проверяет публикацию отдела при ЗАПИСИ связи, поэтому редактор через API
+  (мимо формы) может создать связь на скрытый отдел. Публично она не покажется — её отсекает
+  `is_published = 1` в reader'е, — но останется «тихой пропажей» в админ-панели. Вынесено как
+  отдельный debt: серверная проверка потребовала бы расширения DTO, что прямо запрещено scope.
+- Rollback: revert одного коммита. БД не трогается, поэтому откат полон.
+
 ## Amendment 63 — INDEXNOW-02: семантический preflight пакетной отправки (2026-09-20)
 
 - Status: **PRODUCTION VERIFIED** (2026-09-20). Деплой выполнен успешно, production HEAD

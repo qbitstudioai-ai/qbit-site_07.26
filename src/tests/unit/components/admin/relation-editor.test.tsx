@@ -123,6 +123,14 @@ const OPTIONS: RelationOption[] = [
     isPublished: true,
     placement: null,
   },
+  {
+    type: "department",
+    id: "hr",
+    label: "Отдел HR",
+    detail: "отдел главной страницы · скрыт",
+    isPublished: false,
+    placement: null,
+  },
 ];
 
 const fetchMock = vi.fn();
@@ -331,7 +339,13 @@ describe("выбор цели: что предлагается человеку"
     expect(options).not.toContain(`article:${OTHER_PLACEMENT_TARGET}`);
   });
 
-  it("материалы трёх остальных типов предлагаются без ограничений", () => {
+  /**
+   * Продукты и кейсы не ограничены ничем — их связи публичный сайт пока не читает. Отдел с
+   * Amendment 64 ограничен публикацией: блок «Материалы по теме» отбирает отделы тем же условием
+   * `is_published = 1`, а страница `/solutions/<slug>` у скрытого отдела отвечает 404. Предлагать
+   * его целью значило бы дать владельцу сайта создать заведомо невидимую связь.
+   */
+  it("продукты и кейсы предлагаются без ограничений, отдел — только опубликованный", () => {
     renderEditor([articleRecord({ relations: [] })]);
     openForm();
     fireEvent.click(screen.getByRole("button", { name: "Добавить материал" }));
@@ -343,6 +357,7 @@ describe("выбор цели: что предлагается человеку"
     expect(options).toContain(`product:${PRODUCT_ID}`);
     expect(options).toContain("case:case-sales-call-analysis");
     expect(options).toContain("department:sales");
+    expect(options).not.toContain("department:hr");
   });
 
   it("набор доступных статей зависит от РАЗДЕЛА, а не только от каталога", () => {

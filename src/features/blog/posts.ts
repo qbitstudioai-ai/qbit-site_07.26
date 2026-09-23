@@ -10,7 +10,7 @@ import type { BlogSection } from "./markdown";
  * Модуль не серверный и не клиентский: его типы нужны и странице, и клиентскому `BlogExperience`,
  * поэтому доступа к базе здесь нет.
  */
-export type PublicRelatedMaterialType = "article" | "product" | "case";
+export type PublicRelatedMaterialType = "article" | "product" | "case" | "department";
 
 /**
  * Один материал блока «Материалы по теме» (Amendment 61 / REL-02F.2).
@@ -18,6 +18,9 @@ export type PublicRelatedMaterialType = "article" | "product" | "case";
  * Всё, кроме типа и идентификатора, берётся из АКТУАЛЬНОЙ строки цели по stable id: смена адреса или
  * названия цели видна без правки связи. `slug` лежит отдельным полем, а не разбирается из `href`:
  * клиенту он нужен, чтобы найти статью в уже полученном списке для перехода без перезагрузки.
+ *
+ * Отдел (Amendment 64) — такая же цель, как продукт и кейс: у него есть собственная индексируемая
+ * страница `/solutions/<slug>`. Адрес приходит готовым с сервера и здесь не собирается.
  */
 export type PublicRelatedMaterial = {
   type: PublicRelatedMaterialType;

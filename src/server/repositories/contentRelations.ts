@@ -1,3 +1,4 @@
+import { SOLUTION_PATH_BY_DEPARTMENT_ID } from "@/content/solutionPaths";
 import { getDatabase, nowIso, transaction } from "../db/client";
 
 /**
@@ -210,20 +211,66 @@ export function listRelationsTo(
 
 /** Публичный материал блока статьи. Та же форма, что `PublicRelatedMaterial` публичного слоя. */
 export interface PublishedRelatedMaterial {
-  type: "article" | "product" | "case";
+  type: "article" | "product" | "case" | "department";
   id: string;
   slug: string;
   title: string;
   href: string;
 }
 
-/** Адрес публичной страницы цели. Отдел здесь отсутствует намеренно: своего адреса у него нет. */
-const PUBLIC_PATH_PREFIX: Readonly<Record<PublishedRelatedMaterial["type"], string>> =
-  Object.freeze({
-    article: "/blog/",
-    product: "/products/",
-    case: "/cases/",
-  });
+/**
+ * Адрес публичной страницы цели по её адресуемому имени.
+ *
+ * Отдела здесь нет и быть не может: у трёх остальных типов адрес — это префикс раздела плюс `slug`
+ * из строки материала, а у отдела адрес задан ТАБЛИЦЕЙ (см. ниже), потому что сегмент пути и
+ * идентификатор отдела — разные слова (`executive` → `/solutions/management`).
+ */
+const PUBLIC_PATH_PREFIX: Readonly<Record<"article" | "product" | "case", string>> = Object.freeze({
+  article: "/blog/",
+  product: "/products/",
+  case: "/cases/",
+});
+
+/**
+ * Адрес страницы отдела — по идентификатору, из ЕДИНСТВЕННОЙ утверждённой таблицы.
+ *
+ * До Amendment 62 отдел не выводился вовсе: у него не было собственного адреса, и связь на него
+ * показать было нечем. Теперь адрес есть — `/solutions/<slug>`, отдельный индексируемый документ.
+ *
+ * Берётся ИМЕННО `SOLUTION_PATH_BY_DEPARTMENT_ID`, а не `json_extract(content, '$.solutionPath')`
+ * из строки отдела. Причина: значение в колонке проверяется схемой (`superRefine` в
+ * `@/content/schema`) только при чтении отдела ПУБЛИЧНЫМ слоем, а прямой SQL эту проверку обходит —
+ * разошедшееся значение дало бы ссылку на несуществующий адрес. Таблица же и есть то, с чем схема
+ * сверяет. Второго списка адресов при этом не появляется: модуль `@/content/solutionPaths` —
+ * первоисточник, его читают и приложение, и скрипт пакетной отправки IndexNow.
+ *
+ * `Map` вместо прямого доступа по ключу — чтобы неизвестный идентификатор честно давал `undefined`:
+ * `target_id` приходит строкой из базы, а не значением типа `DepartmentId`.
+ */
+const SOLUTION_PATH_BY_ID: ReadonlyMap<string, string> = new Map(
+  Object.entries(SOLUTION_PATH_BY_DEPARTMENT_ID),
+);
+
+/**
+ * Адрес и адресуемое имя цели. `null` — цель показать нечем, строка пропускается.
+ *
+ * `slug` у отдела — последний сегмент его же адреса, а не отдельно заведённое слово: иначе в
+ * проекте появился бы второй список сегментов, расходящийся с адресами молча.
+ */
+function publicLocation(
+  type: PublishedRelatedMaterial["type"],
+  id: string,
+  slug: unknown,
+): { slug: string; href: string } | null {
+  if (type === "department") {
+    const path = SOLUTION_PATH_BY_ID.get(id);
+    if (!path) return null;
+    return { slug: path.slice(path.lastIndexOf("/") + 1), href: path };
+  }
+
+  const value = String(slug);
+  return { slug: value, href: `${PUBLIC_PATH_PREFIX[type]}${value}` };
+}
 
 /**
  * Публичный блок «Материалы по теме» (Amendment 61 / REL-02F.2): материалы для КАЖДОЙ опубликованной
@@ -242,7 +289,10 @@ const PUBLIC_PATH_PREFIX: Readonly<Record<PublishedRelatedMaterial["type"], stri
  * - цель-статья — опубликованная статья ТОГО ЖЕ раздела, не сама статья (её запрещает и CHECK схемы);
  * - цель-продукт — `is_published = 1`, цель-кейс — `status = 'published'`: ровно те условия, при
  *   которых публичная страница цели отвечает, а не 404;
- * - связи на отдел не выводятся никогда: у отдела нет собственного адреса;
+ * - цель-отдел — `is_published = 1` (Amendment 64), по тому же правилу: страница `/solutions/<slug>`
+ *   у снятого с публикации отдела отвечает 404, и связь на него обязана исчезать из блока САМА,
+ *   без правки самой связи. До Amendment 62 отдел отсекался здесь целиком — у него не было
+ *   собственного адреса; теперь есть;
  * - тип цели проверяется в условии соединения, поэтому совпадение идентификаторов у разных типов не
  *   превращает продукт в статью;
  * - адрес и название — из строки цели по `target_id`: смена адреса или названия видна сразу.
@@ -260,7 +310,8 @@ export function listPublishedArticleRelatedMaterials(
               relation.target_type AS target_type,
               relation.target_id AS target_id,
               COALESCE(article.slug, product.slug, study.slug) AS target_slug,
-              COALESCE(article.title, product.full_title, study.short_title) AS target_title
+              COALESCE(article.title, product.full_title, study.short_title,
+                       department.display_name) AS target_title
          FROM content_relations AS relation
          JOIN articles AS source
            ON source.id = relation.source_id
@@ -279,10 +330,14 @@ export function listPublishedArticleRelatedMaterials(
            ON relation.target_type = 'case'
           AND study.id = relation.target_id
           AND study.status = 'published'
+         LEFT JOIN departments AS department
+           ON relation.target_type = 'department'
+          AND department.id = relation.target_id
+          AND department.is_published = 1
         WHERE relation.source_type = 'article'
-          AND relation.target_type IN ('article', 'product', 'case')
+          AND relation.target_type IN ('article', 'product', 'case', 'department')
           AND NOT (relation.target_type = 'article' AND relation.target_id = relation.source_id)
-          AND COALESCE(article.id, product.id, study.id) IS NOT NULL
+          AND COALESCE(article.id, product.id, study.id, department.id) IS NOT NULL
         ORDER BY relation.source_id ASC, relation.sort_order ASC, relation.target_type ASC,
                  relation.target_id ASC, relation.relation_role ASC`,
     )
@@ -302,20 +357,27 @@ export function listPublishedArticleRelatedMaterials(
     const type = String(row.target_type) as PublishedRelatedMaterial["type"];
     const id = String(row.target_id);
 
+    /**
+     * Адрес считается ДО отметки о повторе. Отдел с идентификатором, которого нет в таблице
+     * адресов, показать нечем — такая строка не материал, и занимать собой место в списке
+     * «уже виденных» она не должна.
+     */
+    const location = publicLocation(type, id, row.target_slug);
+    if (!location) continue;
+
     const seen = seenBySource.get(sourceId) ?? new Set<string>();
     const key = `${type}:${id}`;
     if (seen.has(key)) continue;
     seen.add(key);
     seenBySource.set(sourceId, seen);
 
-    const slug = String(row.target_slug);
     const materials = materialsBySource.get(sourceId) ?? [];
     materials.push({
       type,
       id,
-      slug,
+      slug: location.slug,
       title: String(row.target_title),
-      href: `${PUBLIC_PATH_PREFIX[type]}${slug}`,
+      href: location.href,
     });
     materialsBySource.set(sourceId, materials);
   }

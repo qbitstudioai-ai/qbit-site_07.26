@@ -42,11 +42,17 @@ function articleHref(post: BlogPost) {
   return `/blog/${post.slug}`;
 }
 
-/** Подпись типа в карточке материала: смысл не держится на одном оформлении. */
+/**
+ * Подпись типа в карточке материала: смысл не держится на одном оформлении.
+ *
+ * У отдела подпись — «Решение», а не «Отдел»: карточка ведёт на страницу раздела `/solutions/*`,
+ * который отвечает на задачу посетителя, а не описывает нашу оргструктуру.
+ */
 const MATERIAL_TYPE_LABEL: Readonly<Record<PublicRelatedMaterialType, string>> = {
   article: "Статья",
   product: "Продукт",
   case: "Кейс",
+  department: "Решение",
 };
 
 function renderInline(markdown: string, keyPrefix: string): ReactNode[] {
