@@ -1,5 +1,63 @@
 # WORKLOG
 
+## 2026-09-24 — SOL-OUT-03: backfill 11 утверждённых связей отдела (скрипт и тесты)
+
+Исходный HEAD — `746dcb5c666c5ab380ac998d41a72dbb5e8edbcf`. **Production-БД не читалась и не
+изменялась. Backfill на production НЕ запускался. Deploy не выполнялся.** Миграция `0005` не
+создавалась, админ-панель не менялась, `db:seed` не запускался и его логика не менялась.
+Untracked-файл `allqbit_geo_fact_verification_2026-07-30.md` не затронут. Яндекс Директ не
+затрагивался. Предсуществующий `format:check` в `src/tests/e2e/task-section.spec.ts` не исправлялся.
+
+Изменённые файлы (4): `scripts/backfill-department-relations.mjs` (новый),
+`src/tests/unit/server/departmentRelationsBackfill.test.ts` (новый), `WORKPLAN.md`, `WORKLOG.md`.
+
+**STOP GATE пройден.** Первичный ключ `content_relations` —
+`(source_type, source_id, target_type, target_id, relation_role)`, прочитан через
+`PRAGMA table_info`. Ключ адресует строку однозначно, поэтому безопасный upsert возможен без единого
+`DELETE`. Нюанс, ради которого проверка и делалась: `relation_role` ВХОДИТ в ключ, поэтому смена
+роли — изменение ключевой колонки. Выполняется адресным `UPDATE … WHERE` по полному старому ключу;
+конфликт исключён заранее, потому что две строки на одну цель скрипт считает аномалией и
+останавливается. Широкого `DELETE ... WHERE source_type = 'department'` в скрипте нет.
+
+**Скрипт: `scripts/backfill-department-relations.mjs`.**
+
+Проверки до записи: схема (состав колонок и порядок колонок PK), существование пяти отделов,
+существование и публикация всех восьми продуктов, существование и публикация обоих кейсов,
+соответствие id кейса утверждённому адресу, отсутствие дублей цели, отсутствие department-связей вне
+манифеста. Любое препятствие → `state: "blocked"`, exit 1, ни одной записи.
+
+Транзакция: одна на весь набор. Внутри неё план строится ЗАНОВО (последний рубеж), затем вставки и
+адресные правки, затем итоговая сверка — 11 строк, точные роли и порядок, ни одной лишней, плюс
+побайтовая сверка дампа чужих связей со снимком, снятым до записи. Любое расхождение — исключение и
+`ROLLBACK`.
+
+Идемпотентность: сопоставление с базой идёт по КЛЮЧУ ЦЕЛИ (`source_id`, `target_type`, `target_id`)
+без роли. Совпавшая строка получает `action: "unchanged"` и не переписывается — `updated_at` не
+трогается «на всякий случай». Когда изменений нет, прогон возвращает `already-applied` и `changed: 0`
+ещё до открытия транзакции.
+
+Команды (путь к базе — из `resolveDbPath()`; в образе `QBIT_DATA_DIR=/data`, WORKDIR `/app`):
+
+```bash
+docker exec allqbit-site node scripts/backfill-department-relations.mjs
+docker exec allqbit-site node scripts/backfill-department-relations.mjs --apply
+```
+
+Ручная проверка на временной базе в scratchpad (production не участвовал): dry-run →
+`state: ready`, `insert: 11`, `expectedTotalAfterApply: 11`, в базе 0 связей; apply →
+`state: applied`, `changed: 11`; повторный apply → `state: already-applied`, `changed: 0`. Все 11
+строк легли с утверждёнными ролями и порядком, `executive` — с целями `product-05`, `product-07`,
+`case-sales-call-analysis`.
+
+Результаты проверок:
+
+- `npm run lint` — 0 errors, 0 warnings;
+- `npm run typecheck` — exit 0;
+- `departmentRelationsBackfill.test.ts` — **23 passed**;
+- `npm run test` — **93 файла, 1298 тестов, все зелёные**;
+- `npm run build` — exit 0.
+
+
 ## 2026-09-24 — SOL-OUT-02.1: `db:seed --reset` останавливается на unmanaged-связях
 
 Исходный HEAD — `cd958ce47ceacfaa071e41add34e0ce0df1109da`. **Production deploy НЕ выполнялся.**
