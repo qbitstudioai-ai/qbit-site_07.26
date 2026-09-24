@@ -88,24 +88,48 @@ const SEED_RELATION_TARGETS = Object.freeze({
 });
 
 /**
+ * Флаг, который разрешает `--reset` снести связи, восстановить которые seed не сможет.
+ *
+ * Имя длинное намеренно. Короткого `--force` здесь быть не должно: его набирают не глядя, а эта
+ * операция необратима и уносит ручную работу владельца сайта. Флаг обязан читаться как
+ * утверждение о последствиях, а не как способ убрать помеху.
+ */
+export const FORCE_UNMANAGED_RELATIONS_RESET_FLAG = "--force-unmanaged-relations-reset";
+
+/**
+ * Отказ `--reset`: в базе есть связи, которые сброс уничтожит безвозвратно.
+ *
+ * Отдельный класс с полем `relations`, а не голый `Error`: точку выхода из процесса решает
+ * вызывающий код, а перечень нужен ему целиком — и чтобы напечатать, и чтобы проверить в тестах.
+ */
+export class UnmanagedRelationsResetError extends Error {
+  constructor(relations) {
+    super(
+      `--reset остановлен: ${relations.length} связь(и) будут уничтожены без возможности восстановления.`,
+    );
+    this.name = "UnmanagedRelationsResetError";
+    this.relations = relations;
+  }
+}
+
+/**
  * Связи, которые `--reset` снимет и которые seed НЕ создаст заново.
  *
  * Правило ровно одно и оно проверяемое: seed пишет связи ТОЛЬКО с `source_type = 'article'` (см.
  * `INSERT` в `seedArticles()`, где тип источника стоит строкой). Значит любая снесённая сбросом
  * связь с другим источником восстановлению средствами seed не подлежит — её завёл владелец сайта
- * в админ-панели или отдельная задача перелинковки.
+ * в админ-панели или отдельная задача перелинковки. Такие связи и называются здесь `unmanaged`:
+ * seed ими не управляет и потому не вправе их уничтожать по умолчанию.
  *
- * Практический повод это знать появился с SOL-OUT-01: утверждены 11 связей отдела с продуктами и
- * кейсами (`source_type = 'department'`). Сброс обязан их снять — таблицы `departments` и
- * `products` он очищает, и без этого остались бы ссылки в никуда. Но снимать их МОЛЧА он не
- * должен: восстановить их из `data/` нечем, и владелец узнавал бы о пропаже по пустым блокам на
- * страницах отделов.
+ * Практический повод появился с SOL-OUT-01: утверждены 11 связей отдела с продуктами и кейсами
+ * (`source_type = 'department'`). Сброс обязан их снять — таблицы `departments` и `products` он
+ * очищает, и без этого остались бы ссылки в никуда. Сохранить их, не сломав смысл сброса, нельзя.
+ * Поэтому выбран третий путь: НЕ УДАЛЯТЬ МОЛЧА И НЕ УДАЛЯТЬ БЕЗ СПРОСА.
  *
- * Поэтому здесь не запрет и не сохранение, а именно перечень: сброс остаётся ровно той операцией,
- * какой был (и код возврата не меняется), но перестаёт быть тихим. `WHERE` повторяет условие
- * удаления — иначе отчёт разошёлся бы с тем, что происходит на самом деле.
+ * `WHERE` дословно повторяет условие удаления в `resetContent()` — иначе отчёт разошёлся бы с тем,
+ * что происходит на самом деле, и предупреждение стало бы опаснее его отсутствия.
  */
-export function listUnrestorableRelations(db) {
+export function listUnmanagedRelations(db) {
   const placeholders = RESET_RELATION_ENTITY_TYPES.map(() => "?").join(", ");
   return db
     .prepare(
@@ -120,19 +144,58 @@ export function listUnrestorableRelations(db) {
 }
 
 /**
+ * Перечень связей построчно — ОДИН формат и для отказа, и для отчёта после принудительного сноса.
+ *
+ * Общая функция, а не два похожих цикла: расхождение между тем, что показал отказ, и тем, что
+ * показал снос, означало бы, что владелец сверяет два разных списка одних и тех же строк.
+ */
+function formatRelations(relations) {
+  return relations
+    .map(
+      (relation) =>
+        `  ${relation.source_type}:${relation.source_id} → ` +
+        `${relation.target_type}:${relation.target_id} ` +
+        `(роль ${relation.relation_role}, порядок ${relation.sort_order})`,
+    )
+    .join("\n");
+}
+
+/**
+ * Текст отказа: что найдено, что будет уничтожено и каким флагом это разрешить.
+ *
+ * Перечень идёт ЦЕЛИКОМ, без усечения: сообщение существует ради того, чтобы владелец сохранил
+ * список до того, как согласится его потерять. Обрезанный список сделал бы отказ бесполезным.
+ */
+function formatUnmanagedRelationsRefusal(relations) {
+  return (
+    `\nОТКАЗ: --reset остановлен, база НЕ изменена.\n\n` +
+    `Найдено связей, которые seed не создаёт заново: ${relations.length}.\n` +
+    `Заведены вручную через админ-панель или отдельной задачей перелинковки:\n\n` +
+    `${formatRelations(relations)}\n\n` +
+    `Сохраните этот список, если он вам нужен.\n\n` +
+    `Повторить сброс вместе с их безвозвратным удалением:\n` +
+    `  npm run db:seed -- --reset ${FORCE_UNMANAGED_RELATIONS_RESET_FLAG}\n`
+  );
+}
+
+/**
  * Сброс контента одной транзакцией: связи очищаемых типов и сами контентные таблицы.
  *
- * Возвращает перечень связей, которые seed заново не создаст (см. `listUnrestorableRelations`), —
- * чтобы вызывающий код мог о них сообщить. Перечень снимается ДО удаления и внутри той же
- * транзакции: список, собранный после `DELETE`, был бы всегда пуст, а собранный до транзакции —
- * мог бы разойтись с тем, что удалено.
+ * Возвращает перечень `unmanaged`-связей, которые сброс только что уничтожил (см.
+ * `listUnmanagedRelations`). Перечень снимается ДО удаления и внутри той же транзакции: список,
+ * собранный после `DELETE`, был бы всегда пуст, а собранный до транзакции — мог бы разойтись с
+ * тем, что удалено.
+ *
+ * Сама функция НИЧЕГО не запрещает: решение «сносить или отказать» принимается до её вызова, в
+ * `runSeed()`. Здесь запрета нет намеренно — `resetContent()` вызывают и тесты, которым нужен
+ * именно сброс, а не диалог о его допустимости.
  */
 export function resetContent(db) {
   const placeholders = RESET_RELATION_ENTITY_TYPES.map(() => "?").join(", ");
 
   db.exec("BEGIN");
   try {
-    const unrestorable = listUnrestorableRelations(db);
+    const unmanaged = listUnmanagedRelations(db);
 
     db.prepare(
       `DELETE FROM content_relations
@@ -143,7 +206,7 @@ export function resetContent(db) {
       db.prepare(`DELETE FROM ${table}`).run();
     }
     db.exec("COMMIT");
-    return unrestorable;
+    return unmanaged;
   } catch (error) {
     db.exec("ROLLBACK");
     throw error;
@@ -320,7 +383,7 @@ export function seedArticles(db, articles, timestamp = nowIso()) {
   return inserted.length;
 }
 
-function runSeed({ reset }) {
+function runSeed({ reset, forceUnmanagedRelationsReset = false }) {
   const db = openDatabase();
   const stats = { departments: 0, products: 0, pages: 0, articles: 0, contacts: 0, documents: 0 };
   const uploadsDir = resolveUploadsDir();
@@ -330,28 +393,37 @@ function runSeed({ reset }) {
     const timestamp = nowIso();
 
     if (reset) {
-      const unrestorable = resetContent(db);
+      /**
+       * ПРОВЕРКА ДО УДАЛЕНИЯ, а не отчёт после него.
+       *
+       * `listUnmanagedRelations()` читает базу, ещё не тронутую сбросом: `applyMigrations()` выше
+       * только создаёт недостающие таблицы. Если сносить нечего из того, чем seed не управляет, —
+       * поведение прежнее, ни одной новой строки в выводе. Если есть — процесс останавливается
+       * здесь, и НИ ОДНА строка контента не удаляется: `resetContent()` даже не вызывается.
+       */
+      const unmanaged = listUnmanagedRelations(db);
+
+      if (unmanaged.length > 0 && !forceUnmanagedRelationsReset) {
+        throw new UnmanagedRelationsResetError(unmanaged);
+      }
+
+      const removed = resetContent(db);
       console.log("Контентные таблицы очищены (--reset).");
 
       /**
-       * Связи, которые seed не вернёт, перечисляются ПОИМЁННО, а не считаются.
+       * Снос по явному флагу всё равно печатает перечень ПОИМЁННО, а не счётчиком.
        *
-       * Счётчик сообщил бы о потере, но не дал бы её восстановить. Полная строка (источник, цель,
-       * роль, порядок) — это готовый список для повторного ввода, и ради него блок и существует.
+       * Разрешение — не то же самое, что отсутствие последствий: полная строка (источник, цель,
+       * роль, порядок) остаётся готовым списком для повторного ввода, и это последнее место, где
+       * её ещё можно прочитать.
        */
-      if (unrestorable.length > 0) {
+      if (removed.length > 0) {
         console.warn(
-          `\nВНИМАНИЕ: --reset снял ${unrestorable.length} связь(и), которые seed НЕ создаёт заново.\n` +
-            "Seed пишет связи только для статей; перечисленные ниже заведены вручную\n" +
-            "или отдельной задачей и восстанавливаются только тем же способом:",
+          `\nВНИМАНИЕ: по флагу ${FORCE_UNMANAGED_RELATIONS_RESET_FLAG} снято ${removed.length} связь(и),` +
+            `\nкоторые seed НЕ создаёт заново. Восстановить их можно только тем же способом,` +
+            `\nкаким они были заведены:`,
         );
-        for (const relation of unrestorable) {
-          console.warn(
-            `  ${relation.source_type}:${relation.source_id} → ` +
-              `${relation.target_type}:${relation.target_id} ` +
-              `(роль ${relation.relation_role}, порядок ${relation.sort_order})`,
-          );
-        }
+        console.warn(formatRelations(removed));
         console.warn("");
       }
     }
@@ -529,5 +601,21 @@ function runSeed({ reset }) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  runSeed({ reset: process.argv.includes("--reset") });
+  try {
+    runSeed({
+      reset: process.argv.includes("--reset"),
+      forceUnmanagedRelationsReset: process.argv.includes(FORCE_UNMANAGED_RELATIONS_RESET_FLAG),
+    });
+  } catch (error) {
+    /**
+     * Отказ по `unmanaged`-связям — не сбой скрипта, а его решение, поэтому и выглядит иначе:
+     * понятный текст с перечнем и ненулевой код выхода, без стека. Любая другая ошибка пробрасывается
+     * как была — прятать её за тем же кодом значило бы скрыть настоящую поломку.
+     */
+    if (error instanceof UnmanagedRelationsResetError) {
+      console.error(formatUnmanagedRelationsRefusal(error.relations));
+      process.exit(1);
+    }
+    throw error;
+  }
 }

@@ -12,6 +12,7 @@ import { migrations } from "@/server/db/schema.mjs";
 import { runBackfillArticleRelations } from "../../../../scripts/backfill-article-relations.mjs";
 import { runBackfillLegacyMaterialRelations } from "../../../../scripts/backfill-legacy-material-relations.mjs";
 import {
+  FORCE_UNMANAGED_RELATIONS_RESET_FLAG,
   RESET_RELATION_ENTITY_TYPES,
   SEED_RELATION_ROLE,
   seedArticles,
@@ -118,16 +119,21 @@ afterEach(() => {
   fs.rmSync(dataDir, { recursive: true, force: true });
 });
 
-function runSeed(...args: string[]) {
+/** Запуск seed БЕЗ требований к коду выхода — для проверок отказа. */
+function trySeed(...args: string[]) {
   const env: NodeJS.ProcessEnv = { ...process.env, QBIT_DATA_DIR: dataDir };
   delete env.QBIT_DB_PATH;
   delete env.QBIT_UPLOADS_DIR;
 
-  const result = spawnSync(process.execPath, [SEED_SCRIPT, ...args], {
+  return spawnSync(process.execPath, [SEED_SCRIPT, ...args], {
     cwd: PROJECT_ROOT,
     env,
     encoding: "utf8",
   });
+}
+
+function runSeed(...args: string[]) {
+  const result = trySeed(...args);
   expect(result.status, result.stderr).toBe(0);
   expect(result.stdout).toContain(`База: ${path.join(dataDir, "content.db")}`);
   return result;
@@ -314,7 +320,13 @@ describe("db-seed: реальный скрипт на временной баз�
     withDatabase(expectBaseline);
   });
 
-  it("--reset снимает связи статей, продуктов и отделов, сохраняет связи между кейсами и повторяет baseline", () => {
+  it("--reset c force-флагом снимает связи статей, продуктов и отделов, сохраняет связи между кейсами и повторяет baseline", () => {
+    /**
+     * Флаг появился в SOL-OUT-02.1 и здесь ОБЯЗАТЕЛЕН: тест заводит связи с источниками `case`,
+     * `product` и `department`, то есть ровно те, ради которых сброс теперь останавливается. Смысл
+     * проверки не изменился — она по-прежнему о том, ЧТО именно сносит сброс; изменилось только
+     * условие, при котором он вообще доходит до удаления.
+     */
     expect([...RESET_RELATION_ENTITY_TYPES]).toEqual(["article", "product", "department"]);
     runSeed();
 
@@ -336,7 +348,7 @@ describe("db-seed: реальный скрипт на временной баз�
       ).run();
     }, false);
 
-    runSeed("--reset");
+    runSeed("--reset", FORCE_UNMANAGED_RELATIONS_RESET_FLAG);
 
     withDatabase((db) => {
       // Связи статей seed создаёт заново из relations[], поэтому сверяются только связи с
@@ -361,19 +373,22 @@ describe("db-seed: реальный скрипт на временной баз�
     });
   });
 
-  it("--reset перечисляет поимённо связи отдела, которые seed не создаст заново", () => {
-    /**
-     * Защита будущих связей SOL-OUT-03. Сброс обязан их снять — таблицы `departments` и `products`
-     * он очищает, и оставленная связь стала бы ссылкой в никуда. Но снимать их МОЛЧА он не должен:
-     * seed пишет связи только для статей, восстановить department-связи из `data/` нечем, и
-     * владелец узнавал бы о пропаже по пустым блокам на страницах отделов.
-     *
-     * Поэтому проверяется не сохранение строк, а то, что сброс перестал быть тихим: в выводе стоит
-     * предупреждение и полная строка каждой снятой связи — источник, цель, роль и порядок, то есть
-     * готовый список для повторного ввода.
-     */
-    runSeed();
+  /**
+   * Защита `unmanaged`-связей от `db:seed --reset` (SOL-OUT-02.1).
+   *
+   * `unmanaged` — связь, источник которой не статья. Seed пишет ТОЛЬКО `source_type = 'article'`,
+   * поэтому любую другую снесённый сброс не восстановит: её завёл владелец сайта в админ-панели или
+   * отдельная задача перелинковки. Практический повод — 11 утверждённых связей отдела (SOL-OUT-03).
+   *
+   * Сохранить такие связи при сбросе нельзя: `--reset` очищает `departments` и `products`, и
+   * оставленная строка стала бы ссылкой в никуда. Поэтому выбран отказ: сброс останавливается ДО
+   * первого удаления и требует явного флага.
+   */
+  const DEPARTMENT_RELATION = "department:sales → product:product-03 (роль primary, порядок 0)";
+  const EXECUTIVE_RELATION = `department:executive → case:${MIGRATED_CASE_ID} (роль primary, порядок 1)`;
 
+  /** Две связи отдела поверх заполненной базы — то, что сброс обязан защитить. */
+  function addDepartmentRelations() {
     const stamp = "2026-01-01T00:00:00.000Z";
     withDatabase((db) => {
       const insert = db.prepare(
@@ -384,25 +399,104 @@ describe("db-seed: реальный скрипт на временной баз�
       insert.run("department", "sales", "product", "product-03", "primary", 0, stamp, stamp);
       insert.run("department", "executive", "case", MIGRATED_CASE_ID, "primary", 1, stamp, stamp);
     }, false);
+  }
+
+  /** Снимок объёма контента — чтобы доказать, что отказ не тронул НИЧЕГО. */
+  function contentSnapshot() {
+    return withDatabase((db) =>
+      db
+        .prepare(
+          `SELECT (SELECT count(*) FROM departments) AS departments,
+                  (SELECT count(*) FROM products) AS products,
+                  (SELECT count(*) FROM articles) AS articles,
+                  (SELECT count(*) FROM page_content) AS pages,
+                  (SELECT count(*) FROM contacts) AS contacts,
+                  (SELECT count(*) FROM documents) AS documents,
+                  (SELECT count(*) FROM content_relations) AS relations`,
+        )
+        .get(),
+    );
+  }
+
+  it("без unmanaged-связей поведение --reset прежнее: успех и ни одного предупреждения", () => {
+    runSeed();
 
     const { stdout, stderr } = runSeed("--reset");
+
+    expect(`${stdout}\n${stderr}`).not.toContain("ОТКАЗ");
+    expect(`${stdout}\n${stderr}`).not.toContain("ВНИМАНИЕ");
+    expect(stdout).toContain("Контентные таблицы очищены (--reset).");
+  });
+
+  it("со связями отдела --reset останавливается с ненулевым кодом и не удаляет ничего", () => {
+    runSeed();
+    addDepartmentRelations();
+    const before = contentSnapshot();
+
+    const result = trySeed("--reset");
+
+    expect(result.status, "сброс обязан завершиться ненулевым кодом").not.toBe(0);
+    expect(`${result.stdout}\n${result.stderr}`).toContain("ОТКАЗ");
+    // Сам сброс до работы не дошёл: его сообщение об очистке отсутствует.
+    expect(result.stdout).not.toContain("Контентные таблицы очищены");
+
+    /**
+     * Главная проверка файла: база после отказа побайтово та же по объёму. Проверяются ВСЕ таблицы
+     * сброса, а не только связи, — отказ обязан остановить операцию целиком, а не откатить её часть.
+     */
+    expect(contentSnapshot()).toEqual(before);
+  });
+
+  it("отказ перечисляет каждую затрагиваемую связь и называет разрешающий флаг", () => {
+    runSeed();
+    addDepartmentRelations();
+
+    const { stdout, stderr } = trySeed("--reset");
     const output = `${stdout}\n${stderr}`;
 
-    expect(output).toContain("ВНИМАНИЕ");
-    expect(output).toContain("department:sales → product:product-03 (роль primary, порядок 0)");
-    expect(output).toContain(
-      `department:executive → case:${MIGRATED_CASE_ID} (роль primary, порядок 1)`,
-    );
+    expect(output).toContain(DEPARTMENT_RELATION);
+    expect(output).toContain(EXECUTIVE_RELATION);
+    expect(output).toContain(FORCE_UNMANAGED_RELATIONS_RESET_FLAG);
+    expect(output).toContain("npm run db:seed -- --reset");
 
-    // Связи статей seed создаёт заново сам, поэтому в предупреждении их быть не должно.
+    // Связи статей seed создаёт заново сам — в перечне их быть не должно.
     expect(output).not.toContain("article:");
   });
 
-  it("--reset без связей вручную не печатает предупреждения", () => {
+  it("с явным force-флагом --reset выполняется и печатает перечень снятых связей", () => {
     runSeed();
-    const { stdout, stderr } = runSeed("--reset");
+    addDepartmentRelations();
 
-    expect(`${stdout}\n${stderr}`).not.toContain("ВНИМАНИЕ");
+    const { stdout, stderr } = runSeed("--reset", FORCE_UNMANAGED_RELATIONS_RESET_FLAG);
+    const output = `${stdout}\n${stderr}`;
+
+    expect(stdout).toContain("Контентные таблицы очищены (--reset).");
+    expect(output).toContain(FORCE_UNMANAGED_RELATIONS_RESET_FLAG);
+    expect(output).toContain(DEPARTMENT_RELATION);
+    expect(output).toContain(EXECUTIVE_RELATION);
+
+    // Связи отдела действительно сняты, а не только объявлены снятыми.
+    withDatabase((db) => {
+      const left = db
+        .prepare("SELECT count(*) AS count FROM content_relations WHERE source_type = 'department'")
+        .get() as { count: number };
+      expect(Number(left.count)).toBe(0);
+    });
+  });
+
+  it("force-флаг без --reset ничего не сбрасывает", () => {
+    /**
+     * Флаг — разрешение, а не команда. Сам по себе он не должен запускать сброс: иначе оставленный
+     * в чужом скрипте, он однажды сработал бы без `--reset`.
+     */
+    runSeed();
+    addDepartmentRelations();
+    const before = contentSnapshot();
+
+    const { stdout } = runSeed(FORCE_UNMANAGED_RELATIONS_RESET_FLAG);
+
+    expect(stdout).not.toContain("Контентные таблицы очищены");
+    expect(contentSnapshot()).toEqual(before);
   });
 });
 
