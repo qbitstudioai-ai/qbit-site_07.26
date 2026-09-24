@@ -1,5 +1,61 @@
 # WORKLOG
 
+## 2026-09-24 — SOLREL-03: ручное наполнение связей `article → department` (Amendment 64)
+
+Production code HEAD — `980e44b98cc1b70740cd045727f14a39533cd015`, он же `origin/master`. Деплой в
+этом шаге НЕ выполнялся и не требовался: изменены только данные. Код, схема БД, sitemap и прочие
+документы не затронуты.
+
+**SOLREL-02 задеплоен и production verified.** Код блока «Материалы по теме» с поддержкой отдела
+работает на production. Как и предсказывал раздел рисков Amendment 64, сам выкат не изменил
+публичный HTML ни на одной странице: связей `article → department` на production было 0.
+
+Связи внесены вручную через Blog Admin. SQL, backfill, seed и любые скрипты массовой записи НЕ
+использовались.
+
+Было → стало:
+
+- до добавления: `article → department` — **0 связей**;
+- после добавления: **ровно 5 связей**, у всех `sort_order = 3`:
+  1. `kak-avtomatizirovat-obrabotku-zayavok` → `sales`;
+  2. `ai-assistent-po-baze-znaniy` → `support`;
+  3. `analiz-zvonkov-otdela-prodazh` → `executive`;
+  4. `avtomatizatsiya-dokumentov-s-ai` → `logistics`;
+  5. `sayt-crm-i-messendzhery` → `sales`.
+
+**Production SSR verification — PASS.** Проверялся ПЕРВЫЙ серверный HTML каждой статьи; перед
+поиском ссылки из документа удалялись `<script>`, чтобы исключить попадание адреса из полезной
+нагрузки, а не из разметки. Все пять ссылок обнаружены:
+
+- `/blog/kak-avtomatizirovat-obrabotku-zayavok` → `/solutions/sales`;
+- `/blog/ai-assistent-po-baze-znaniy` → `/solutions/support`;
+- `/blog/analiz-zvonkov-otdela-prodazh` → `/solutions/management`;
+- `/blog/avtomatizatsiya-dokumentov-s-ai` → `/solutions/logistics`;
+- `/blog/sayt-crm-i-messendzhery` → `/solutions/sales`.
+
+Отдельно подтверждено на живом сайте: `executive` даёт `/solutions/management`, а не
+`/solutions/executive` — адрес собирается из `SOLUTION_PATH_BY_DEPARTMENT_ID`, а не из
+идентификатора отдела.
+
+Решения по содержанию, принятые сознательно (не пропуски):
+
+- **Две MEDIUM-связи НЕ добавлены** — `kak-avtomatizirovat-obrabotku-zayavok → support` и
+  `ai-assistent-po-baze-znaniy → hr`. Причина: у обеих статей уже есть сильная связь; вторая
+  ссылка из того же текста — искусственная перелинковка, читателю она ничего не даёт.
+- **Три статьи остаются без department-связи**: `chto-mozhno-avtomatizirovat-na-n8n`,
+  `pochemu-ii-ne-rabotaet-v-biznes`, `kak-ponyat-chto-avtomatizirovat-v-biznes`. Обзорные тексты,
+  ни один отдел в них не выделен как адресат.
+- **HR намеренно пока не получает входящей ссылки из блога.** Нет статьи с достаточно сильным
+  соответствием HR-интенту. Это контентный пробел, а не техническая ошибка: закрывается новым
+  материалом, а не правкой связей.
+
+IndexNow вручную после шага НЕ запускался. Причина зафиксирована как факт, а не как забывчивость:
+сохранение статьи через существующий admin `PUT` само вызывает IndexNow, поэтому пять сохранений
+уже отправили уведомления.
+
+Изменены только два журнала: `WORKPLAN.md` (статус Amendment 64, статус SOLREL-02, новый
+Step SOLREL-03) и `WORKLOG.md` (эта запись). `git diff --check` — exit 0.
+
 ## 2026-09-22/23 — SOLREL-02: `article → department` в блоке «Материалы по теме» (Amendment 64)
 
 Source HEAD на момент работы — `1c6866a115aff06ec80404d381a8ae22d0c4d360`, он же `origin/master`
