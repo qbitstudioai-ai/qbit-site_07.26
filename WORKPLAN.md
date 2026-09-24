@@ -2,8 +2,12 @@
 
 ## Amendment 65 — перелинковка отдела: продукты и кейсы на `/solutions/<slug>` (2026-09-24)
 
-- Status: **IN_PROGRESS**. Шаг SOL-OUT-02 реализован, локальные проверки пройдены, деплой НЕ
-  выполнялся. Шаг SOL-OUT-03 (наполнение связей) — `PROPOSED`.
+- Status: **COMPLETED / PRODUCTION VERIFIED** (2026-09-24). Все четыре шага амендмента закрыты:
+  SOL-OUT-02 (механизм), SOL-OUT-02.1 (защита `db:seed --reset`), SOL-OUT-03 (backfill) и
+  SOL-OUT-03.1 (`--rollback`). Production HEAD — `e029c1cbf13bebcc3cd0cc5b71a10d4355041454`
+  (переведён с `980e44b98cc1b70740cd045727f14a39533cd015`). Хронология статуса
+  (историю не переписываем): `IN_PROGRESS` → `PASSED` → `COMPLETED` → `PRODUCTION VERIFIED`
+  (2026-09-24). Доказательства — `WORKLOG.md`, запись 2026-09-24 «production-релиз Amendment 65».
 - Approval: руководитель, 2026-09-24 — «вариант A» по результатам STOP GATE-отчёта SOL-OUT-01/02:
   механизм и данные разводятся на две задачи.
 - Причина. Amendment 64 сделал отдел допустимой ЦЕЛЬЮ связи (`article → department`). Обратного
@@ -19,7 +23,8 @@
 
 ### Step SOL-OUT-02 — механизм вывода связанных продуктов и кейсов на странице отдела
 
-- Status: **IN_PROGRESS** (реализация завершена, ожидает skeptic).
+- Status: **COMPLETED / PRODUCTION VERIFIED** (2026-09-24). Код на production в `e029c1c`.
+  Пять страниц `/solutions/*` отвечают 200; утверждённые ссылки присутствуют в серверном HTML.
 - Objective: страница `/solutions/<slug>` показывает связанные продукты и кейсы, если связи есть.
 - Scope: `src/server/repositories/contentRelations.ts` (новый reader),
   `src/server/content/departments.ts` (обёртка слоя контента), `src/app/solutions/[slug]/page.tsx`,
@@ -53,13 +58,16 @@
   молча.
 - Verification: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run test`,
   `npm run build`, `npx playwright test solutions-pages.spec.ts`.
-- Риски: блок на production не появится до SOL-OUT-03 — связей нет ни в одном окружении; это
-  ожидаемое состояние, а не дефект, и оно закреплено e2e-проверкой отсутствия пустых блоков.
+- Риски (сняты 2026-09-24 фактом релиза): блок действительно не появлялся до SOL-OUT-03, как и
+  предсказано; после backfill выводится на всех пяти страницах. Ожидаемое состояние подтвердилось,
+  дефекта не было.
 - Rollback: revert коммита. Данных шаг не создаёт, миграций не добавляет — откат полный.
 
 ### Step SOL-OUT-02.1 — `db:seed --reset` не уничтожает unmanaged-связи без явного разрешения
 
-- Status: **IN_PROGRESS** (реализовано, ожидает skeptic).
+- Status: **COMPLETED / PRODUCTION VERIFIED** (2026-09-24). Код на production в `e029c1c`.
+  Отдельной проверки на production не требовал и не получал: `db:seed --reset` в релизе не
+  запускался — защита срабатывает только при его запуске. Проверен локально (тесты шага).
 - Approval: руководитель, 2026-09-24 — по результатам приёмки `cd958ce`: предупреждение признано
   недостаточной защитой, требуется остановка операции.
 - Objective: `--reset` не может уничтожить связи, которые seed не восстановит, без флага,
@@ -96,7 +104,10 @@
 
 ### Step SOL-OUT-03.1 — режим `--rollback` у backfill отдела
 
-- Status: **IN_PROGRESS** (реализовано, ожидает skeptic; на production НЕ запускался).
+- Status: **COMPLETED / PRODUCTION VERIFIED** (2026-09-24). Код на production в `e029c1c`.
+  **Rollback не выполнялся и не требуется** — backfill прошёл штатно. Режим остаётся доступным
+  средством отката; его работоспособность подтверждена тестами шага, а не запуском на
+  production, и это сознательно: проверять откат на живых данных незачем.
 - Approval: руководитель, 2026-09-24 — по результатам приёмки `7559bf7`: у необратимой операции
   обязан быть штатный обратный ход, а не SQL по памяти.
 - Objective: снятие ровно утверждённых связей одной командой, без риска задеть соседние строки.
@@ -134,7 +145,10 @@
 
 ### Step SOL-OUT-03 — backfill 11 утверждённых связей
 
-- Status: **IN_PROGRESS** (скрипт и тесты готовы, ожидает skeptic; на production НЕ запускался).
+- Status: **COMPLETED / PRODUCTION VERIFIED** (2026-09-24). Backfill ВЫПОЛНЕН на production:
+  dry-run `ready` (11 вставок, 0 проблем) → `--apply` `applied` (`changed: 11`) → повторный
+  dry-run `already-applied` (`unchanged: 11`, `changed: 0`). В базе ровно 11 утверждённых
+  связей с верными `role` и `sort_order`.
 - Approval: руководитель, 2026-09-24 — вместе с подтверждёнными production-фактами, снявшими
   прежнюю блокировку: все 8 кейсов опубликованы, department-связей на production 0, stable id
   кейсов — `e71a2753-4034-4984-823c-276d11b6d3d4` (`sbor-zayavok-v-crm`) и
@@ -171,9 +185,10 @@
   операцию; посторонняя department-связь даёт STOP и сохраняется; ошибка посередине откатывает всё;
   связи статей не изменяются.
 - Verification: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`.
-- Риски: скрипт на production не запускался — связи там по-прежнему 0, и блоки на страницах отделов
-  не появятся до отдельного решения о запуске. Перед apply обязателен dry-run: он единственный
-  покажет, не появилось ли на production department-связей, заведённых кем-то ещё.
+- Риски (сняты 2026-09-24 фактом релиза): риск «связей 0, блоки не появятся» закрыт — backfill
+  выполнен, связей 11, блоки на страницах отделов выводятся. Требование «перед apply обязателен
+  dry-run» выполнено: dry-run показал `existingDepartmentRelations: 0`, то есть чужих
+  department-связей на production не было.
 - Rollback: `DELETE FROM content_relations WHERE source_type = 'department'` — безопасен ровно
   потому, что до запуска скрипта таких строк на production нет ни одной (подтверждено
   руководителем). После любого ручного добавления связей это перестанет быть верным.
