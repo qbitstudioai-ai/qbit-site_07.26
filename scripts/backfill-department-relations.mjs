@@ -247,6 +247,47 @@ function readForeignRelations(db) {
 }
 
 /**
+ * Существующие связи отдела по КЛЮЧУ ЦЕЛИ, без роли. Дубли складываются в `problems`.
+ *
+ * Ключ без роли — сознательно: связь «отдел ссылается на этот продукт» существует в одном
+ * экземпляре независимо от роли, и именно так строка манифеста сопоставляется с базой. Если бы роль
+ * входила в ключ, изменение роли выглядело бы как «одна связь лишняя, другой не хватает».
+ *
+ * Две строки на одну цель (разные роли) — аномалия: репозиторий такую пару не запишет, а прямой SQL
+ * — запишет. Какую из двух считать утверждённой, скрипт решать не вправе, поэтому отказ. Функция
+ * общая для переноса и отката: аномалию оба обязаны видеть одинаково.
+ */
+function indexExisting(existing, problems) {
+  const byTarget = new Map();
+
+  for (const row of existing) {
+    const key = targetKey({
+      sourceId: String(row.source_id),
+      targetType: String(row.target_type),
+      targetId: String(row.target_id),
+    });
+    const bucket = byTarget.get(key);
+    if (bucket) {
+      problems.duplicateRelation.push(
+        `${String(row.source_id)} → ${String(row.target_type)}:${String(row.target_id)} ` +
+          `(роли «${String(bucket.relation_role)}» и «${String(row.relation_role)}»)`,
+      );
+      continue;
+    }
+    byTarget.set(key, row);
+  }
+
+  return byTarget;
+}
+
+/** Совпадает ли строка базы с утверждённой ролью и порядком. */
+function matchesManifest(row, relation) {
+  return (
+    String(row.relation_role) === relation.role && Number(row.sort_order) === relation.sortOrder
+  );
+}
+
+/**
  * План и препятствия. НИЧЕГО не пишет: результат — только описание.
  *
  * Отдельная функция потому, что её зовут дважды — до транзакции и внутри неё, перед самой записью.
@@ -305,30 +346,7 @@ export function buildPlan(db) {
   }
 
   const existing = readDepartmentRelations(db);
-
-  /**
-   * Сопоставление с тем, что уже есть, — по КЛЮЧУ ЦЕЛИ, без роли.
-   *
-   * Две строки на одну цель (разные роли) — аномалия: репозиторий такую пару не запишет, а прямой
-   * SQL — запишет. Какую из двух считать утверждённой, скрипт решать не вправе, поэтому отказ.
-   */
-  const existingByTarget = new Map();
-  for (const row of existing) {
-    const key = targetKey({
-      sourceId: String(row.source_id),
-      targetType: String(row.target_type),
-      targetId: String(row.target_id),
-    });
-    const bucket = existingByTarget.get(key);
-    if (bucket) {
-      problems.duplicateRelation.push(
-        `${String(row.source_id)} → ${String(row.target_type)}:${String(row.target_id)} ` +
-          `(роли «${String(bucket.relation_role)}» и «${String(row.relation_role)}»)`,
-      );
-      continue;
-    }
-    existingByTarget.set(key, row);
-  }
+  const existingByTarget = indexExisting(existing, problems);
 
   const manifestKeys = new Set(MANIFEST.map(targetKey));
 
@@ -352,13 +370,9 @@ export function buildPlan(db) {
 
     if (!current) return { ...relation, action: "insert", current: null };
 
-    const same =
-      String(current.relation_role) === relation.role &&
-      Number(current.sort_order) === relation.sortOrder;
-
     return {
       ...relation,
-      action: same ? "unchanged" : "update",
+      action: matchesManifest(current, relation) ? "unchanged" : "update",
       current: {
         role: String(current.relation_role),
         sortOrder: Number(current.sort_order),
@@ -562,23 +576,285 @@ export function runBackfillDepartmentRelations(
   return report("applied", changed);
 }
 
+/**
+ * Дамп department-связей ВНЕ манифеста — сторож соседних строк при откате.
+ *
+ * Перенос такие строки просто не пускает (для него они `unknownRelation` и STOP). Откат обязан
+ * относиться к ним иначе: он снимает СВОИ одиннадцать, а чужие связи отдела — не его дело, и трогать
+ * их он не имеет права. Дамп снимается до удаления и сверяется после, внутри той же транзакции:
+ * обещание «связи вне манифеста не затрагиваются» держится на факте, а не на разборе запросов.
+ */
+function readDepartmentRelationsOutsideManifest(db) {
+  const manifestKeys = new Set(MANIFEST.map(targetKey));
+
+  return readDepartmentRelations(db)
+    .filter(
+      (row) =>
+        !manifestKeys.has(
+          targetKey({
+            sourceId: String(row.source_id),
+            targetType: String(row.target_type),
+            targetId: String(row.target_id),
+          }),
+        ),
+    )
+    .map((row) => JSON.stringify(row))
+    .join("\n");
+}
+
+/**
+ * План отката и препятствия. НИЧЕГО не пишет.
+ *
+ * Набор проверок УЖЕ, чем у переноса, и каждое отличие содержательно:
+ *
+ * - существование и публикация целей НЕ проверяются. Удалению они не нужны, а требовать их значило
+ *   бы блокировать уборку ровно тогда, когда она нужнее всего: после удаления продукта связь на него
+ *   стала ссылкой в никуда, и снять её обязано быть можно;
+ * - `expectedSlug` не сверяется по той же причине;
+ * - department-связь вне манифеста НЕ препятствие, а сосед: откат её не трогает и на неё не жалуется;
+ * - строка манифеста с ЧУЖОЙ ролью или порядком — препятствие. Такую строку кто-то изменил после
+ *   переноса, то есть она больше не та, которую этот скрипт заводил, и снимать её вслепую нельзя.
+ */
+export function buildRollbackPlan(db) {
+  const problems = {
+    schema: checkSchema(db),
+    duplicateRelation: [],
+    modifiedRelation: [],
+  };
+
+  if (problems.schema.length > 0) return { plan: [], problems, existing: [] };
+
+  const existing = readDepartmentRelations(db);
+  const existingByTarget = indexExisting(existing, problems);
+
+  const plan = MANIFEST.map((relation) => {
+    const current = existingByTarget.get(targetKey(relation));
+
+    /**
+     * Отсутствие строки — НЕ ошибка: это либо уже выполненный откат, либо связь, снятая вручную.
+     * Остальные утверждённые строки при этом снять можно, и именно это делает откат идемпотентным.
+     */
+    if (!current) return { ...relation, action: "already-absent", current: null };
+
+    const snapshot = {
+      role: String(current.relation_role),
+      sortOrder: Number(current.sort_order),
+      createdAt: String(current.created_at),
+    };
+
+    if (!matchesManifest(current, relation)) {
+      problems.modifiedRelation.push(
+        `${relation.sourceId} → ${relation.targetType}:${relation.targetId}: ` +
+          `роль «${snapshot.role}», порядок ${snapshot.sortOrder}; ` +
+          `утверждены «${relation.role}» и ${relation.sortOrder}`,
+      );
+      return { ...relation, action: "modified", current: snapshot };
+    }
+
+    return { ...relation, action: "remove", current: snapshot };
+  });
+
+  return { plan, problems, existing };
+}
+
+function buildRollbackReport({ state, plan, problems, existing, removed }) {
+  const byAction = (action) => plan.filter((relation) => relation.action === action);
+
+  return {
+    script: "backfill-department-relations",
+    mode: "rollback",
+    state,
+    manifestSize: MANIFEST.length,
+    existingDepartmentRelations: existing.length,
+    planned: {
+      remove: byAction("remove").length,
+      alreadyAbsent: byAction("already-absent").length,
+      modified: byAction("modified").length,
+    },
+    removed,
+    alreadyAbsent: byAction("already-absent").length,
+    changed: removed,
+    /** Сколько связей отдела останется: соседние строки вне манифеста откат не трогает. */
+    expectedTotalAfterRollback: existing.length - removed,
+    problems,
+    plan: plan.map((relation) => ({
+      action: relation.action,
+      source: `${SOURCE_TYPE}:${relation.sourceId}`,
+      target: `${relation.targetType}:${relation.targetId}`,
+      role: relation.role,
+      sortOrder: relation.sortOrder,
+      current: relation.current,
+    })),
+  };
+}
+
+/**
+ * Итоговая проверка ПОСЛЕ удаления и ДО коммита.
+ *
+ * Три утверждения: ни одной связи манифеста не осталось; соседние department-связи побайтово те же;
+ * чужие связи (статей и прочих источников) побайтово те же. Любое расхождение — исключение, то есть
+ * откат самого отката.
+ */
+function verifyAfterRollback(db, { foreignBefore, neighboursBefore }) {
+  const remaining = new Set(
+    readDepartmentRelations(db).map((row) =>
+      targetKey({
+        sourceId: String(row.source_id),
+        targetType: String(row.target_type),
+        targetId: String(row.target_id),
+      }),
+    ),
+  );
+
+  for (const relation of MANIFEST) {
+    if (remaining.has(targetKey(relation))) {
+      throw new Error(
+        `после отката осталась связь ${relation.sourceId} → ` +
+          `${relation.targetType}:${relation.targetId}: откат отменён`,
+      );
+    }
+  }
+
+  if (readDepartmentRelationsOutsideManifest(db) !== neighboursBefore) {
+    throw new Error("изменились department-связи вне манифеста: откат отменён");
+  }
+
+  if (readForeignRelations(db) !== foreignBefore) {
+    throw new Error("изменились связи, не принадлежащие отделам: откат отменён");
+  }
+}
+
+/**
+ * Снятие связей манифеста — операция, обратная переносу.
+ *
+ * Снимаются РОВНО утверждённые строки, каждая адресным `DELETE` по ПОЛНОМУ первичному ключу, включая
+ * роль. Общего `DELETE … WHERE source_type = 'department'` здесь нет и быть не может: он снёс бы
+ * заодно всё, что завели помимо манифеста.
+ *
+ * Транзакция ОДНА на весь набор — по той же причине, что у переноса: снять семь строк из одиннадцати
+ * хуже, чем не снять ни одной.
+ */
+export function runRollbackDepartmentRelations(db) {
+  let snapshot = buildRollbackPlan(db);
+
+  const report = (state, removed) => buildRollbackReport({ state, ...snapshot, removed });
+
+  if (problemCount(snapshot.problems) > 0) return report("blocked", 0);
+
+  const removable = snapshot.plan.filter((relation) => relation.action === "remove");
+  // Идемпотентность: снимать нечего — значит откат уже выполнен, и это успех, а не ошибка.
+  if (removable.length === 0) return report("already-absent", 0);
+
+  const remove = db.prepare(
+    `DELETE FROM content_relations
+      WHERE source_type = ? AND source_id = ? AND target_type = ? AND target_id = ?
+        AND relation_role = ?`,
+  );
+
+  let removed = 0;
+
+  db.exec("BEGIN");
+  try {
+    // Повторная проверка внутри транзакции — последний рубеж перед удалением.
+    const fresh = buildRollbackPlan(db);
+    if (problemCount(fresh.problems) > 0) {
+      throw new Error("Данные изменились между проверкой и удалением: откат отменён");
+    }
+    snapshot = fresh;
+
+    const foreignBefore = readForeignRelations(db);
+    const neighboursBefore = readDepartmentRelationsOutsideManifest(db);
+
+    for (const relation of fresh.plan) {
+      if (relation.action !== "remove") continue;
+
+      const result = remove.run(
+        SOURCE_TYPE,
+        relation.sourceId,
+        relation.targetType,
+        relation.targetId,
+        relation.role,
+      );
+      /**
+       * Ровно одна строка. Ноль означал бы, что адресный ключ не нашёл цель; больше одной — что ключ
+       * не уникален. И то и другое противоречит схеме, проверенной выше.
+       */
+      if (Number(result.changes) !== 1) {
+        throw new Error(
+          `снятие связи ${relation.sourceId} → ${relation.targetType}:${relation.targetId} ` +
+            `затронуло строк: ${Number(result.changes)}, ожидалась 1`,
+        );
+      }
+      removed += 1;
+    }
+
+    verifyAfterRollback(db, { foreignBefore, neighboursBefore });
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+
+  return report("rolled-back", removed);
+}
+
+/**
+ * Режим прогона по аргументам командной строки.
+ *
+ * Бросает ДО открытия базы — в этом весь смысл отдельной функции. `--apply` и `--rollback` вместе не
+ * просто бессмысленны: непонятно, какое из двух противоположных действий имелось в виду, и угадывать
+ * здесь нельзя. Открыть базу на запись, а потом обнаружить противоречие, значило бы подойти к
+ * необратимой операции ближе, чем нужно.
+ */
+export function parseMode(argv) {
+  const apply = argv.includes("--apply");
+  const rollback = argv.includes("--rollback");
+
+  if (apply && rollback) {
+    throw new Error(
+      "--apply и --rollback взаимоисключающие: перенос и снятие связей — противоположные операции. Укажите одну.",
+    );
+  }
+
+  if (rollback) return "rollback";
+  if (apply) return "apply";
+  return "dry-run";
+}
+
 /** Ненулевой код возврата — только там, где человек обязан вмешаться. */
 export function exitCodeFor(state) {
   return state === "blocked" ? 1 : 0;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const apply = process.argv.includes("--apply");
   /**
-   * Без `--apply` база физически недоступна на запись: обещание «dry-run ничего не пишет»
-   * обеспечивается дескриптором, а не только ветвлением в коде.
+   * Режим разбирается ПЕРВЫМ, до `new DatabaseSync(...)`.
+   *
+   * Противоречивые аргументы обязаны остановить запуск раньше, чем база вообще будет открыта, — тем
+   * более на запись. Это не экономия строки, а граница: к необратимой операции нельзя подходить
+   * ближе, чем нужно, чтобы понять, что она не запрошена.
+   */
+  let mode;
+  try {
+    mode = parseMode(process.argv.slice(2));
+  } catch (error) {
+    console.error(String(error instanceof Error ? error.message : error));
+    process.exit(1);
+  }
+
+  /**
+   * Права дескриптора — по режиму. В `dry-run` база физически недоступна на запись: обещание
+   * «ничего не пишет» обеспечивается дескриптором, а не только ветвлением в коде.
    *
    * Путь берётся из `resolveDbPath()` — общей конфигурации проекта (`QBIT_DB_PATH`, иначе
    * `QBIT_DATA_DIR/content.db`). Ни одного пути к production в коде нет и быть не должно.
    */
-  const db = new DatabaseSync(resolveDbPath(), { readOnly: !apply });
+  const db = new DatabaseSync(resolveDbPath(), { readOnly: mode === "dry-run" });
   try {
-    const result = runBackfillDepartmentRelations(db, { apply });
+    const result =
+      mode === "rollback"
+        ? runRollbackDepartmentRelations(db)
+        : runBackfillDepartmentRelations(db, { apply: mode === "apply" });
     console.log(JSON.stringify(result, null, 2));
     process.exitCode = exitCodeFor(result.state);
   } finally {

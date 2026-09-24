@@ -5,10 +5,13 @@ import {
   MANIFEST,
   SOURCE_TYPE,
   buildPlan,
+  buildRollbackPlan,
   checkSchema,
   exitCodeFor,
+  parseMode,
   problemCount,
   runBackfillDepartmentRelations,
+  runRollbackDepartmentRelations,
 } from "../../../../scripts/backfill-department-relations.mjs";
 
 /**
@@ -543,5 +546,266 @@ describe("транзакция", () => {
     }
 
     expect(departmentRows()).toEqual([]);
+  });
+});
+
+describe("разбор режима", () => {
+  it("--apply вместе с --rollback — ошибка до всякого обращения к базе", () => {
+    /**
+     * Проверяется ЧИСТАЯ функция, а не запуск скрипта: она и существует ради того, чтобы
+     * противоречие остановило прогон ДО `new DatabaseSync(...)`. Никакого дескриптора на запись к
+     * моменту отказа не возникает — тест доказывает это тем, что базу для него заводить не нужно
+     * вовсе.
+     */
+    expect(() => parseMode(["--apply", "--rollback"])).toThrow(/взаимоисключающие/u);
+    expect(() => parseMode(["--rollback", "--apply"])).toThrow(/взаимоисключающие/u);
+  });
+
+  it("одиночные флаги и их отсутствие дают три режима", () => {
+    expect(parseMode([])).toBe("dry-run");
+    expect(parseMode(["--apply"])).toBe("apply");
+    expect(parseMode(["--rollback"])).toBe("rollback");
+  });
+});
+
+describe("rollback", () => {
+  it("снимает ровно 11 строк манифеста после apply", () => {
+    seedTargets();
+    apply();
+    expect(departmentRows()).toHaveLength(11);
+
+    const report = runRollbackDepartmentRelations(db);
+
+    expect(report.mode).toBe("rollback");
+    expect(report.state).toBe("rolled-back");
+    expect(report.removed).toBe(11);
+    expect(report.alreadyAbsent).toBe(0);
+    expect(report.changed).toBe(11);
+    expect(report.expectedTotalAfterRollback).toBe(0);
+    expect(exitCodeFor(report.state)).toBe(0);
+
+    expect(departmentRows()).toEqual([]);
+  });
+
+  it("сохраняет чужие department-связи и связи статей", () => {
+    seedTargets();
+    seedArticleRelation();
+    apply();
+
+    // Сосед: department-связь, которой нет в манифесте. Откат не имеет права её трогать.
+    db.prepare(
+      `INSERT INTO content_relations (source_type, source_id, target_type, target_id,
+                                      relation_role, sort_order, created_at, updated_at)
+       VALUES ('department', 'hr', 'product', 'product-02', 'related', 40, ?, ?)`,
+    ).run(NOW, NOW);
+
+    const foreignBefore = foreignRows();
+
+    const report = runRollbackDepartmentRelations(db);
+
+    expect(report.state).toBe("rolled-back");
+    expect(report.removed).toBe(11);
+    // Соседняя строка учтена в остатке, а не снесена заодно.
+    expect(report.expectedTotalAfterRollback).toBe(1);
+
+    const left = departmentRows();
+    expect(left).toHaveLength(1);
+    expect(String(left[0].source_id)).toBe("hr");
+    expect(String(left[0].target_id)).toBe("product-02");
+    expect(Number(left[0].sort_order)).toBe(40);
+
+    expect(foreignRows()).toEqual(foreignBefore);
+    expect(foreignBefore).toHaveLength(1);
+  });
+
+  it("повторный rollback ничего не меняет", () => {
+    seedTargets();
+    seedArticleRelation();
+    apply();
+    runRollbackDepartmentRelations(db);
+
+    const foreignBefore = foreignRows();
+    const second = runRollbackDepartmentRelations(db);
+
+    expect(second.state).toBe("already-absent");
+    expect(second.removed).toBe(0);
+    expect(second.changed).toBe(0);
+    expect(second.alreadyAbsent).toBe(11);
+    expect(exitCodeFor(second.state)).toBe(0);
+
+    expect(departmentRows()).toEqual([]);
+    expect(foreignRows()).toEqual(foreignBefore);
+  });
+
+  it("на пустой базе связей rollback сразу успешен и идемпотентен", () => {
+    seedTargets();
+
+    const report = runRollbackDepartmentRelations(db);
+
+    expect(report.state).toBe("already-absent");
+    expect(report.removed).toBe(0);
+    expect(report.alreadyAbsent).toBe(11);
+    expect(departmentRows()).toEqual([]);
+  });
+
+  it("частично снятый манифест доснимается: остальные строки удаляются", () => {
+    /**
+     * Требование «отсутствующая строка допустима»: она показывается как `already-absent`, а
+     * остальные утверждённые строки снимаются. Именно это делает откат довершаемым после прерывания.
+     */
+    seedTargets();
+    apply();
+    db.prepare(
+      `DELETE FROM content_relations
+        WHERE source_type = 'department' AND source_id = 'logistics'`,
+    ).run();
+
+    const report = runRollbackDepartmentRelations(db);
+
+    expect(report.state).toBe("rolled-back");
+    expect(report.removed).toBe(10);
+    expect(report.alreadyAbsent).toBe(1);
+    expect(
+      report.plan.filter((entry: { action: string }) => entry.action === "already-absent"),
+    ).toEqual([
+      expect.objectContaining({ source: "department:logistics", target: "product:product-10" }),
+    ]);
+    expect(departmentRows()).toEqual([]);
+  });
+
+  it("изменённая роль строки манифеста — STOP без единого удаления", () => {
+    seedTargets();
+    apply();
+    db.prepare(
+      `UPDATE content_relations SET relation_role = 'related'
+        WHERE source_type = 'department' AND source_id = 'sales'
+          AND target_type = 'product' AND target_id = 'product-03'
+          AND relation_role = 'primary'`,
+    ).run();
+    const before = departmentRows();
+
+    const report = runRollbackDepartmentRelations(db);
+
+    expect(report.state).toBe("blocked");
+    expect(report.removed).toBe(0);
+    expect(report.problems.modifiedRelation).toHaveLength(1);
+    expect(report.problems.modifiedRelation[0]).toContain("sales → product:product-03");
+    expect(exitCodeFor(report.state)).toBe(1);
+
+    // Ни одна строка не тронута — включая те десять, что совпадали с манифестом.
+    expect(departmentRows()).toEqual(before);
+    expect(before).toHaveLength(11);
+  });
+
+  it("изменённый sort_order строки манифеста — STOP без единого удаления", () => {
+    seedTargets();
+    apply();
+    db.prepare(
+      `UPDATE content_relations SET sort_order = 99
+        WHERE source_type = 'department' AND source_id = 'executive'
+          AND target_type = 'case' AND target_id = ?`,
+    ).run(CASE_CALLS.id);
+    const before = departmentRows();
+
+    const report = runRollbackDepartmentRelations(db);
+
+    expect(report.state).toBe("blocked");
+    expect(report.problems.modifiedRelation).toHaveLength(1);
+    expect(report.problems.modifiedRelation[0]).toContain(CASE_CALLS.id);
+    expect(departmentRows()).toEqual(before);
+  });
+
+  it("две роли на одну цель — STOP и при откате", () => {
+    seedTargets();
+    apply();
+    db.prepare(
+      `INSERT INTO content_relations (source_type, source_id, target_type, target_id,
+                                      relation_role, sort_order, created_at, updated_at)
+       VALUES ('department', 'sales', 'product', 'product-03', 'related', 10, ?, ?)`,
+    ).run(NOW, NOW);
+    const before = departmentRows();
+
+    const report = runRollbackDepartmentRelations(db);
+
+    expect(report.state).toBe("blocked");
+    expect(report.problems.duplicateRelation).toHaveLength(1);
+    expect(departmentRows()).toEqual(before);
+  });
+
+  it("существование и публикация целей откату не нужны", () => {
+    /**
+     * Отличие от переноса, и оно содержательное: после удаления продукта связь на него стала
+     * ссылкой в никуда. Требовать существования цели значило бы блокировать уборку ровно тогда,
+     * когда она нужнее всего.
+     */
+    seedTargets();
+    apply();
+    db.prepare("UPDATE products SET is_published = 0 WHERE id = 'product-01'").run();
+    db.prepare("DELETE FROM products WHERE id = 'product-10'").run();
+
+    const report = runRollbackDepartmentRelations(db);
+
+    expect(report.state).toBe("rolled-back");
+    expect(report.removed).toBe(11);
+    expect(departmentRows()).toEqual([]);
+  });
+
+  it("сбой посередине откатывает удаление целиком", () => {
+    seedTargets();
+    seedArticleRelation();
+    apply();
+    const before = departmentRows();
+    const foreignBefore = foreignRows();
+
+    const originalPrepare = db.prepare.bind(db);
+    let deletes = 0;
+
+    db.prepare = ((sql: string) => {
+      const statement = originalPrepare(sql);
+      if (!sql.includes("DELETE FROM content_relations")) return statement;
+
+      return {
+        ...statement,
+        run: (...args: unknown[]) => {
+          deletes += 1;
+          if (deletes === 6) throw new Error("сбой на шестой связи");
+          return (statement.run as (...values: unknown[]) => unknown)(...args);
+        },
+      };
+    }) as unknown as typeof db.prepare;
+
+    try {
+      expect(() => runRollbackDepartmentRelations(db)).toThrow(/сбой на шестой связи/u);
+    } finally {
+      db.prepare = originalPrepare;
+    }
+
+    // Пять удалений уже прошли внутри транзакции — доказывается именно откат.
+    expect(deletes).toBe(6);
+    expect(departmentRows()).toEqual(before);
+    expect(foreignRows()).toEqual(foreignBefore);
+  });
+
+  it("buildRollbackPlan различает remove, already-absent и modified", () => {
+    seedTargets();
+    apply();
+    db.prepare(
+      `DELETE FROM content_relations
+        WHERE source_type = 'department' AND source_id = 'logistics'`,
+    ).run();
+    db.prepare(
+      `UPDATE content_relations SET sort_order = 77
+        WHERE source_type = 'department' AND source_id = 'hr' AND target_id = 'product-06'`,
+    ).run();
+
+    const { plan, problems } = buildRollbackPlan(db);
+
+    const counts = (plan as { action: string }[]).reduce<Record<string, number>>((total, entry) => {
+      total[entry.action] = (total[entry.action] ?? 0) + 1;
+      return total;
+    }, {});
+
+    expect(counts).toEqual({ remove: 9, "already-absent": 1, modified: 1 });
+    expect(problemCount(problems)).toBe(1);
   });
 });

@@ -1,5 +1,65 @@
 # WORKLOG
 
+## 2026-09-24 — SOL-OUT-03.1: режим `--rollback` у backfill отдела
+
+Исходный HEAD — `7559bf73c392daec2f2a29ab7496de396fb83d2d`. **Production-БД не читалась и не
+изменялась. Ни backfill, ни rollback на production НЕ запускались. Deploy не выполнялся.**
+Untracked-файл `allqbit_geo_fact_verification_2026-07-30.md` не затронут. Яндекс Директ не
+затрагивался. Предсуществующий `format:check` в `src/tests/e2e/task-section.spec.ts` не исправлялся.
+
+Изменённые файлы (4): `scripts/backfill-department-relations.mjs`,
+`src/tests/unit/server/departmentRelationsBackfill.test.ts`, `WORKPLAN.md`, `WORKLOG.md`.
+
+Команда отката на production (путь к базе — из `resolveDbPath()`; в образе `QBIT_DATA_DIR=/data`,
+WORKDIR `/app`):
+
+```bash
+docker exec allqbit-site node scripts/backfill-department-relations.mjs --rollback
+```
+
+**Взаимоисключение флагов.** `parseMode()` — чистая функция, вызывается ДО `new DatabaseSync(...)`.
+`--apply --rollback` завершается кодом 1 с текстом «взаимоисключающие», и дескриптора на запись к
+этому моменту не существует. Права дескриптора теперь выводятся из режима: `readOnly` только в
+`dry-run`.
+
+**Что снимает откат.** Ровно строки манифеста, каждую адресным `DELETE` по полному первичному ключу
+(`source_type, source_id, target_type, target_id, relation_role`) с проверкой `changes === 1`.
+Общего `DELETE … WHERE source_type = 'department'` в скрипте нет.
+
+**Проверки до удаления:** схема; отсутствие дублей цели; совпадение найденных строк манифеста с
+утверждёнными `role` и `sort_order`. Несовпадение — `state: "blocked"`, exit 1, ни одного удаления.
+Существование и публикация целей у отката НЕ проверяются намеренно: после удаления продукта связь на
+него стала ссылкой в никуда, и снять её обязано быть можно.
+
+**Соседние строки.** Department-связь вне манифеста для отката — сосед, а не препятствие: перенос на
+такой строке останавливается, откат её не трогает и не жалуется. Обещание держится на факте: дамп
+таких строк снимается до удаления и сверяется побайтово после, внутри той же транзакции.
+
+**Транзакция и итоговая сверка.** Одна транзакция на весь набор; внутри план строится заново
+(последний рубеж), затем удаления, затем сверка до `COMMIT`: ни одной связи манифеста не осталось,
+соседние department-связи побайтово те же, чужие связи побайтово те же. Расхождение — исключение и
+`ROLLBACK`.
+
+**Идемпотентность.** Отсутствующая строка — `already-absent`, а не ошибка; остальные утверждённые
+строки при этом снимаются, поэтому прерванный откат довершается. Когда снимать нечего, прогон
+возвращает `already-absent` и `removed: 0` ещё до открытия транзакции. JSON-отчёт показывает
+`removed`, `alreadyAbsent` и `changed`, а также `expectedTotalAfterRollback` — сколько связей отдела
+останется с учётом соседей.
+
+Ручная проверка на временной базе в scratchpad (production не участвовал): `--apply --rollback` →
+exit 1, база не открывалась; `--rollback` на применённом манифесте → `rolled-back`, `removed: 11`,
+`changed: 11`; повторный `--rollback` → `already-absent`, `removed: 0`, `alreadyAbsent: 11`; 18
+article-связей на месте.
+
+Результаты проверок:
+
+- `npm run lint` — 0 errors, 0 warnings;
+- `npm run typecheck` — exit 0;
+- `departmentRelationsBackfill.test.ts` — **36 passed** (было 23);
+- `npm run test` — **93 файла, 1311 тестов, все зелёные**;
+- `npm run build` — exit 0.
+
+
 ## 2026-09-24 — SOL-OUT-03: backfill 11 утверждённых связей отдела (скрипт и тесты)
 
 Исходный HEAD — `746dcb5c666c5ab380ac998d41a72dbb5e8edbcf`. **Production-БД не читалась и не
