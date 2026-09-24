@@ -360,6 +360,50 @@ describe("db-seed: реальный скрипт на временной баз�
       expectParityWithBackfill(db);
     });
   });
+
+  it("--reset перечисляет поимённо связи отдела, которые seed не создаст заново", () => {
+    /**
+     * Защита будущих связей SOL-OUT-03. Сброс обязан их снять — таблицы `departments` и `products`
+     * он очищает, и оставленная связь стала бы ссылкой в никуда. Но снимать их МОЛЧА он не должен:
+     * seed пишет связи только для статей, восстановить department-связи из `data/` нечем, и
+     * владелец узнавал бы о пропаже по пустым блокам на страницах отделов.
+     *
+     * Поэтому проверяется не сохранение строк, а то, что сброс перестал быть тихим: в выводе стоит
+     * предупреждение и полная строка каждой снятой связи — источник, цель, роль и порядок, то есть
+     * готовый список для повторного ввода.
+     */
+    runSeed();
+
+    const stamp = "2026-01-01T00:00:00.000Z";
+    withDatabase((db) => {
+      const insert = db.prepare(
+        `INSERT INTO content_relations (source_type, source_id, target_type, target_id,
+                                        relation_role, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      );
+      insert.run("department", "sales", "product", "product-03", "primary", 0, stamp, stamp);
+      insert.run("department", "executive", "case", MIGRATED_CASE_ID, "primary", 1, stamp, stamp);
+    }, false);
+
+    const { stdout, stderr } = runSeed("--reset");
+    const output = `${stdout}\n${stderr}`;
+
+    expect(output).toContain("ВНИМАНИЕ");
+    expect(output).toContain("department:sales → product:product-03 (роль primary, порядок 0)");
+    expect(output).toContain(
+      `department:executive → case:${MIGRATED_CASE_ID} (роль primary, порядок 1)`,
+    );
+
+    // Связи статей seed создаёт заново сам, поэтому в предупреждении их быть не должно.
+    expect(output).not.toContain("article:");
+  });
+
+  it("--reset без связей вручную не печатает предупреждения", () => {
+    runSeed();
+    const { stdout, stderr } = runSeed("--reset");
+
+    expect(`${stdout}\n${stderr}`).not.toContain("ВНИМАНИЕ");
+  });
 });
 
 describe("seedArticles: relations[], транзакция и существующие статьи", () => {

@@ -87,12 +87,53 @@ const SEED_RELATION_TARGETS = Object.freeze({
   case: { table: "cases", published: "status = 'published'" },
 });
 
-/** Сброс контента одной транзакцией: связи очищаемых типов и сами контентные таблицы. */
+/**
+ * Связи, которые `--reset` снимет и которые seed НЕ создаст заново.
+ *
+ * Правило ровно одно и оно проверяемое: seed пишет связи ТОЛЬКО с `source_type = 'article'` (см.
+ * `INSERT` в `seedArticles()`, где тип источника стоит строкой). Значит любая снесённая сбросом
+ * связь с другим источником восстановлению средствами seed не подлежит — её завёл владелец сайта
+ * в админ-панели или отдельная задача перелинковки.
+ *
+ * Практический повод это знать появился с SOL-OUT-01: утверждены 11 связей отдела с продуктами и
+ * кейсами (`source_type = 'department'`). Сброс обязан их снять — таблицы `departments` и
+ * `products` он очищает, и без этого остались бы ссылки в никуда. Но снимать их МОЛЧА он не
+ * должен: восстановить их из `data/` нечем, и владелец узнавал бы о пропаже по пустым блокам на
+ * страницах отделов.
+ *
+ * Поэтому здесь не запрет и не сохранение, а именно перечень: сброс остаётся ровно той операцией,
+ * какой был (и код возврата не меняется), но перестаёт быть тихим. `WHERE` повторяет условие
+ * удаления — иначе отчёт разошёлся бы с тем, что происходит на самом деле.
+ */
+export function listUnrestorableRelations(db) {
+  const placeholders = RESET_RELATION_ENTITY_TYPES.map(() => "?").join(", ");
+  return db
+    .prepare(
+      `SELECT source_type, source_id, target_type, target_id, relation_role, sort_order
+         FROM content_relations
+        WHERE (source_type IN (${placeholders}) OR target_type IN (${placeholders}))
+          AND source_type <> 'article'
+        ORDER BY source_type ASC, source_id ASC, sort_order ASC,
+                 target_type ASC, target_id ASC, relation_role ASC`,
+    )
+    .all(...RESET_RELATION_ENTITY_TYPES, ...RESET_RELATION_ENTITY_TYPES);
+}
+
+/**
+ * Сброс контента одной транзакцией: связи очищаемых типов и сами контентные таблицы.
+ *
+ * Возвращает перечень связей, которые seed заново не создаст (см. `listUnrestorableRelations`), —
+ * чтобы вызывающий код мог о них сообщить. Перечень снимается ДО удаления и внутри той же
+ * транзакции: список, собранный после `DELETE`, был бы всегда пуст, а собранный до транзакции —
+ * мог бы разойтись с тем, что удалено.
+ */
 export function resetContent(db) {
   const placeholders = RESET_RELATION_ENTITY_TYPES.map(() => "?").join(", ");
 
   db.exec("BEGIN");
   try {
+    const unrestorable = listUnrestorableRelations(db);
+
     db.prepare(
       `DELETE FROM content_relations
         WHERE source_type IN (${placeholders}) OR target_type IN (${placeholders})`,
@@ -102,6 +143,7 @@ export function resetContent(db) {
       db.prepare(`DELETE FROM ${table}`).run();
     }
     db.exec("COMMIT");
+    return unrestorable;
   } catch (error) {
     db.exec("ROLLBACK");
     throw error;
@@ -288,8 +330,30 @@ function runSeed({ reset }) {
     const timestamp = nowIso();
 
     if (reset) {
-      resetContent(db);
+      const unrestorable = resetContent(db);
       console.log("Контентные таблицы очищены (--reset).");
+
+      /**
+       * Связи, которые seed не вернёт, перечисляются ПОИМЁННО, а не считаются.
+       *
+       * Счётчик сообщил бы о потере, но не дал бы её восстановить. Полная строка (источник, цель,
+       * роль, порядок) — это готовый список для повторного ввода, и ради него блок и существует.
+       */
+      if (unrestorable.length > 0) {
+        console.warn(
+          `\nВНИМАНИЕ: --reset снял ${unrestorable.length} связь(и), которые seed НЕ создаёт заново.\n` +
+            "Seed пишет связи только для статей; перечисленные ниже заведены вручную\n" +
+            "или отдельной задачей и восстанавливаются только тем же способом:",
+        );
+        for (const relation of unrestorable) {
+          console.warn(
+            `  ${relation.source_type}:${relation.source_id} → ` +
+              `${relation.target_type}:${relation.target_id} ` +
+              `(роль ${relation.relation_role}, порядок ${relation.sort_order})`,
+          );
+        }
+        console.warn("");
+      }
     }
 
     const exists = (table, id, column = "id") =>

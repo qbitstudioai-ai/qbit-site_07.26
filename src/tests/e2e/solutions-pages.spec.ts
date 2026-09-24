@@ -610,6 +610,37 @@ test.describe("DEPT-SEO.2B: зоны офиса — crawlable ссылки", () 
     await expect(page.getByRole("link", { name: /^(Предыдущий|Следующий) отдел/ })).toHaveCount(0);
   });
 
+  /**
+   * Перелинковка отдела (SOL-OUT-02): блок обязан ОТСУТСТВОВАТЬ, пока связей нет.
+   *
+   * Утверждённые 11 связей — предмет отдельной задачи SOL-OUT-03, и в базе их сейчас нет ни в одном
+   * окружении. Значит проверяемое состояние здесь ровно одно и оно настоящее: страница без связей
+   * не показывает ни заголовка блока, ни пустой рамки. Заводить связи прямо в e2e нельзя — тест
+   * работает против запущенного сервера с его собственной базой.
+   *
+   * Наполненный блок проверяется там, где данными можно управлять:
+   * `src/tests/unit/app/solution-materials-ssr.test.tsx` (страница целиком, включая `executive` →
+   * `/solutions/management`) и `solutionDocument.test.tsx` (карточки и адреса).
+   */
+  for (const department of departments) {
+    test(`${department.id}: без связей не показывает пустых блоков перелинковки`, async ({
+      request,
+    }) => {
+      const response = await request.get(department.solutionPath);
+      expect(response.status()).toBe(200);
+      const html = await response.text();
+
+      expect(html, "заголовок блока продуктов при отсутствии связей").not.toContain(
+        "Подходящие решения",
+      );
+      expect(html, "заголовок блока кейсов при отсутствии связей").not.toContain(
+        "Пример внедрения",
+      );
+      expect(html).not.toContain("solution-products-heading");
+      expect(html).not.toContain("solution-cases-heading");
+    });
+  }
+
   for (const [label, viewport] of [
     ["desktop", DESKTOP],
     ["mobile", MOBILE],

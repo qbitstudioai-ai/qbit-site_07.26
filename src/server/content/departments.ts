@@ -2,6 +2,10 @@ import { cache } from "react";
 import seedDepartments from "../../../data/departments.json";
 import { departmentSchema, departmentsSchema } from "@/content/schema";
 import type { Department, DepartmentId } from "@/content/types";
+import {
+  listPublishedDepartmentRelatedMaterials,
+  type PublishedDepartmentMaterial,
+} from "../repositories/contentRelations";
 import { getDepartments as readDepartments, listAllDepartments } from "../repositories/departments";
 
 /**
@@ -83,3 +87,24 @@ export function getDepartmentIds(): DepartmentId[] {
 export function getDepartmentById(id: DepartmentId): Department | undefined {
   return getDepartments().find((department) => department.id === id);
 }
+
+/**
+ * Продукты и кейсы, связанные с отделом, — для блоков перелинковки на `/solutions/<slug>`.
+ *
+ * Обёртка над репозиторием ровно в той же роли, в какой `getDepartments()` стоит над
+ * `readDepartments()`: страница обращается к слою контента, а не к таблице.
+ *
+ * Аргумент — `DepartmentId`, то есть стабильный идентификатор (`executive`), а не сегмент адреса
+ * (`management`). Страница уже разобрала адрес в идентификатор, и второго разбора здесь нет.
+ *
+ * Запасного варианта из `data/departments.json` тут НЕТ, и это отличие от текста отдела намеренно.
+ * Тексты обязаны быть на странице всегда — пустой офис хуже демо-контента. Перелинковка же — не
+ * содержание страницы, а навигация по нему: её отсутствие означает «связей не завели», и
+ * придумывать их за владельца сайта нечем. Пустой список — корректное состояние, блок просто не
+ * выводится.
+ *
+ * `cache()` — дедупликация в пределах запроса, как у остальных читателей этого слоя.
+ */
+export const getDepartmentRelatedMaterials = cache(
+  (id: DepartmentId): PublishedDepartmentMaterial[] => listPublishedDepartmentRelatedMaterials(id),
+);

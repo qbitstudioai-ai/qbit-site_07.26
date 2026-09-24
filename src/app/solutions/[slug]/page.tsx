@@ -13,7 +13,7 @@ import {
 } from "@/features/solutions/solutionsSeo";
 import { serializeJsonLd } from "@/lib/jsonLd";
 import { buildOpenGraph, buildTwitter, INDEXABLE_ROBOTS } from "@/lib/seo";
-import { getDepartmentById } from "@/server/content/departments";
+import { getDepartmentById, getDepartmentRelatedMaterials } from "@/server/content/departments";
 
 /**
  * Страница одного отдела.
@@ -92,6 +92,17 @@ export default async function SolutionPage({ params }: SolutionPageProps) {
 
   const copy = getHomepageCopy();
 
+  /**
+   * Перелинковка читается ПО ИДЕНТИФИКАТОРУ отдела, а не по сегменту адреса: у дирекции это
+   * `executive`, тогда как в адресе стоит `management`. Идентификатор уже получен разбором адреса
+   * выше (`findDepartment`), поэтому второго отображения здесь не появляется.
+   *
+   * Разметка JSON-LD блок НЕ упоминает: `solutionStructuredData` описывает сам документ отдела, а
+   * связанные материалы — обычные ссылки внутри страницы. Заявлять их структурированными данными
+   * значило бы сообщить о странице факт, которого на ней нет.
+   */
+  const relatedMaterials = getDepartmentRelatedMaterials(department.id);
+
   return (
     <>
       <script
@@ -105,7 +116,11 @@ export default async function SolutionPage({ params }: SolutionPageProps) {
         phoneAccessibleLabel={copy.headerPhoneAccessibleLabel}
       />
       <main>
-        <SolutionDocument department={department} contactHref={copy.contactHref} />
+        <SolutionDocument
+          department={department}
+          contactHref={copy.contactHref}
+          relatedMaterials={relatedMaterials}
+        />
       </main>
     </>
   );

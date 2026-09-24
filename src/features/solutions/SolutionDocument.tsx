@@ -1,11 +1,79 @@
+import Link from "next/link";
 import { DepartmentCTA } from "@/components/departments/DepartmentCTA";
 import type { Department } from "@/content/types";
+import type { PublishedDepartmentMaterial } from "@/server/repositories/contentRelations";
 import styles from "./SolutionDocument.module.css";
 
 interface SolutionDocumentProps {
   department: Department;
   /** Единый контакт сайта (`contactHref` в data/homepage-copy.json) — тот же, что у CTA в офисе. */
   contactHref: string;
+  /**
+   * Связанные продукты и кейсы (SOL-OUT-02). Необязателен: без связей блоки не выводятся, и
+   * вызывающему коду не нужно передавать пустой массив, чтобы это выразить.
+   */
+  relatedMaterials?: readonly PublishedDepartmentMaterial[];
+}
+
+/**
+ * Подписи блоков перелинковки.
+ *
+ * Кейсы — единственный блок с числом в заголовке: «Пример внедрения» против «Примеры внедрения».
+ * Один реализованный проект нельзя называть множественным числом — это мелкое, но настоящее
+ * преувеличение, а весь блок существует ради доказательства.
+ */
+const PRODUCTS_HEADING = "Подходящие решения";
+
+function casesHeading(count: number): string {
+  return count === 1 ? "Пример внедрения" : "Примеры внедрения";
+}
+
+/**
+ * Один блок перелинковки: заголовок и карточки-ссылки.
+ *
+ * Пустой список не рисует НИЧЕГО — ни заголовка, ни рамки. Проверка стоит здесь, а не у каждого
+ * вызова, чтобы «пустой блок не отображать» нельзя было забыть при добавлении третьего блока.
+ *
+ * Карточка — обычная ссылка с текстом. Тип материала назван словом («Продукт», «Кейс»), а не цветом
+ * или значком: смысл не имеет права держаться на оформлении. Подписи — те же, что в блоке
+ * «Материалы по теме» блога (`MATERIAL_TYPE_LABEL` в `BlogExperience.tsx`), а не сочинённые заново.
+ *
+ * Адрес приходит готовым с сервера (`material.href`) и здесь не собирается: второе место сборки
+ * адресов разошлось бы с первым молча.
+ */
+function MaterialSection({
+  heading,
+  headingId,
+  materials,
+  typeLabel,
+}: {
+  heading: string;
+  headingId: string;
+  materials: readonly PublishedDepartmentMaterial[];
+  typeLabel: string;
+}) {
+  if (materials.length === 0) return null;
+
+  return (
+    <section className={styles.materials} aria-labelledby={headingId}>
+      <h2 className={styles.materialsTitle} id={headingId}>
+        {heading}
+      </h2>
+      <ul className={styles.materialsList}>
+        {materials.map((material) => (
+          <li key={`${material.type}:${material.id}`}>
+            <Link className={styles.materialCard} href={material.href}>
+              <span className={styles.materialType}>{typeLabel}</span>
+              <span className={styles.materialTitle}>{material.title}</span>
+              {material.summary ? (
+                <span className={styles.materialSummary}>{material.summary}</span>
+              ) : null}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 /**
@@ -35,7 +103,14 @@ interface SolutionDocumentProps {
  * (`PainGainPanel.tsx`, `MobilePainGainAccordion.tsx`, `CustomerBenefits.tsx`), а не сочинены
  * заново.
  */
-export function SolutionDocument({ department, contactHref }: SolutionDocumentProps) {
+export function SolutionDocument({
+  department,
+  contactHref,
+  relatedMaterials = [],
+}: SolutionDocumentProps) {
+  const products = relatedMaterials.filter((material) => material.type === "product");
+  const cases = relatedMaterials.filter((material) => material.type === "case");
+
   return (
     <article className={styles.document}>
       <header className={styles.intro}>
@@ -83,6 +158,29 @@ export function SolutionDocument({ department, contactHref }: SolutionDocumentPr
           ))}
         </ul>
       </section>
+
+      {/*
+       * Перелинковка стоит ПОСЛЕ содержания и ДО призыва к действию, и это единственное место, где
+       * она уместна. Выше — документ отвечает на вопрос посетителя; блоки предлагают следующий шаг
+       * тому, кто уже прочитал ответ. Ниже CTA она осталась бы непрочитанной: страница на этом
+       * заканчивается.
+       *
+       * Продукты идут перед кейсами: сначала «чем это закрывается», затем «где это уже сработало».
+       * У трёх отделов кейсов нет вовсе (support, hr, logistics — подтверждённый контентный пробел
+       * SOL-OUT-01), и порядок выбран так, чтобы их страницы не обрывались пустым местом.
+       */}
+      <MaterialSection
+        heading={PRODUCTS_HEADING}
+        headingId="solution-products-heading"
+        materials={products}
+        typeLabel="Продукт"
+      />
+      <MaterialSection
+        heading={casesHeading(cases.length)}
+        headingId="solution-cases-heading"
+        materials={cases}
+        typeLabel="Кейс"
+      />
 
       {/* CTA виден с первого кадра. На главной он появляется последним в каскаде — здесь каскада
           нет вовсе, и появиться позже он не может. Подпись и адрес — существующие. */}

@@ -131,3 +131,157 @@ describe("SolutionDocument", () => {
     }
   });
 });
+
+/**
+ * Блоки перелинковки на странице отдела (SOL-OUT-02).
+ *
+ * Данные здесь ТЕСТОВЫЕ и намеренно не совпадают с утверждёнными 11 связями: механизм обязан
+ * работать сам по себе, без единой production-связи в базе. Сами связи — задача SOL-OUT-03.
+ */
+const SALES = departments.find((department) => department.id === "sales") as Department;
+
+const PRODUCT_MATERIAL = {
+  type: "product",
+  id: "product-03",
+  slug: "leads-to-crm",
+  title: "Единый сбор заявок в CRM",
+  href: "/products/leads-to-crm",
+  summary: "Система собирает обращения из разных каналов и создаёт сделки в CRM.",
+} as const;
+
+const CASE_MATERIAL = {
+  type: "case",
+  id: "case-leads",
+  slug: "sbor-zayavok-v-crm",
+  title: "Сбор заявок из почты и мессенджеров в CRM",
+  href: "/cases/sbor-zayavok-v-crm",
+  summary: null,
+} as const;
+
+describe("SolutionDocument: связанные материалы", () => {
+  it("без связей не показывает ни одной секции перелинковки", () => {
+    render(<SolutionDocument department={SALES} contactHref={CONTACT_HREF} />);
+
+    expect(screen.queryByRole("heading", { name: "Подходящие решения" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Пример(ы)? внедрения/u })).toBeNull();
+    // Ни одной ссылки в разделы продуктов и кейсов — значит и пустой рамки нет.
+    expect(screen.queryByRole("link", { name: /Продукт|Кейс/u })).toBeNull();
+  });
+
+  it("пустой список материалов равнозначен их отсутствию", () => {
+    render(
+      <SolutionDocument department={SALES} contactHref={CONTACT_HREF} relatedMaterials={[]} />,
+    );
+
+    expect(screen.queryByRole("heading", { name: "Подходящие решения" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /Пример(ы)? внедрения/u })).toBeNull();
+  });
+
+  it("только продукты: блок кейсов не появляется", () => {
+    render(
+      <SolutionDocument
+        department={SALES}
+        contactHref={CONTACT_HREF}
+        relatedMaterials={[PRODUCT_MATERIAL]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Подходящие решения" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Пример(ы)? внедрения/u })).toBeNull();
+  });
+
+  it("показывает карточки с названием, описанием и каноническим адресом", () => {
+    render(
+      <SolutionDocument
+        department={SALES}
+        contactHref={CONTACT_HREF}
+        relatedMaterials={[PRODUCT_MATERIAL, CASE_MATERIAL]}
+      />,
+    );
+
+    const productLink = screen.getByRole("link", { name: /Единый сбор заявок в CRM/u });
+    expect(productLink).toHaveAttribute("href", "/products/leads-to-crm");
+    expect(within(productLink).getByText("Продукт")).toBeInTheDocument();
+    expect(within(productLink).getByText(PRODUCT_MATERIAL.summary)).toBeInTheDocument();
+
+    const caseLink = screen.getByRole("link", { name: /Сбор заявок из почты/u });
+    expect(caseLink).toHaveAttribute("href", "/cases/sbor-zayavok-v-crm");
+    expect(within(caseLink).getByText("Кейс")).toBeInTheDocument();
+  });
+
+  it("один кейс называется «Пример внедрения», несколько — «Примеры внедрения»", () => {
+    const { unmount } = render(
+      <SolutionDocument
+        department={SALES}
+        contactHref={CONTACT_HREF}
+        relatedMaterials={[CASE_MATERIAL]}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Пример внедрения" })).toBeInTheDocument();
+    unmount();
+
+    render(
+      <SolutionDocument
+        department={SALES}
+        contactHref={CONTACT_HREF}
+        relatedMaterials={[CASE_MATERIAL, { ...CASE_MATERIAL, id: "case-calls", href: "/cases/x" }]}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Примеры внедрения" })).toBeInTheDocument();
+  });
+
+  it("карточка кейса не несёт ни одной цифры результата", () => {
+    /**
+     * Сторож копирайта. Подпись кейса — только его краткое название; измеренный результат
+     * конкретного внедрения на странице отдела читался бы как обещание того же результата.
+     */
+    const { container } = render(
+      <SolutionDocument
+        department={SALES}
+        contactHref={CONTACT_HREF}
+        relatedMaterials={[CASE_MATERIAL]}
+      />,
+    );
+
+    const block = container.querySelector("section[aria-labelledby='solution-cases-heading']");
+    expect(block).not.toBeNull();
+    expect(block?.textContent ?? "").not.toMatch(/\d/u);
+  });
+
+  it("перелинковка стоит после результатов для бизнеса и до призыва к действию", () => {
+    const { container } = render(
+      <SolutionDocument
+        department={SALES}
+        contactHref={CONTACT_HREF}
+        relatedMaterials={[PRODUCT_MATERIAL, CASE_MATERIAL]}
+      />,
+    );
+
+    const text = container.textContent ?? "";
+    const benefits = text.indexOf("Результат для бизнеса");
+    const products = text.indexOf("Подходящие решения");
+    const cases = text.indexOf("Пример внедрения");
+    const cta = text.indexOf(SALES.ctaLabel);
+
+    expect(benefits).toBeGreaterThanOrEqual(0);
+    expect(benefits).toBeLessThan(products);
+    expect(products).toBeLessThan(cases);
+    expect(cases).toBeLessThan(cta);
+  });
+
+  it("не добавляет второго H1 и держит секции на уровне H2", () => {
+    render(
+      <SolutionDocument
+        department={SALES}
+        contactHref={CONTACT_HREF}
+        relatedMaterials={[PRODUCT_MATERIAL, CASE_MATERIAL]}
+      />,
+    );
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Подходящие решения" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Пример внедрения" })).toBeInTheDocument();
+  });
+});

@@ -1,5 +1,5 @@
 import { SOLUTION_PATH_BY_DEPARTMENT_ID } from "@/content/solutionPaths";
-import { getDatabase, nowIso, transaction } from "../db/client";
+import { getDatabase, nowIso, parseJsonColumn, transaction } from "../db/client";
 
 /**
  * Репозиторий связей между материалами.
@@ -383,6 +383,145 @@ export function listPublishedArticleRelatedMaterials(
   }
 
   return materialsBySource;
+}
+
+/**
+ * Один материал блока перелинковки НА СТРАНИЦЕ ОТДЕЛА (`/solutions/<slug>`, SOL-OUT-02).
+ *
+ * Отдельный тип, а не `PublishedRelatedMaterial`, по двум причинам, и обе содержательные.
+ *
+ * Во-первых, типы целей здесь СУЖЕНЫ до продукта и кейса. Отдел не ссылается ни на статью, ни на
+ * другой отдел: блок отвечает на вопрос «чем это закрывается и где это уже сработало», а не
+ * «что ещё почитать». Сужение выражено типом, а не проверкой в компоненте, — иначе вёрстке
+ * пришлось бы обрабатывать ветки, которых запрос не вернёт.
+ *
+ * Во-вторых, у карточки отдела есть `summary`, которого у карточки статьи нет. Он необязателен
+ * (`string | null`) и у кейса ВСЕГДА `null` — см. `DEPARTMENT_MATERIAL_SELECT` ниже.
+ */
+export interface PublishedDepartmentMaterial {
+  type: "product" | "case";
+  id: string;
+  slug: string;
+  title: string;
+  href: string;
+  /** Существующее краткое описание цели. `null` — описания нет или его нельзя показывать. */
+  summary: string | null;
+}
+
+/**
+ * Материалы, связанные с отделом: продукты и кейсы для блоков «Подходящие решения» и
+ * «Примеры внедрения» на `/solutions/<slug>`.
+ *
+ * Принимает СТАБИЛЬНЫЙ идентификатор отдела, а не сегмент адреса: `executive`, а не `management`.
+ * Разбор сегмента — дело `departmentIdBySolutionSlug()`, и повторять его здесь значило бы завести
+ * второе отображение адресов (ровно то, от чего защищает `@/content/solutionPaths`).
+ *
+ * Условия отбора — те же, что у блока статьи, и по той же причине: показывается только то, чья
+ * публичная страница ответит 200, а не 404.
+ *
+ * - цель-продукт — `is_published = 1`;
+ * - цель-кейс — `status = 'published'`;
+ * - тип цели проверяется В УСЛОВИИ СОЕДИНЕНИЯ, поэтому совпадение идентификаторов у продукта и
+ *   кейса не превращает одно в другое;
+ * - связи на статью и на отдел не отбираются вовсе — у блока отдела таких целей нет;
+ * - название, адрес и описание берутся из АКТУАЛЬНОЙ строки цели по `target_id`: переименование
+ *   продукта или смена его адреса видны сразу, без правки связи.
+ *
+ * Существование самого отдела здесь НЕ требуется — как и в `listRelationsFrom()`. Неизвестный или
+ * снятый с публикации отдел просто не имеет связей, и пустой список — корректный ответ, а не
+ * ошибка: страница такого отдела всё равно отвечает 404 раньше (`findDepartment()`).
+ *
+ * Порядок — ТОТ ЖЕ, что в `listRelationsFrom()`: `sort_order`, затем тип, идентификатор цели и
+ * роль. Полный, а не только по `sort_order`: при равном порядке (а его выставляет человек, и
+ * совпадения обычны) список иначе тасовался бы между запросами, и блок менял бы состав от захода к
+ * заходу. Роль замыкает порядок до однозначного даже для строк, записанных мимо репозитория, —
+ * первичный ключ таблицы роль различает.
+ *
+ * Роль в выдаче НЕ участвует: `primary` и `related` задают порядок через `sort_order`, а не два
+ * разных блока. Делить блок по роли значило бы показать посетителю нашу внутреннюю разметку
+ * важности.
+ */
+const DEPARTMENT_MATERIAL_SELECT = `
+  SELECT relation.target_type AS target_type,
+         relation.target_id AS target_id,
+         COALESCE(product.slug, study.slug) AS target_slug,
+         COALESCE(product.full_title, study.short_title) AS target_title,
+         product.content AS product_content
+    FROM content_relations AS relation
+    LEFT JOIN products AS product
+      ON relation.target_type = 'product'
+     AND product.id = relation.target_id
+     AND product.is_published = 1
+    LEFT JOIN cases AS study
+      ON relation.target_type = 'case'
+     AND study.id = relation.target_id
+     AND study.status = 'published'
+   WHERE relation.source_type = 'department'
+     AND relation.source_id = ?
+     AND relation.target_type IN ('product', 'case')
+     AND COALESCE(product.id, study.id) IS NOT NULL
+   ORDER BY relation.sort_order ASC, relation.target_type ASC,
+            relation.target_id ASC, relation.relation_role ASC`;
+
+export function listPublishedDepartmentRelatedMaterials(
+  departmentId: string,
+): PublishedDepartmentMaterial[] {
+  const rows = getDatabase().prepare(DEPARTMENT_MATERIAL_SELECT).all(departmentId) as {
+    target_type: unknown;
+    target_id: unknown;
+    target_slug: unknown;
+    target_title: unknown;
+    product_content: unknown;
+  }[];
+
+  const materials: PublishedDepartmentMaterial[] = [];
+  const seen = new Set<string>();
+
+  for (const row of rows) {
+    const type = String(row.target_type) as PublishedDepartmentMaterial["type"];
+    const id = String(row.target_id);
+
+    /**
+     * Одна цель показывается один раз, на месте первого вхождения. Первичный ключ таблицы
+     * различает роль, поэтому одна и та же цель может стоять у отдела и `primary`, и `related`:
+     * репозиторий такую пару не запишет, но прямой SQL — запишет.
+     */
+    const key = `${type}:${id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const slug = String(row.target_slug);
+
+    /**
+     * Описание есть ТОЛЬКО у продукта, и это решение содержания, а не оформления.
+     *
+     * У кейса единственные краткие тексты — `summary`, `seo_description` и `og_description`, и во
+     * всех трёх стоит измеренный результат конкретного внедрения («4–5 часов в неделю»,
+     * «10–15 минут в неделю», суммы роста продаж). На странице отдела такая подпись читалась бы
+     * как обещание того же результата любому посетителю — прямой запрет copy-правил проекта
+     * (CLAUDE.md, «Do not make unsupported promises about revenue, savings…»), и именно поэтому
+     * карточка кейса несёт только `short_title`. Оговорки, при которых цифра правдива, живут на
+     * самой странице кейса и в карточку не переносятся.
+     *
+     * `content.summary` продукта — обычное определение продукта одним предложением, без цифр и без
+     * обещаний; оно уже показывается на `/products/<slug>`.
+     */
+    const summary =
+      type === "product"
+        ? (parseJsonColumn<{ summary?: unknown }>(row.product_content, {}).summary ?? null)
+        : null;
+
+    materials.push({
+      type,
+      id,
+      slug,
+      title: String(row.target_title),
+      href: `${PUBLIC_PATH_PREFIX[type]}${slug}`,
+      summary: typeof summary === "string" && summary.length > 0 ? summary : null,
+    });
+  }
+
+  return materials;
 }
 
 /**

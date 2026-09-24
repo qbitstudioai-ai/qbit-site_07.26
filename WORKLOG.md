@@ -1,5 +1,95 @@
 # WORKLOG
 
+## 2026-09-24 — SOL-OUT-02: механизм вывода связанных продуктов и кейсов на странице отдела
+
+Исходный HEAD — `adaee33ce0f316b8196bde12d1b0574a49419485`. **Production deploy НЕ выполнялся.**
+Production-БД не читалась и не изменялась. 11 утверждённых связей НЕ добавлялись — это SOL-OUT-03.
+Миграция `0005` не создавалась: `CHECK` миграции `0004_content_relations` уже допускает
+`source_type='department'` и `target_type IN ('product','case')`.
+
+Untracked-файл `allqbit_geo_fact_verification_2026-07-30.md` не затронут — остался untracked.
+
+Изменённые файлы (11):
+
+- `src/server/repositories/contentRelations.ts` — reader `listPublishedDepartmentRelatedMaterials()`
+  и тип `PublishedDepartmentMaterial`;
+- `src/server/content/departments.ts` — `getDepartmentRelatedMaterials()` под `cache()`;
+- `src/app/solutions/[slug]/page.tsx` — чтение по `department.id` и передача в документ;
+- `src/features/solutions/SolutionDocument.tsx` — две секции между результатами и CTA;
+- `src/features/solutions/SolutionDocument.module.css` — карточки на существующих токенах;
+- `scripts/db-seed.mjs` — `listUnrestorableRelations()` и отчёт `--reset`;
+- `src/tests/unit/server/departmentRelatedMaterials.test.ts` (новый, 12 тестов);
+- `src/tests/unit/app/solution-materials-ssr.test.tsx` (новый, 3 теста);
+- `src/tests/unit/features/solutions/solutionDocument.test.tsx` (+8 тестов);
+- `src/tests/unit/server/dbSeedRelations.test.ts` (+2 теста);
+- `src/tests/e2e/solutions-pages.spec.ts` (+5 тестов, по одному на отдел).
+
+**Устройство reader.** Один SQL-запрос: `content_relations` с `LEFT JOIN products` и
+`LEFT JOIN cases`, условие `source_type = 'department' AND source_id = ?`. Тип цели проверяется в
+условии соединения, поэтому совпадение идентификаторов у продукта и кейса не превращает одно в
+другое. Публикация отбирается тем же условием, при котором страница цели отвечает 200
+(`products.is_published = 1`, `cases.status = 'published'`). Название, адрес и описание берутся из
+актуальной строки цели по `target_id` — переименование и смена адреса видны без правки связи.
+Порядок полный: `sort_order`, затем `target_type`, `target_id`, `relation_role`. Существование
+отдела не требуется — неизвестный id даёт пустой список, а не ошибку.
+
+**Решение по подписям.** Продукт — `full_title` + `content.summary`. Кейс — только `short_title`,
+описания нет вовсе: `summary`, `seo_description` и `og_description` кейсов содержат измеренный
+результат конкретного внедрения, и на странице отдела это читалось бы как обещание. Два теста
+проверяют отсутствие цифр в карточке кейса и в разметке блока.
+
+**Решение по `db:seed --reset`.** Изучен полный цикл: `--reset` очищает `departments` и `products`,
+поэтому обязан снимать связи этих типов — оставленная строка стала бы ссылкой в никуда. Сохранить
+их нельзя, не меняя смысл сброса. Выбрано минимальное безопасное исправление: сброс перестал быть
+ТИХИМ. `resetContent()` теперь возвращает перечень снятых связей, которые seed не создаст заново
+(правило проверяемое: seed пишет только `source_type='article'`), а `runSeed()` печатает
+предупреждение с полной строкой каждой — источник, цель, роль, порядок, то есть готовый список для
+повторного ввода. Семантика сброса и код возврата НЕ изменились, поэтому существующий approved-тест
+`--reset` остался зелёным без правок. Ограничение зафиксировано честно: это предупреждение, а не
+запрет; жёсткий отказ с флагом `--force` — отдельное решение для SOL-OUT-03, если руководитель
+сочтёт предупреждение недостаточным.
+
+Результаты проверок:
+
+- `npm run format:check` — **FAIL, предсуществующий**: `src/tests/e2e/task-section.spec.ts`. Файл в
+  этом шаге не изменялся (`git status` по нему пуст), дефект воспроизводится на исходном
+  `adaee33`. Не исправлялся: вне scope шага;
+- `npm run lint` — **0 errors, 0 warnings**;
+- `npm run typecheck` — **exit 0**;
+- `npm run test` — **92 файла, 1272 теста, все зелёные**;
+- `npm run build` — **exit 0**, `/solutions/[slug]` остался `ƒ (Dynamic)`;
+- `npx playwright test solutions-pages.spec.ts` — **НЕ ВЫПОЛНЕН, дефект окружения**: процесс
+  `config.webServer` (`npm run build && npm run start:e2e`) падает на Windows с
+  `3221226505` (`0xC0000409`) ещё на этапе сборки, до первого теста. Причастность шага исключена
+  прямой проверкой: изменения убраны в stash, прогон повторён на чистом `adaee33` — тот же код
+  выхода. Дефект предсуществующий и к SOL-OUT-02 отношения не имеет.
+
+**Ручная проверка на настоящем standalone-сервере — выполнена взамен e2e и пройдена.** Сервер
+`node .next/standalone/server.js` поднимался дважды: против `var/content.db` (department-связей нет)
+и против ВРЕМЕННОЙ базы в scratchpad, засеянной `db:seed` и тремя тестовыми связями
+`executive → product-05 | product-07 | case`. Production-БД в обоих случаях не участвовала.
+
+Против базы без связей:
+
+- `/solutions/management`, `/solutions/sales`, `/solutions/hr` → 200;
+- ни `solution-products-heading`, ни `solution-cases-heading` в HTML нет — пустые блоки не рисуются.
+
+Против базы со связями (первый серверный HTML, `<script>` удалены перед поиском):
+
+- блок продуктов и блок кейсов присутствуют, продукты стоят ПЕРЕД кейсами;
+- адреса `/products/call-analysis`, `/products/sales-analytics`, `/cases/analiz-zvonkov-otdela-prodazh`;
+- заголовок кейсов — «Пример внедрения» (единственное число при одном кейсе);
+- `/solutions/executive` в разметке не встречается: адрес собран из `SOLUTION_PATH_BY_DEPARTMENT_ID`;
+- строки `10–15 минут`, `4–5 часов`, `500 000`, `700 000` в HTML отсутствуют;
+- порядок карточек совпал в трёх подряд запросах — сортировка детерминирована;
+- `/solutions/sales` (связей нет) блоков не показал;
+- `/blog/kak-avtomatizirovat-obrabotku-zayavok` сохранил блок «Материалы по теме» — вывод связей
+  статей не затронут.
+
+Контентный пробел (перенесён из SOL-OUT-01 и остаётся открытым): у `support`, `hr` и `logistics`
+реальных внедрённых кейсов нет. Их страницы блока «Пример внедрения» не получат и после SOL-OUT-03.
+
+
 ## 2026-09-24 — SOLREL-03: ручное наполнение связей `article → department` (Amendment 64)
 
 Production code HEAD — `980e44b98cc1b70740cd045727f14a39533cd015`, он же `origin/master`. Деплой в

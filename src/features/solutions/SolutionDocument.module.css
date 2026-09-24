@@ -158,3 +158,88 @@
   display: flex;
   margin-top: clamp(var(--space-8), 6vw, var(--space-12));
 }
+
+/* ── Перелинковка: подходящие решения и примеры внедрения ──────────────────────────────────── */
+
+/*
+ * Второго визуального стандарта здесь нет: рамка, радиус, кремовая поверхность и тень — те же
+ * значения, что у блока «Результат для бизнеса» выше, из тех же токенов. Карточка отличается от
+ * него только тем, что она ссылка, и это отличие выражено состояниями hover/focus, а не новым
+ * оформлением.
+ */
+
+.materials {
+  margin-top: clamp(var(--space-8), 6vw, var(--space-12));
+}
+
+.materialsTitle {
+  margin: 0 0 var(--space-4);
+  font-size: var(--font-size-xl);
+  line-height: 1.25;
+}
+
+.materialsList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.materialCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: clamp(var(--space-4), 3vw, var(--space-6));
+  border: 1px solid var(--color-graphite-100);
+  border-radius: 12px;
+  background: var(--color-surface-cream);
+  box-shadow: var(--elevation-1);
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Тип материала назван словом, а не цветом: смысл не держится на оформлении. */
+.materialType {
+  font-size: var(--font-size-sm);
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-graphite-700);
+}
+
+.materialTitle {
+  font-size: var(--font-size-lg);
+  line-height: 1.3;
+  color: var(--color-graphite-900);
+}
+
+.materialSummary {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-graphite-700);
+}
+
+.materialCard:hover {
+  border-color: var(--color-accent-warm);
+}
+
+/* Фокус виден всегда и не зависит от наведения: блок обязан проходиться с клавиатуры. */
+.materialCard:focus-visible {
+  outline: 2px solid var(--color-accent-warm);
+  outline-offset: 2px;
+}
+
+/* Наведение — единственная анимация блока, и она подчиняется общему правилу проекта. */
+@media (prefers-reduced-motion: no-preference) {
+  .materialCard {
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+
+  .materialCard:hover {
+    box-shadow: var(--elevation-2);
+  }
+}
